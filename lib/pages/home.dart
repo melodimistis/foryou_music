@@ -21,8 +21,10 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadLocalData() async {
     await Future.delayed(const Duration(seconds: 3));
 
+    if (!mounted) return;
+
     setState(() {
-      mostPlayedSongs = ["The Lazy Song"];
+      mostPlayedSongs = [""];
       isLoading = false;
     });
   }
