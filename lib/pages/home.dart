@@ -20,7 +20,6 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadLocalData() async {
     await Future.delayed(const Duration(seconds: 3));
-
     if (!mounted) return;
 
     setState(() {
@@ -67,7 +66,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 32),
         ],
         const Text(
-          "Your PLaylists",
+          "Your Playlists",
           style: TextStyle(
             color: Colors.white,
             fontFamily: 'Inter',

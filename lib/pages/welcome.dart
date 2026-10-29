@@ -12,28 +12,32 @@ class WelcomePage extends StatefulWidget {
 }
 
 class _WelcomePageState extends State<WelcomePage> {
+  late final String _greeting;
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 5), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainWrapper()),
-      );
-    });
+    _greeting = Greetings.getRandomGreeting();
+    _timer = Timer(const Duration(seconds: 5), _goToMain);
+  }
+
+  void _goToMain() {
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const MainWrapper()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final String dynamicGreeting = Greetings.getRandomGreeting();
-    Future.delayed(const Duration(seconds: 5), () {
-      if (context.mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainWrapper()),
-        );
-      }
-    });
     return Scaffold(
       backgroundColor: const Color(0xFF141414),
       body: SafeArea(
@@ -43,33 +47,26 @@ class _WelcomePageState extends State<WelcomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(),
-
-              // 1. Teks Sapaan di dalam Center
               Center(
                 child: Text(
+                  _greeting,
                   textAlign: TextAlign.center,
-                  dynamicGreeting,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontFamily: 'Inter',
                     fontSize: 24,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ), // <-- Kurung penutup Center yang benar ada di sini
-
-              const SizedBox(
-                height: 20,
-              ), // Memberi sedikit jarak antara teks dan animasi loading
+              ),
+              const SizedBox(height: 20),
               LoadingAnimationWidget.staggeredDotsWave(
                 color: Colors.white,
                 size: 40,
               ),
-
               const Spacer(),
-
               const Text(
-                'foryou Music',
+                'ForYou Music',
                 style: TextStyle(
                   color: Colors.white,
                   fontFamily: 'Inter',
@@ -77,7 +74,7 @@ class _WelcomePageState extends State<WelcomePage> {
                   fontWeight: FontWeight.w400,
                 ),
               ),
-            ], // Penutup children Column
+            ],
           ),
         ),
       ),

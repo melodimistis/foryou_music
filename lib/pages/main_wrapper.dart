@@ -5,7 +5,7 @@ import 'package:foryou_music/pages/libraries.dart';
 import 'package:foryou_music/widgets/top_navbar.dart';
 import 'package:foryou_music/widgets/bottom_navbar.dart';
 import 'package:foryou_music/pages/aboutus.dart';
-import 'package:foryou_music/pages/legal_information.dart';
+import 'package:foryou_music/pages/settings/legal_information.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -27,12 +27,17 @@ class _MainWrapperState extends State<MainWrapper> {
     "Legal",
   ];
 
-  Widget _getCurrentPage() {
-    if (_currentIndex == 0) return const HomePage();
-    if (_currentIndex == 2) return const LibrariesPage();
-    if (_currentIndex == 3) return const AboutUsPage();
-    if (_currentIndex == 4) return const LegalPage();
-    return const HomePage();
+  Widget _buildPages() {
+    return IndexedStack(
+      index: _currentIndex,
+      children: const [
+        HomePage(),
+        SizedBox.shrink(),
+        LibrariesPage(),
+        AboutUsPage(),
+        LegalPage(),
+      ],
+    );
   }
 
   @override
@@ -46,7 +51,7 @@ class _MainWrapperState extends State<MainWrapper> {
           Column(
             children: [
               const SizedBox(height: 100),
-              Expanded(child: _getCurrentPage()),
+              Expanded(child: _buildPages()),
             ],
           ),
           if (isMenuOpen || isSearchOpen)
@@ -188,7 +193,7 @@ class _MainWrapperState extends State<MainWrapper> {
               ],
             ),
           ),
-          BottomNavBar(
+          BottomNavbar(
             currentIndex: isSearchOpen ? 1 : _currentIndex,
             onTap: (index) {
               setState(() {

@@ -1,4 +1,4 @@
-package com.example.foryou_music
+package com.melodimistis.foryou
 
 import io.flutter.embedding.android.FlutterActivity
 
