@@ -43,7 +43,7 @@ class _HomePageState extends State<HomePage> {
       children: [
         if (mostPlayedSongs.isNotEmpty) ...[
           const Text(
-            "As always, mate>",
+            "As always, mate",
             style: TextStyle(
               color: Colors.white,
               fontFamily: 'Inter',
