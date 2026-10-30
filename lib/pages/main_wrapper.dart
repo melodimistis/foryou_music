@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:foryou_music/pages/home.dart';
 import 'package:foryou_music/pages/libraries.dart';
@@ -6,6 +7,8 @@ import 'package:foryou_music/widgets/top_navbar.dart';
 import 'package:foryou_music/widgets/bottom_navbar.dart';
 import 'package:foryou_music/pages/aboutus.dart';
 import 'package:foryou_music/pages/settings/legal_information.dart';
+import 'package:foryou_music/pages/yoru.dart';
+import 'package:foryou_music/providers/yoru_controller.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -38,6 +41,20 @@ class _MainWrapperState extends State<MainWrapper> {
         LegalPage(),
       ],
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!context.read<YoruController>().introSeen) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const YoruPage()),
+        );
+      }
+    });
   }
 
   @override
@@ -188,7 +205,10 @@ class _MainWrapperState extends State<MainWrapper> {
                       isSearchOpen = false;
                     });
                   },
-                  onYoruTap: () {},
+                  onYoruTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const YoruPage()),
+                  ),
                 ),
               ],
             ),

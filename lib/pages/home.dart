@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:foryou_music/providers/yoru_controller.dart';
+import 'package:foryou_music/widgets/yoru_avatar.dart';
+import 'package:foryou_music/services/greetings.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class HomePage extends StatefulWidget {
@@ -10,6 +14,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<String> mostPlayedSongs = [];
+  final String _greeting = Greetings.getRandomGreeting();
   bool isLoading = true;
 
   @override
@@ -41,6 +46,15 @@ class _HomePageState extends State<HomePage> {
     return ListView(
       padding: const EdgeInsets.only(left: 24, right: 24, bottom: 120),
       children: [
+        if (context.watch<YoruController>().enabled) ...[
+          Row(
+            children: [
+              const YoruAvatar(size: 56),
+              const SizedBox(width: 12),
+              Expanded(child: Text(_greeting)),
+            ],
+          ),
+        ],
         if (mostPlayedSongs.isNotEmpty) ...[
           const Text(
             "As always, mate",
