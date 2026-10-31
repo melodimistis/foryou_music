@@ -1,14 +1,19 @@
 import 'dart:ui';
+import 'package:foryou_music/pages/search.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
+import 'package:foryou_music/app/theme.dart';
+import 'package:foryou_music/widgets/side_navbar.dart';
 import 'package:foryou_music/pages/home.dart';
 import 'package:foryou_music/pages/libraries.dart';
 import 'package:foryou_music/widgets/top_navbar.dart';
 import 'package:foryou_music/widgets/bottom_navbar.dart';
 import 'package:foryou_music/pages/aboutus.dart';
-import 'package:foryou_music/pages/settings/legal_information.dart';
+import 'package:foryou_music/pages/legal_information.dart';
 import 'package:foryou_music/pages/yoru.dart';
 import 'package:foryou_music/providers/yoru_controller.dart';
+import 'package:foryou_music/pages/settings/settings.dart';
+import 'package:foryou_music/widgets/mini_player.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -30,12 +35,36 @@ class _MainWrapperState extends State<MainWrapper> {
     "Legal",
   ];
 
-  Widget _buildPages() {
+  bool _playing = false;
+
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SettingsPage()),
+    );
+  }
+
+  void _openYoru() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const YoruPage()),
+    );
+  }
+
+  Widget _miniPlayer() => MiniPlayer(
+    title: 'Lagu contoh',
+    artist: 'Artist contoh',
+    isPlaying: _playing,
+    onPlayPause: () => setState(() => _playing = !_playing),
+  );
+
+  Widget _buildPages({bool wide = false}) {
+    final index = (!wide && _currentIndex == 1) ? 0 : _currentIndex;
     return IndexedStack(
-      index: _currentIndex,
+      index: index,
       children: const [
         HomePage(),
-        SizedBox.shrink(),
+        SearchPage(),
         LibrariesPage(),
         AboutUsPage(),
         LegalPage(),
@@ -49,20 +78,55 @@ class _MainWrapperState extends State<MainWrapper> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (!context.read<YoruController>().introSeen) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const YoruPage()),
-        );
+        _openYoru();
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return constraints.maxWidth >= 840
+            ? _buildWide(context)
+            : _buildCompact(context);
+      },
+    );
+  }
+
+  Widget _buildWide(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Row(
+        children: [
+          SideNavbar(
+            currentIndex: _currentIndex,
+            onSelect: (i) => setState(() => _currentIndex = i),
+            onYoruTap: _openYoru,
+            onSettingsTap: _openSettings,
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(32, 32, 32, 16),
+                  child: _miniPlayer(),
+                ),
+                Expanded(child: _buildPages(wide: true)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompact(BuildContext context) {
     double screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF141414),
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
           Column(
@@ -71,6 +135,7 @@ class _MainWrapperState extends State<MainWrapper> {
               Expanded(child: _buildPages()),
             ],
           ),
+          Positioned(bottom: 125, left: 30, right: 30, child: _miniPlayer()),
           if (isMenuOpen || isSearchOpen)
             Positioned.fill(
               child: GestureDetector(
@@ -126,9 +191,10 @@ class _MainWrapperState extends State<MainWrapper> {
                   ),
                   _buildMenuTile(
                     Icons.settings_outlined,
-                    "General",
+                    "Settings",
                     onTap: () {
                       setState(() => isMenuOpen = false);
+                      _openSettings();
                     },
                   ),
                 ],
@@ -205,16 +271,15 @@ class _MainWrapperState extends State<MainWrapper> {
                       isSearchOpen = false;
                     });
                   },
-                  onYoruTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const YoruPage()),
-                  ),
+                  onYoruTap: _openYoru,
                 ),
               ],
             ),
           ),
           BottomNavbar(
-            currentIndex: isSearchOpen ? 1 : _currentIndex,
+            currentIndex: isSearchOpen
+                ? 1
+                : (_currentIndex == 1 ? 0 : _currentIndex),
             onTap: (index) {
               setState(() {
                 _currentIndex = index;

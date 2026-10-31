@@ -134,7 +134,7 @@ class _YoruPageState extends State<YoruPage> {
           const SizedBox(height: 32),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Selesai'),
+            child: const Text('Yuhu!'),
           ),
         ],
       ),

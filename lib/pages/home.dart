@@ -44,7 +44,7 @@ class _HomePageState extends State<HomePage> {
       );
     }
     return ListView(
-      padding: const EdgeInsets.only(left: 24, right: 24, bottom: 120),
+      padding: const EdgeInsets.only(left: 24, right: 24, bottom: 220),
       children: [
         if (context.watch<YoruController>().enabled) ...[
           Row(
