@@ -1,5 +1,6 @@
 import 'package:hive_ce/hive.dart';
 import '../models/music_source.dart';
+import 'source_scanner/source_scanner.dart';
 import '../models/song.dart';
 
 class LibraryRepository {
@@ -56,5 +57,14 @@ class LibraryRepository {
         .map((s) => s.copyWith(available: available))
         .toList();
     return putSongs(changed);
+  }
+
+  Future<void> applyScan(String sourceId, ScanResult result) async {
+    if (!result.reachable) {
+      await setSourceAvailable(sourceId, false);
+      return;
+    }
+    await putSongs(result.upserts);
+    await deleteSongs(result.removedIds);
   }
 }

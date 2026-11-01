@@ -6,7 +6,7 @@ class Greetings {
     final random = Random();
 
     final List<String> morningGreetings = [
-      "hello, good morning!",
+      "good morningg!",
       "did you sleep well?",
       "lets start the day with some music :)",
       "dont forget your coffee, mate",
