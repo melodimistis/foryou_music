@@ -21,22 +21,22 @@ void main() {
     expect(back.available, isTrue);
   });
 
-  test('Song.fromMap tahan terhadap key yang belum ada', () {
+  test('Song.fromMap resilient to keys that do not yet exist', () {
     final s = Song.fromMap({'id': 'x', 'uri': 'file:///x', 'sourceId': 's'});
     expect(s.title, '');
     expect(s.playCount, 0);
   });
 
-  test('MusicSource round-trip dan tipe tak dikenal jatuh ke local', () {
+  test('MusicSource round-trip and an unknown type falls into local', () {
     const src = MusicSource(
       id: 'id',
       type: MusicSourceType.saf,
-      label: 'Kartu SD',
+      label: 'SD Card',
       rootUri: 'content://tree/x',
     );
     expect(MusicSource.fromMap(src.toMap()).type, MusicSourceType.saf);
     expect(
-      MusicSource.fromMap({'id': 's2', 'type': 'aneh'}).type,
+      MusicSource.fromMap({'id': 's2', 'type': 'strange'}).type,
       MusicSourceType.local,
     );
   });
