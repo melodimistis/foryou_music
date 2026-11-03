@@ -18,7 +18,10 @@ class TopNavBar extends StatelessWidget {
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(color: const Color(0xFF262626)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF262626),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
