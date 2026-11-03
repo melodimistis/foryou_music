@@ -4,6 +4,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:foryou_music/models/music_source.dart';
 import 'package:foryou_music/models/song.dart';
 import 'package:foryou_music/services/library_repository.dart';
+import 'package:foryou_music/services/source_scanner/source_scanner.dart';
 
 Song _song(String id, String sourceId, {int playCount = 0}) => Song(
   id: id,
@@ -83,5 +84,16 @@ void main() {
     repo = await LibraryRepository.open();
     expect(repo.sources().single.id, 'a');
     expect(repo.songById('1')!.playCount, 2);
+  });
+
+  test('applyScan: upsert, delete, then mark as unavailable', () async {
+    await repo.putSongs([_song('1', 'a'), _song('2', 'a')]);
+    await repo.applyScan(
+      'a',
+      ScanResult(upserts: [_song('3', 'a')], removedIds: const ['1']),
+    );
+    expect(repo.songsBySource('a').map((s) => s.id).toSet(), {'2', '3'});
+    await repo.applyScan('a', const ScanResult(reachable: false));
+    expect(repo.songsBySource('a').every((s) => !s.available), isTrue);
   });
 }

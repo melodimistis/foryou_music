@@ -106,15 +106,18 @@ class _MainWrapperState extends State<MainWrapper> {
             onSettingsTap: _openSettings,
           ),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(32, 32, 32, 16),
-                  child: _miniPlayer(),
-                ),
-                Expanded(child: _buildPages(wide: true)),
-              ],
+            child: SafeArea(
+              left: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(32, 32, 32, 16),
+                    child: _miniPlayer(),
+                  ),
+                  Expanded(child: _buildPages(wide: true)),
+                ],
+              ),
             ),
           ),
         ],
@@ -123,17 +126,22 @@ class _MainWrapperState extends State<MainWrapper> {
   }
 
   Widget _buildCompact(BuildContext context) {
-    double screenHeight = MediaQuery.of(context).size.height;
+    final mq = MediaQuery.of(context);
+    final screenHeight = mq.size.height;
+    final topInset = mq.padding.top;
+    final headerBottom = topInset + TopNavBar.height;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          Column(
-            children: [
-              const SizedBox(height: 100),
-              Expanded(child: _buildPages()),
-            ],
+          Positioned.fill(
+            child: MediaQuery(
+              data: mq.copyWith(
+                padding: mq.padding.copyWith(top: headerBottom),
+              ),
+              child: _buildPages(),
+            ),
           ),
           Positioned(bottom: 125, left: 30, right: 30, child: _miniPlayer()),
           if (isMenuOpen || isSearchOpen)
@@ -159,7 +167,11 @@ class _MainWrapperState extends State<MainWrapper> {
             right: 0,
             child: Container(
               height: screenHeight * 0.45,
-              padding: const EdgeInsets.only(top: 110, left: 24, right: 24),
+              padding: EdgeInsets.only(
+                top: headerBottom + 30,
+                left: 24,
+                right: 24,
+              ),
               decoration: const BoxDecoration(
                 color: Color(0xFF1C1C1E),
                 borderRadius: BorderRadius.vertical(
@@ -209,7 +221,11 @@ class _MainWrapperState extends State<MainWrapper> {
             right: 0,
             child: Container(
               height: screenHeight * 0.6,
-              padding: const EdgeInsets.only(top: 110, left: 24, right: 24),
+              padding: EdgeInsets.only(
+                top: headerBottom + 30,
+                left: 24,
+                right: 24,
+              ),
               decoration: const BoxDecoration(
                 color: Color(0xFF1C1C1E),
                 borderRadius: BorderRadius.vertical(
@@ -258,7 +274,7 @@ class _MainWrapperState extends State<MainWrapper> {
             right: 0,
             child: Column(
               children: [
-                const SizedBox(height: 20),
+                Container(height: topInset, color: AppColors.background),
                 TopNavBar(
                   title: isSearchOpen
                       ? "Search"

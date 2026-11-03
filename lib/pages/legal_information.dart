@@ -6,7 +6,12 @@ class LegalPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 220),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        MediaQuery.paddingOf(context).top + 28,
+        24,
+        220,
+      ),
       children: [
         _Section(
           'Your data still into you',

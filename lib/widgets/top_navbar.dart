@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 class TopNavBar extends StatelessWidget {
+  static const double height = 60;
   final String title;
   final VoidCallback onMenuTap;
   final VoidCallback onYoruTap;
@@ -17,9 +18,7 @@ class TopNavBar extends StatelessWidget {
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF262626).withValues(alpha: 0.8),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFF262626)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
