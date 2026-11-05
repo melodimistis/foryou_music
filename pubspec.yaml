@@ -45,6 +45,7 @@ dependencies:
   hive_ce_flutter: ^2.5.0
   uuid: ^4.6.0
   path: ^1.9.1
+  audio_metadata_reader: ^1.8.1
 
 dev_dependencies:
   flutter_test:

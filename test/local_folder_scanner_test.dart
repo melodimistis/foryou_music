@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foryou_music/models/music_source.dart';
 import 'package:foryou_music/services/source_scanner/local_folder_scanner.dart';
+import 'package:foryou_music/services/metadata/metadata_reader.dart';
 
 void main() {
   late Directory dir;
@@ -21,7 +22,10 @@ void main() {
       label: 'Test',
       rootUri: Uri.directory(dir.path).toString(),
     );
-    scanner = LocalFolderScanner(newId: () => 'id${n++}');
+    scanner = LocalFolderScanner(
+      newId: () => 'id${n++}',
+      readTags: (_) async => {},
+    );
   });
 
   tearDown(() {
@@ -101,4 +105,55 @@ void main() {
     );
     expect(() => scanner.scan(saf, const []), throwsArgumentError);
   });
+
+  test(
+    'The tag is used if available; the filename serves as a fallback.',
+    () async {
+      touch('a.mp3');
+      touch('b.flac');
+      final s = LocalFolderScanner(
+        newId: () => 'id${n++}',
+        readTags: (paths) async => {
+          for (final path in paths)
+            path: path.endsWith('a.mp3')
+                ? const TrackTags(
+                    title: 'Real Title',
+                    artist: 'Artist',
+                    album: 'Album',
+                    genre: 'Pop',
+                    durationMs: 180000,
+                  )
+                : null,
+        },
+      );
+
+      final r = await s.scan(source, const []);
+      final a = r.upserts.firstWhere((x) => x.uri.endsWith('a.mp3'));
+      expect(a.title, 'Real Title');
+      expect(a.artist, 'Artist');
+      expect(a.durationMs, 180000);
+
+      final b = r.upserts.firstWhere((x) => x.uri.endsWith('b.flac'));
+      expect(b.title, 'b');
+      expect(b.artist, '');
+    },
+  );
+
+  test(
+    'For files that have not changed, their tags are not re-read.',
+    () async {
+      touch('a.mp3');
+      var calls = 0;
+      final s = LocalFolderScanner(
+        newId: () => 'id${n++}',
+        readTags: (paths) async {
+          calls += paths.length;
+          return {};
+        },
+      );
+      final first = await s.scan(source, const []);
+      await s.scan(source, first.upserts);
+      expect(calls, 1);
+    },
+  );
 }
