@@ -52,8 +52,8 @@ class _MainWrapperState extends State<MainWrapper> {
   }
 
   Widget _miniPlayer() => MiniPlayer(
-    title: 'Lagu contoh',
-    artist: 'Artist contoh',
+    title: 'Songs example',
+    artist: 'Artist example',
     isPlaying: _playing,
     onPlayPause: () => setState(() => _playing = !_playing),
   );

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:foryou_music/app/theme.dart';
 import 'package:foryou_music/widgets/yoru_avatar.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:foryou_music/providers/library_controller.dart';
+import 'package:foryou_music/services/storage_permission.dart';
 
 class LibrariesPage extends StatefulWidget {
   const LibrariesPage({super.key});
@@ -14,6 +18,46 @@ class _LibrariesPageState extends State<LibrariesPage>
   late final TabController _tab = TabController(length: 4, vsync: this);
   final _nestedKey = GlobalKey<NestedScrollViewState>();
   int _lastIndex = 0;
+
+  Future<void> _addFolder(BuildContext context) async {
+    final lib = context.read<LibraryController>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (!await ensureAudioPermission()) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Audio permission is needed to read your music'),
+        ),
+      );
+      return;
+    }
+
+    final path = await FilePicker.getDirectoryPath(
+      dialogTitle: 'Choose your music folder',
+    );
+    if (path == null) return;
+    if (path == '/') {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('That folder is protected. Try another one.'),
+        ),
+      );
+      return;
+    }
+
+    await lib.addLocalFolder(path);
+    final error = lib.lastError;
+    if (error != null) {
+      messenger.showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  String _fmt(int ms) {
+    if (ms <= 0) return '';
+    final d = Duration(milliseconds: ms);
+    final s = (d.inSeconds % 60).toString().padLeft(2, '0');
+    return '${d.inMinutes}:$s';
+  }
 
   @override
   void initState() {
@@ -85,7 +129,7 @@ class _LibrariesPageState extends State<LibrariesPage>
           body: TabBarView(
             controller: _tab,
             children: [
-              _songs(),
+              _songs(context),
               const _EmptyState('No album yet'),
               const _EmptyState('No artist yet'),
               const _EmptyState('Your playlist will appear here'),
@@ -96,32 +140,75 @@ class _LibrariesPageState extends State<LibrariesPage>
     );
   }
 
-  Widget _songs() {
+  Widget _songs(BuildContext context) {
+    final lib = context.watch<LibraryController>();
+
+    if (lib.isEmpty) {
+      return _EmptyState(
+        lib.isScanning ? 'Scanning your music...' : 'No songs yet',
+        action: lib.isScanning
+            ? null
+            : FilledButton.icon(
+                onPressed: () => _addFolder(context),
+                icon: const Icon(Icons.folder_open_rounded),
+                label: const Text('Add music folder'),
+              ),
+      );
+    }
+
+    final songs = lib.songs;
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 220),
-      itemCount: 12,
+      itemCount: songs.length + 1,
       itemBuilder: (context, i) {
-        return ListTile(
-          leading: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(12),
+        if (i == 0) {
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: lib.isScanning ? null : () => _addFolder(context),
+              icon: const Icon(Icons.add_rounded),
+              label: Text(lib.isScanning ? 'Scanning...' : 'Add folder'),
             ),
-            child: const Icon(Icons.music_note_rounded, color: Colors.white54),
-          ),
-          title: Text(
-            'Example song ${i + 1}',
-            style: const TextStyle(color: Colors.white, fontFamily: 'Inter'),
-          ),
-          subtitle: const Text(
-            'Example artist',
-            style: TextStyle(color: Colors.white54, fontFamily: 'Inter'),
-          ),
-          trailing: const Text(
-            '3:24',
-            style: TextStyle(color: Colors.white38, fontFamily: 'Inter'),
+          );
+        }
+        final s = songs[i - 1];
+        return Opacity(
+          opacity: s.available ? 1.0 : 0.4,
+          child: ListTile(
+            leading: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.music_note_rounded,
+                color: Colors.white54,
+              ),
+            ),
+            title: Text(
+              s.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontFamily: 'Inter'),
+            ),
+            subtitle: Text(
+              s.artist.isEmpty ? 'Unknown artist' : s.artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontFamily: 'Inter',
+              ),
+            ),
+            trailing: Text(
+              _fmt(s.durationMs),
+              style: const TextStyle(
+                color: Colors.white38,
+                fontFamily: 'Inter',
+              ),
+            ),
           ),
         );
       },
@@ -131,7 +218,8 @@ class _LibrariesPageState extends State<LibrariesPage>
 
 class _EmptyState extends StatelessWidget {
   final String message;
-  const _EmptyState(this.message);
+  final Widget? action;
+  const _EmptyState(this.message, {this.action});
 
   @override
   Widget build(BuildContext context) {
@@ -145,6 +233,7 @@ class _EmptyState extends StatelessWidget {
             message,
             style: const TextStyle(color: Colors.white38, fontFamily: 'Inter'),
           ),
+          if (action != null) ...[const SizedBox(height: 16), action!],
         ],
       ),
     );
