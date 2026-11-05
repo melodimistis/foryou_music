@@ -6,7 +6,12 @@ class SearchPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.fromLTRB(
+        32,
+        MediaQuery.paddingOf(context).top,
+        32,
+        0,
+      ),
       child: Column(
         children: [
           TextField(
@@ -14,7 +19,7 @@ class SearchPage extends StatelessWidget {
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.05),
-              hintText: 'Search loacl tracks, playlist, artists...',
+              hintText: 'Search local tracks, playlist, artists...',
               hintStyle: const TextStyle(color: Colors.white38),
               prefixIcon: const Icon(
                 Icons.search_rounded,

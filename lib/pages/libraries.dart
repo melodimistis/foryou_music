@@ -88,6 +88,7 @@ class _LibrariesPageState extends State<LibrariesPage>
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
+    final wide = MediaQuery.sizeOf(context).width >= 840;
 
     return Padding(
       padding: EdgeInsets.only(top: topInset),
@@ -100,9 +101,9 @@ class _LibrariesPageState extends State<LibrariesPage>
           headerSliverBuilder: (context, innerBoxIsScrolled) => [
             SliverAppBar(
               primary: false,
-              floating: true,
-              snap: true,
-              pinned: false,
+              floating: !wide,
+              snap: !wide,
+              pinned: !wide,
               automaticallyImplyLeading: false,
               toolbarHeight: 0,
               backgroundColor: AppColors.background,

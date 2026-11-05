@@ -1,8 +1,12 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:foryou_music/app/theme.dart';
 import 'package:foryou_music/widgets/yoru_avatar.dart';
 
 class MiniPlayer extends StatelessWidget {
+  static const double height = 64;
+  final bool translucent;
   final String title;
   final String artist;
   final bool isPlaying;
@@ -14,17 +18,21 @@ class MiniPlayer extends StatelessWidget {
     required this.artist,
     required this.isPlaying,
     required this.onPlayPause,
+    this.translucent = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 64,
+    const radius = BorderRadius.all(Radius.circular(20));
+
+    final bar = Container(
+      height: height,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white10),
+        color: translucent
+            ? AppColors.surface.withValues(alpha: 0.6)
+            : AppColors.surface,
+        borderRadius: radius,
       ),
       child: Row(
         children: [
@@ -84,6 +92,24 @@ class MiniPlayer extends StatelessWidget {
           ),
         ],
       ),
+    );
+    final body = translucent
+        ? ClipRRect(
+            borderRadius: radius,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: bar,
+            ),
+          )
+        : bar;
+
+    return DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        border: Border.all(color: Colors.white10),
+      ),
+      child: body,
     );
   }
 }

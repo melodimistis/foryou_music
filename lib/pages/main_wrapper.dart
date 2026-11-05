@@ -51,11 +51,12 @@ class _MainWrapperState extends State<MainWrapper> {
     );
   }
 
-  Widget _miniPlayer() => MiniPlayer(
+  Widget _miniPlayer({bool translucent = false}) => MiniPlayer(
     title: 'Songs example',
     artist: 'Artist example',
     isPlaying: _playing,
     onPlayPause: () => setState(() => _playing = !_playing),
+    translucent: translucent,
   );
 
   Widget _buildPages({bool wide = false}) {
@@ -95,6 +96,9 @@ class _MainWrapperState extends State<MainWrapper> {
   }
 
   Widget _buildWide(BuildContext context) {
+    const miniTop = 32.0;
+    const contentTop = miniTop + MiniPlayer.height + 16;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Row(
@@ -108,15 +112,28 @@ class _MainWrapperState extends State<MainWrapper> {
           Expanded(
             child: SafeArea(
               left: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(32, 32, 32, 16),
-                    child: _miniPlayer(),
-                  ),
-                  Expanded(child: _buildPages(wide: true)),
-                ],
+              child: Builder(
+                builder: (context) {
+                  final mq = MediaQuery.of(context);
+                  return Stack(
+                    children: [
+                      Positioned.fill(
+                        child: MediaQuery(
+                          data: mq.copyWith(
+                            padding: mq.padding.copyWith(top: contentTop),
+                          ),
+                          child: _buildPages(wide: true),
+                        ),
+                      ),
+                      Positioned(
+                        top: miniTop,
+                        left: 32,
+                        right: 32,
+                        child: _miniPlayer(translucent: true),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
