@@ -7,6 +7,8 @@ import 'package:foryou_music/providers/yoru_controller.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:foryou_music/pages/welcome.dart';
 import 'package:foryou_music/app/scroll_behavior.dart';
+import 'package:foryou_music/providers/player_controller.dart';
+import 'package:foryou_music/services/audio/audio_engine.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +23,12 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider.value(value: yoru),
         ChangeNotifierProvider(create: (_) => LibraryController(libraryRepo)),
+        ChangeNotifierProvider(
+          create: (_) => PlayerController(
+            JustAudioEngine(),
+            recordPlay: libraryRepo.recordPlay,
+          ),
+        ),
       ],
       child: const ForYouApp(),
     ),

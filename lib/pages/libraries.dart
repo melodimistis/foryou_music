@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:foryou_music/providers/library_controller.dart';
 import 'package:foryou_music/services/storage_permission.dart';
+import 'package:foryou_music/providers/player_controller.dart';
 
 class LibrariesPage extends StatefulWidget {
   const LibrariesPage({super.key});
@@ -143,6 +144,9 @@ class _LibrariesPageState extends State<LibrariesPage>
 
   Widget _songs(BuildContext context) {
     final lib = context.watch<LibraryController>();
+    final currentId = context.select<PlayerController, String?>(
+      (p) => p.current?.id,
+    );
 
     if (lib.isEmpty) {
       return _EmptyState(
@@ -176,6 +180,12 @@ class _LibrariesPageState extends State<LibrariesPage>
         return Opacity(
           opacity: s.available ? 1.0 : 0.4,
           child: ListTile(
+            onTap: s.available
+                ? () => context.read<PlayerController>().playQueue(
+                    songs,
+                    startIndex: i - 1,
+                  )
+                : null,
             leading: Container(
               width: 44,
               height: 44,
@@ -192,7 +202,10 @@ class _LibrariesPageState extends State<LibrariesPage>
               s.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white, fontFamily: 'Inter'),
+              style: TextStyle(
+                color: s.id == currentId ? AppColors.accent : Colors.white,
+                fontFamily: 'Inter',
+              ),
             ),
             subtitle: Text(
               s.artist.isEmpty ? 'Unknown artist' : s.artist,

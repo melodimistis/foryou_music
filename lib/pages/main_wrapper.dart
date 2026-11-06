@@ -14,6 +14,7 @@ import 'package:foryou_music/pages/yoru.dart';
 import 'package:foryou_music/providers/yoru_controller.dart';
 import 'package:foryou_music/pages/settings/settings.dart';
 import 'package:foryou_music/widgets/mini_player.dart';
+import 'package:foryou_music/providers/player_controller.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -35,8 +36,6 @@ class _MainWrapperState extends State<MainWrapper> {
     "Legal",
   ];
 
-  bool _playing = false;
-
   void _openSettings() {
     Navigator.push(
       context,
@@ -51,13 +50,21 @@ class _MainWrapperState extends State<MainWrapper> {
     );
   }
 
-  Widget _miniPlayer({bool translucent = false}) => MiniPlayer(
-    title: 'Songs example',
-    artist: 'Artist example',
-    isPlaying: _playing,
-    onPlayPause: () => setState(() => _playing = !_playing),
-    translucent: translucent,
-  );
+  Widget _miniPlayer({bool translucent = false}) {
+    return Consumer<PlayerController>(
+      builder: (context, player, _) {
+        final song = player.current;
+        if (song == null) return const SizedBox.shrink();
+        return MiniPlayer(
+          title: song.title,
+          artist: song.artist.isEmpty ? 'Unknown Artist' : song.artist,
+          isPlaying: player.isPlaying,
+          onPlayPause: player.togglePlay,
+          translucent: translucent,
+        );
+      },
+    );
+  }
 
   Widget _buildPages({bool wide = false}) {
     final index = (!wide && _currentIndex == 1) ? 0 : _currentIndex;
@@ -97,7 +104,8 @@ class _MainWrapperState extends State<MainWrapper> {
 
   Widget _buildWide(BuildContext context) {
     const miniTop = 32.0;
-    const contentTop = miniTop + MiniPlayer.height + 16;
+    final hasSong = context.select<PlayerController, bool>((p) => p.hasSong);
+    final contentTop = hasSong ? miniTop + MiniPlayer.height + 16 : miniTop;
 
     return Scaffold(
       backgroundColor: AppColors.background,

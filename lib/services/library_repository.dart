@@ -26,6 +26,20 @@ class LibraryRepository {
     return v == null ? null : MusicSource.fromMap(v as Map);
   }
 
+  Future<void> recordPlay(String songId, {DateTime? at}) async {
+    final s = songById(songId);
+    if (s == null) return;
+    await _songs.put(
+      s.id,
+      s
+          .copyWith(
+            playCount: s.playCount + 1,
+            lastPlayedMs: (at ?? DateTime.now()).millisecondsSinceEpoch,
+          )
+          .toMap(),
+    );
+  }
+
   Future<void> putSource(MusicSource source) =>
       _sources.put(source.id, source.toMap());
 
