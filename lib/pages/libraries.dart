@@ -1,11 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:foryou_music/app/theme.dart';
-import 'package:foryou_music/widgets/yoru_avatar.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
+import 'package:foryou_music/app/theme.dart';
 import 'package:foryou_music/providers/library_controller.dart';
-import 'package:foryou_music/services/storage_permission.dart';
 import 'package:foryou_music/providers/player_controller.dart';
+import 'package:foryou_music/services/storage_permission.dart';
+import 'package:foryou_music/widgets/yoru_avatar.dart';
 
 class LibrariesPage extends StatefulWidget {
   const LibrariesPage({super.key});
@@ -17,8 +18,103 @@ class LibrariesPage extends StatefulWidget {
 class _LibrariesPageState extends State<LibrariesPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tab = TabController(length: 4, vsync: this);
-  final _nestedKey = GlobalKey<NestedScrollViewState>();
-  int _lastIndex = 0;
+  bool _tabsVisible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab.addListener(_showTabs);
+  }
+
+  @override
+  void dispose() {
+    _tab.removeListener(_showTabs);
+    _tab.dispose();
+    super.dispose();
+  }
+
+  void _showTabs() {
+    if (!_tabsVisible) setState(() => _tabsVisible = true);
+  }
+
+  void _hideTabs() {
+    if (_tabsVisible) setState(() => _tabsVisible = false);
+  }
+
+  bool _onScroll(ScrollNotification n) {
+    if (n.metrics.axis != Axis.vertical) return false;
+
+    if (n is UserScrollNotification) {
+      if (n.direction == ScrollDirection.reverse && n.metrics.pixels > 0) {
+        _hideTabs();
+      } else if (n.direction == ScrollDirection.forward) {
+        _showTabs();
+      }
+    } else if (n is ScrollUpdateNotification && n.metrics.pixels <= 0) {
+      _showTabs();
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
+    final wide = MediaQuery.sizeOf(context).width >= 840;
+    final visible = wide || _tabsVisible;
+
+    return Padding(
+      padding: EdgeInsets.only(top: topInset),
+      child: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: Column(
+          children: [
+            ClipRect(
+              child: AnimatedAlign(
+                alignment: Alignment.bottomCenter,
+                heightFactor: visible ? 1 : 0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: AnimatedOpacity(
+                  opacity: visible ? 1 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  child: TabBar(
+                    controller: _tab,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.white54,
+                    indicatorColor: AppColors.accent,
+                    dividerColor: Colors.transparent,
+                    tabs: const [
+                      Tab(text: 'Songs'),
+                      Tab(text: 'Albums'),
+                      Tab(text: 'Artists'),
+                      Tab(text: 'Playlists'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _onScroll,
+                child: TabBarView(
+                  controller: _tab,
+                  children: [
+                    _songs(context),
+                    const _EmptyState('No album yet'),
+                    const _EmptyState('No artist yet'),
+                    const _EmptyState('Your playlist will appear here'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _addFolder(BuildContext context) async {
     final lib = context.read<LibraryController>();
@@ -60,93 +156,8 @@ class _LibrariesPageState extends State<LibrariesPage>
     return '${d.inMinutes}:$s';
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _tab.addListener(_onTabChanged);
-  }
-
-  @override
-  void dispose() {
-    _tab.removeListener(_onTabChanged);
-    _tab.dispose();
-    super.dispose();
-  }
-
-  void _onTabChanged() {
-    if (_tab.index == _lastIndex) return;
-    _lastIndex = _tab.index;
-    final outer = _nestedKey.currentState?.outerController;
-    if (outer != null && outer.hasClients && outer.offset > 0) {
-      outer.animateTo(
-        0,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final topInset = MediaQuery.paddingOf(context).top;
-    final wide = MediaQuery.sizeOf(context).width >= 840;
-
-    return Padding(
-      padding: EdgeInsets.only(top: topInset),
-      child: MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
-        child: NestedScrollView(
-          key: _nestedKey,
-          floatHeaderSlivers: true,
-          headerSliverBuilder: (context, innerBoxIsScrolled) => [
-            SliverAppBar(
-              primary: false,
-              floating: !wide,
-              snap: !wide,
-              pinned: !wide,
-              automaticallyImplyLeading: false,
-              toolbarHeight: 0,
-              backgroundColor: AppColors.background,
-              surfaceTintColor: Colors.transparent,
-              scrolledUnderElevation: 0,
-              elevation: 0,
-              bottom: TabBar(
-                controller: _tab,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white54,
-                indicatorColor: AppColors.accent,
-                dividerColor: Colors.transparent,
-                tabs: const [
-                  Tab(text: 'Songs'),
-                  Tab(text: 'Albums'),
-                  Tab(text: 'Artists'),
-                  Tab(text: 'Playlists'),
-                ],
-              ),
-            ),
-          ],
-          body: TabBarView(
-            controller: _tab,
-            children: [
-              _songs(context),
-              const _EmptyState('No album yet'),
-              const _EmptyState('No artist yet'),
-              const _EmptyState('Your playlist will appear here'),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _songs(BuildContext context) {
     final lib = context.watch<LibraryController>();
-    final currentId = context.select<PlayerController, String?>(
-      (p) => p.current?.id,
-    );
 
     if (lib.isEmpty) {
       return _EmptyState(
@@ -162,6 +173,10 @@ class _LibrariesPageState extends State<LibrariesPage>
     }
 
     final songs = lib.songs;
+    final currentId = context.select<PlayerController, String?>(
+      (p) => p.current?.id,
+    );
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 220),
       itemCount: songs.length + 1,
