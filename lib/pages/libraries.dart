@@ -1,6 +1,5 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:foryou_music/app/theme.dart';
 import 'package:foryou_music/providers/library_controller.dart';
@@ -19,18 +18,26 @@ class _LibrariesPageState extends State<LibrariesPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tab = TabController(length: 4, vsync: this);
   bool _tabsVisible = true;
+  double _scrollAccum = 0;
+  static const _hideAfter = 24.0;
+  static const _showAfter = 8.0;
 
   @override
   void initState() {
     super.initState();
-    _tab.addListener(_showTabs);
+    _tab.addListener(_onTabChanged);
   }
 
   @override
   void dispose() {
-    _tab.removeListener(_showTabs);
+    _tab.removeListener(_onTabChanged);
     _tab.dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    _scrollAccum = 0;
+    _showTabs();
   }
 
   void _showTabs() {
@@ -42,15 +49,26 @@ class _LibrariesPageState extends State<LibrariesPage>
   }
 
   bool _onScroll(ScrollNotification n) {
-    if (n.metrics.axis != Axis.vertical) return false;
+    if (n.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    if (n is! ScrollUpdateNotification) return false;
 
-    if (n is UserScrollNotification) {
-      if (n.direction == ScrollDirection.reverse && n.metrics.pixels > 0) {
-        _hideTabs();
-      } else if (n.direction == ScrollDirection.forward) {
-        _showTabs();
-      }
-    } else if (n is ScrollUpdateNotification && n.metrics.pixels <= 0) {
+    if (n.metrics.pixels <= 0) {
+      _scrollAccum = 0;
+      _showTabs();
+      return false;
+    }
+
+    final delta = n.scrollDelta ?? 0;
+    if ((delta > 0 && _scrollAccum < 0) || (delta < 0 && _scrollAccum > 0)) {
+      _scrollAccum = 0;
+    }
+    _scrollAccum += delta;
+
+    if (_scrollAccum > _hideAfter) {
+      _hideTabs();
+    } else if (_scrollAccum < -_showAfter) {
       _showTabs();
     }
     return false;
@@ -73,11 +91,12 @@ class _LibrariesPageState extends State<LibrariesPage>
               child: AnimatedAlign(
                 alignment: Alignment.bottomCenter,
                 heightFactor: visible ? 1 : 0,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
+                duration: Duration(milliseconds: visible ? 220 : 260),
+                curve: visible ? Curves.easeOutCubic : Curves.easeInCubic,
                 child: AnimatedOpacity(
                   opacity: visible ? 1 : 0,
-                  duration: const Duration(milliseconds: 180),
+                  duration: Duration(milliseconds: visible ? 180 : 260),
+                  curve: visible ? Curves.easeOut : Curves.easeInOut,
                   child: TabBar(
                     controller: _tab,
                     isScrollable: true,
