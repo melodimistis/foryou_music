@@ -1,18 +1,17 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../app/format.dart';
+import '../app/motion.dart';
 import '../models/album.dart';
 import '../providers/collections_controller.dart';
 import '../providers/library_controller.dart';
-import '../providers/notice_controller.dart';
 import '../providers/player_controller.dart';
 import '../providers/yoru_controller.dart';
-import '../services/storage_permission.dart';
 import '../widgets/add_to_playlist_sheet.dart';
 import '../widgets/collection_view.dart';
 import '../widgets/cover_art.dart';
+import '../widgets/fast_scroll_list.dart';
 import '../widgets/media_row.dart';
 import '../widgets/song_swipe.dart';
 import '../widgets/menu_actions.dart';
@@ -21,6 +20,7 @@ import '../widgets/yoru_avatar.dart';
 import 'album.dart';
 import 'artist.dart';
 import 'playlist.dart';
+import 'settings/storage.dart';
 
 enum LibraryView {
   songs('Songs', Icons.music_note_rounded, 'You have a good taste you know?'),
@@ -59,37 +59,6 @@ class LibrariesPage extends StatelessWidget {
   }
 }
 
-Future<void> _addFolder(BuildContext context) async {
-  final lib = context.read<LibraryController>();
-  final notices = context.read<NoticeController>();
-
-  if (!await ensureAudioPermission()) {
-    notices.show(
-      'Audio permission is needed to read your music',
-      icon: Icons.lock_outline_rounded,
-    );
-    return;
-  }
-
-  final path = await FilePicker.getDirectoryPath(
-    dialogTitle: 'Choose your music folder',
-  );
-  if (path == null) return;
-  if (path == '/') {
-    notices.show(
-      'That folder is protected. Try another one.',
-      icon: Icons.folder_off_outlined,
-    );
-    return;
-  }
-
-  await lib.addLocalFolder(path);
-  final error = lib.lastError;
-  if (error != null) {
-    notices.show(error, icon: Icons.error_outline_rounded);
-  }
-}
-
 class _Hub extends StatelessWidget {
   const _Hub({required this.onOpen});
 
@@ -108,9 +77,13 @@ class _Hub extends StatelessWidget {
           action: lib.isScanning
               ? null
               : FilledButton.icon(
-                  onPressed: () => _addFolder(context),
+                  onPressed: () => pushMotion(
+                    context,
+                    ScreenMotion.settings,
+                    (_) => const StoragePage(),
+                  ),
                   icon: const Icon(Icons.folder_open_rounded),
-                  label: const Text('Add music folder'),
+                  label: const Text('Open Storage'),
                 ),
         ),
       );
@@ -149,21 +122,6 @@ class _Hub extends StatelessWidget {
                 ),
             ],
           ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: lib.isScanning ? null : () => _addFolder(context),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white54,
-              padding: EdgeInsets.zero,
-            ),
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(
-              lib.isScanning ? 'Scanning...' : 'Add music folder',
-              style: const TextStyle(fontFamily: 'Inter', fontSize: 13),
-            ),
-          ),
-        ),
         if (lib.recentlyAdded.isNotEmpty) ...[
           const SizedBox(height: 16),
           const Text(
@@ -471,9 +429,10 @@ class _SongList extends StatelessWidget {
     final currentId = context.select<PlayerController, String?>(
       (p) => p.current?.id,
     );
-    return ListView.builder(
+    return FastScrollList(
       padding: _listPadding(context),
       itemCount: songs.length,
+      labelOf: (i) => songs[i].title,
       itemBuilder: (context, i) {
         final s = songs[i];
         return SongSwipe(
@@ -511,9 +470,10 @@ class _AlbumList extends StatelessWidget {
         lib.isScanning ? 'Scanning your music...' : 'No album yet',
       );
     }
-    return ListView.builder(
+    return FastScrollList(
       padding: _listPadding(context),
       itemCount: albums.length,
+      labelOf: (i) => albums[i].title,
       itemBuilder: (context, i) {
         final a = albums[i];
         return MenuTarget(
@@ -543,9 +503,10 @@ class _ArtistList extends StatelessWidget {
         lib.isScanning ? 'Scanning your music...' : 'No artist yet',
       );
     }
-    return ListView.builder(
+    return FastScrollList(
       padding: _listPadding(context),
       itemCount: artists.length,
+      labelOf: (i) => artists[i].name,
       itemBuilder: (context, i) {
         final a = artists[i];
         return MenuTarget(

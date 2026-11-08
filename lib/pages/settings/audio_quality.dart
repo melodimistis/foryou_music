@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:foryou_music/widgets/settings_scaffold.dart';
+
+import '../../widgets/info_blocks.dart';
+import '../../widgets/settings_scaffold.dart';
 
 class AudioQualityPage extends StatelessWidget {
   const AudioQualityPage({super.key});
@@ -9,9 +11,10 @@ class AudioQualityPage extends StatelessWidget {
     return const SettingsScaffold(
       title: 'Audio Quality',
       children: [
-        Text(
-          'Soon.',
-          style: TextStyle(color: Colors.white54, fontFamily: 'Inter'),
+        InfoSection(
+          'Soon',
+          'Audio options are coming in a future update. For now, ForYou Music '
+              'plays your files as they are, with no effects added.',
         ),
       ],
     );

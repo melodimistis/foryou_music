@@ -11,6 +11,7 @@ import '../providers/library_controller.dart';
 import '../providers/player_controller.dart';
 import '../providers/yoru_controller.dart';
 import '../services/greetings.dart';
+import '../services/home_picks.dart';
 import '../widgets/cover_art.dart';
 import '../widgets/collection_view.dart';
 import '../widgets/context_menu.dart';
@@ -114,6 +115,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ],
+        const _PicksShelves(),
         const SizedBox(height: 32),
         Center(
           child: TextButton(
@@ -540,6 +542,107 @@ class _TimedBar extends StatelessWidget {
         const SizedBox(width: 10),
         Text(formatClock(duration), style: style),
       ],
+    );
+  }
+}
+
+class _PicksShelves extends StatelessWidget {
+  const _PicksShelves();
+
+  @override
+  Widget build(BuildContext context) {
+    final songs = context.select<LibraryController, List<Song>>((l) => l.songs);
+    final yoruOn = context.select<YoruController, bool>((y) => y.enabled);
+    final genres = context.select<YoruController, List<String>>(
+      (y) => y.genres,
+    );
+    final now = DateTime.now();
+    final missed = longTimeNoHear(songs, now: now);
+    final picks = yoruOn
+        ? yoruPicks(songs, likedGenres: genres, now: now)
+        : const <Song>[];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (missed.isNotEmpty) ...[
+          const _Heading(
+            'Long time no hear',
+            subtitle: 'you used to love these',
+          ),
+          _SongShelf(songs: missed),
+        ],
+        if (picks.isNotEmpty) ...[
+          _Heading(
+            'Yoru picks for you',
+            subtitle:
+                'because you like ${joinNatural(genres.take(3).toList())}',
+          ),
+          _SongShelf(songs: picks),
+        ],
+      ],
+    );
+  }
+}
+
+class _SongShelf extends StatelessWidget {
+  const _SongShelf({required this.songs});
+
+  final List<Song> songs;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 170,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        itemCount: songs.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 14),
+        itemBuilder: (context, i) {
+          final s = songs[i];
+          return MenuTarget(
+            actions: (context) => songActions(context, s),
+            child: InkWell(
+              onTap: () => context.read<PlayerController>().playQueue(
+                songs,
+                startIndex: i,
+              ),
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 116,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CoverArt(coverKey: s.coverKey, size: 116, radius: 10),
+                    const SizedBox(height: 6),
+                    Text(
+                      s.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Inter',
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      artistOrUnknown(s.artist),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

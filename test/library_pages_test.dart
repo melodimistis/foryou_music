@@ -78,13 +78,13 @@ void main() {
   }
 
   Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < 6; i++) {
       await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 40)),
+        () => Future<void>.delayed(const Duration(milliseconds: 60)),
       );
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 150));
     }
+    await tester.pumpAndSettle();
   }
 
   Future<void> waitNoticeGone(WidgetTester tester) async {
@@ -406,6 +406,13 @@ void main() {
     await settle(tester);
     expect(player.current?.id, 't1');
 
+    await tester.enterText(find.byType(TextField).first, 'malibu');
+    await settle(tester);
+    expect(inSearch(find.text('Albums')), findsOneWidget);
+    await tester.tap(inSearch(find.text('Malibu Nights')).first);
+    await settle(tester);
+    expect(find.byType(AlbumPage), findsOneWidget);
+
     await tester.pumpWidget(const SizedBox());
     await tearDownLibrary(tester);
   });
@@ -427,7 +434,12 @@ void main() {
     await settle(tester);
     await tester.tap(find.byIcon(Icons.library_music_rounded));
     await settle(tester);
-    await tester.tap(find.text('Songs'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(LibrariesPage),
+        matching: find.text('Songs'),
+      ),
+    );
     await settle(tester);
 
     await tester.longPress(find.textContaining('number 1 ').first);

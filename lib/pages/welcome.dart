@@ -6,6 +6,7 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:foryou_music/services/greetings.dart';
 import 'package:foryou_music/providers/yoru_controller.dart';
 import 'package:provider/provider.dart';
+import 'package:foryou_music/widgets/foryou_logo.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -94,6 +95,8 @@ class _WelcomePageState extends State<WelcomePage> {
                   size: 40,
                 ),
                 const Spacer(),
+                const ForYouLogo(size: 44),
+                const SizedBox(height: 10),
                 const Text(
                   'ForYou Music',
                   style: TextStyle(

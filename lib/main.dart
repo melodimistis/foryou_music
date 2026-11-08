@@ -10,11 +10,14 @@ import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:foryou_music/providers/yoru_controller.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+import 'package:foryou_music/pages/licenses.dart';
+import 'package:foryou_music/pages/main_wrapper.dart';
 import 'package:foryou_music/pages/welcome.dart';
 import 'package:foryou_music/app/scroll_behavior.dart';
 import 'package:foryou_music/app/theme.dart';
 import 'package:foryou_music/providers/player_controller.dart';
 import 'package:foryou_music/providers/notice_controller.dart';
+import 'package:foryou_music/providers/settings_controller.dart';
 import 'package:foryou_music/providers/shell_controller.dart';
 import 'package:foryou_music/widgets/notice/notice_layer.dart';
 import 'package:foryou_music/services/audio/audio_engine.dart';
@@ -28,6 +31,7 @@ import 'package:foryou_music/services/source_scanner/local_folder_scanner.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppLicenses.register();
   JustAudioMediaKit.ensureInitialized();
   await Hive.initFlutter();
 
@@ -35,6 +39,7 @@ Future<void> main() async {
   final libraryRepo = await LibraryRepository.open();
   final coversDir = await CoverStore.init();
   final collections = await CollectionsController.open();
+  final settings = await SettingsController.open();
   final library = LibraryController(
     libraryRepo,
     scanners: {
@@ -42,6 +47,7 @@ Future<void> main() async {
         readTags: tagReader(coversDir: coversDir.path),
       ),
     },
+    pruneCovers: CoverStore.prune,
   );
 
   if (Platform.isAndroid) {
@@ -65,12 +71,13 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: yoru),
         ChangeNotifierProvider.value(value: library),
         ChangeNotifierProvider.value(value: collections),
+        ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider(create: (_) => ShellController()),
         ChangeNotifierProvider(create: (_) => NoticeController()),
         Provider(create: (_) => LyricsService()),
         ChangeNotifierProvider.value(value: player),
       ],
-      child: const ForYouApp(),
+      child: ForYouApp(skipWelcome: settings.skipWelcome),
     ),
   );
 
@@ -79,7 +86,9 @@ Future<void> main() async {
 }
 
 class ForYouApp extends StatelessWidget {
-  const ForYouApp({super.key});
+  const ForYouApp({super.key, this.skipWelcome = false});
+
+  final bool skipWelcome;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +98,7 @@ class ForYouApp extends StatelessWidget {
       scrollBehavior: const ForYouScrollBehavior(),
       builder: (context, child) => NoticeLayer(child: child!),
       theme: buildAppTheme(),
-      home: const WelcomePage(),
+      home: skipWelcome ? const MainWrapper() : const WelcomePage(),
     );
   }
 }

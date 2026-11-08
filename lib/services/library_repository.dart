@@ -65,6 +65,18 @@ class LibraryRepository {
 
   Future<void> deleteSongs(Iterable<String> ids) => _songs.deleteAll(ids);
 
+  Future<void> resetPlayHistory() => _songs.putAll({
+    for (final e in _songs.toMap().entries)
+      e.key: Map.of(e.value as Map)
+        ..['playCount'] = 0
+        ..remove('lastPlayedMs'),
+  });
+
+  Future<void> forceTagReread() => _songs.putAll({
+    for (final e in _songs.toMap().entries)
+      e.key: Map.of(e.value as Map)..['tagVersion'] = 0,
+  });
+
   Future<void> setSourceAvailable(String sourceId, bool available) {
     final changed = songsBySource(sourceId)
         .where((s) => s.available != available)

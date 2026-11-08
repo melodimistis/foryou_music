@@ -1,33 +1,62 @@
 import 'package:flutter/material.dart';
-import 'package:foryou_music/widgets/settings_scaffold.dart';
+import 'package:provider/provider.dart';
 
-class GeneralPage extends StatefulWidget {
+import '../../app/motion.dart';
+import '../../providers/settings_controller.dart';
+import '../../widgets/settings_scaffold.dart';
+import '../yoru.dart';
+
+class GeneralPage extends StatelessWidget {
   const GeneralPage({super.key});
 
-  @override
-  State<GeneralPage> createState() => _GeneralPageState();
-}
-
-class _GeneralPageState extends State<GeneralPage> {
-  bool _autoUpdate = true;
+  static const _title = TextStyle(color: Colors.white, fontFamily: 'Inter');
+  static const _subtitle = TextStyle(
+    color: Colors.white54,
+    fontFamily: 'Inter',
+  );
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsController>();
     return SettingsScaffold(
       title: 'General',
       children: [
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text(
-            'Check update',
-            style: TextStyle(color: Colors.white, fontFamily: 'Inter'),
-          ),
+          title: const Text('Check for updates', style: _title),
           subtitle: const Text(
-            'Dont worry, its safe.',
-            style: TextStyle(color: Colors.white54, fontFamily: 'Inter'),
+            'Only asks GitHub if a new version exists. Nothing about you is sent.',
+            style: _subtitle,
           ),
-          value: _autoUpdate,
-          onChanged: (v) => setState(() => _autoUpdate = v),
+          value: settings.autoUpdate,
+          onChanged: settings.setAutoUpdate,
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Skip welcome screen', style: _title),
+          subtitle: const Text(
+            'Open straight to Home, without the greeting.',
+            style: _subtitle,
+          ),
+          value: settings.skipWelcome,
+          onChanged: settings.setSkipWelcome,
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Yoru', style: _title),
+          subtitle: const Text(
+            'Your listening companion and its greetings.',
+            style: _subtitle,
+          ),
+          trailing: const Icon(
+            Icons.chevron_right_rounded,
+            color: Colors.white38,
+          ),
+          onTap: () => pushMotion(
+            context,
+            ScreenMotion.settings,
+            (_) => const YoruPage(),
+          ),
         ),
       ],
     );

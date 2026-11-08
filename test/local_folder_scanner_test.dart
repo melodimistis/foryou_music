@@ -219,4 +219,49 @@ void main() {
     final second = await later.scan(source, first.upserts);
     expect(second.upserts.single.addedMs, t1.millisecondsSinceEpoch);
   });
+
+  test(
+    'a moved file keeps its id, play count and added date (relink)',
+    () async {
+      final f = touch('a.mp3');
+      final first = await scanner.scan(source, const []);
+      final played = first.upserts.single.copyWith(playCount: 9, addedMs: 77);
+      Directory('${dir.path}/moved').createSync();
+      f.renameSync('${dir.path}/moved/a.mp3');
+
+      final second = await scanner.scan(source, [played]);
+      expect(second.relinked, 1);
+      expect(second.added, 0);
+      expect(second.removedIds, isEmpty);
+      final song = second.upserts.single;
+      expect(song.id, played.id);
+      expect(song.playCount, 9);
+      expect(song.addedMs, 77);
+      expect(song.uri, endsWith('/moved/a.mp3'));
+    },
+  );
+
+  test('no relink when the duration is clearly different', () async {
+    touch('a.mp3');
+    final s1 = LocalFolderScanner(
+      newId: () => 'id${n++}',
+      readTags: (paths) async => {
+        for (final p in paths)
+          p: const TrackTags(title: 'Song', durationMs: 200000),
+      },
+    );
+    final first = await s1.scan(source, const []);
+    File('${dir.path}/a.mp3').renameSync('${dir.path}/b.mp3');
+    final s2 = LocalFolderScanner(
+      newId: () => 'id${n++}',
+      readTags: (paths) async => {
+        for (final p in paths)
+          p: const TrackTags(title: 'Song', durationMs: 90000),
+      },
+    );
+    final second = await s2.scan(source, first.upserts);
+    expect(second.relinked, 0);
+    expect(second.added, 1);
+    expect(second.removedIds, [first.upserts.single.id]);
+  });
 }

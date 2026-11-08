@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foryou_music/models/album.dart';
 import 'package:foryou_music/models/song.dart';
 import 'package:foryou_music/services/song_search.dart';
 
@@ -39,5 +40,21 @@ void main() {
 
   test('limit caps the results', () {
     expect(searchSongs(songs, 'n', limit: 2).length, 2);
+  });
+
+  test('albums and artists are searchable too', () {
+    const lany = Artist(id: 'lany', name: 'LANY', songs: [], albums: []);
+    const kehlani = Artist(id: 'k', name: 'Kehlani', songs: [], albums: []);
+    const mn = Album(
+      id: 'mn',
+      title: 'Malibu Nights',
+      artist: 'LANY',
+      songs: [],
+    );
+    const gg = Album(id: 'gg', title: 'gg bb xx', artist: 'LANY', songs: []);
+    expect(searchArtists([kehlani, lany], 'lany').map((a) => a.id), ['lany']);
+    expect(searchArtists([kehlani, lany], 'n').map((a) => a.id), ['k', 'lany']);
+    expect(searchAlbums([gg, mn], 'malibu').map((a) => a.id), ['mn']);
+    expect(searchAlbums([gg, mn], 'lany').map((a) => a.id), ['gg', 'mn']);
   });
 }

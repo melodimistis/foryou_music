@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../services/links.dart';
+import '../widgets/info_blocks.dart';
+import 'licenses.dart';
+
 class LegalPage extends StatelessWidget {
   const LegalPage({super.key});
 
@@ -13,50 +17,72 @@ class LegalPage extends StatelessWidget {
         MediaQuery.paddingOf(context).bottom + 24,
       ),
       children: [
-        _Section(
-          'Your data still into you',
-          'ForYou Music never use your data, any data, to any server (even us didnt have a server lol)',
+        const InfoSection(
+          'Your data stays with you',
+          'ForYou Music has no account, no analytics and no ads. Your library, '
+              'favourites, playlists and play history are stored only on this '
+              'device. Nothing is sent anywhere, and there is no ForYou server '
+              'to send it to.',
         ),
-        _Section(
-          'Internet Connection',
-          'The only outbound connection is there solely to allow you to safely update this application.'
-              'If you`d prefer otherwise, you can adjust this under Settings > General.',
+        const InfoSection(
+          'Internet connection',
+          'The only connection ForYou Music makes is to GitHub, to ask whether '
+              'a new version exists. It sends nothing about you or your music. '
+              'You can turn it off in Settings > General. Lyrics and covers are '
+              'never downloaded; they come from your own files.',
         ),
-        _Section('Access', 'ForYou Music just read your local audio library.'),
-        _Section('Third-parties', 'This is list of third-party licenses.'),
+        const InfoSection(
+          'Permissions',
+          'On Android, ForYou Music asks to read your audio files, so it can '
+              'play the folders you choose. It keeps playing in the background '
+              'with a media notification, so you can control it from the lock '
+              'screen or your headphones. It never changes or deletes your '
+              'files.',
+        ),
+        InfoSection(
+          'License',
+          'ForYou Music is free software, licensed under the GNU General Public '
+              'License version 3 only (GPL-3.0-only). You may use, study, share '
+              'and change it under the terms of that license. The full source '
+              'code is available on GitHub.',
+          extra: Column(
+            children: [
+              InfoLink(
+                icon: Icons.description_outlined,
+                label: 'Read the GPL-3.0 license',
+                onTap: () => Links.open(context, Links.license),
+              ),
+              InfoLink(
+                icon: Icons.code_rounded,
+                label: 'Source code',
+                detail: 'github.com/melodimistis/foryou_music',
+                onTap: () => Links.open(context, Links.repo),
+              ),
+            ],
+          ),
+        ),
+        const InfoSection(
+          'Name, logo and Yoru',
+          'The ForYou Music name, its logo and the Yoru character are not '
+              'covered by the GPL. They belong to melodimistis. Forks are '
+              'welcome, but please give them a different name and logo.',
+        ),
+        const InfoSection(
+          'No warranty',
+          'ForYou Music is provided as is, without any warranty, to the extent '
+              'permitted by law. See sections 15 and 16 of the GPL for details.',
+        ),
+        InfoSection(
+          'Third-party licenses',
+          'ForYou Music uses open source packages and the Inter font, each '
+              'under its own license.',
+          extra: InfoLink(
+            icon: Icons.inventory_2_outlined,
+            label: 'View third-party licenses',
+            onTap: () => LicensesPage.open(context),
+          ),
+        ),
       ],
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  final String title;
-  final String body;
-  const _Section(this.title, this.body);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontFamily: 'Inter',
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            body,
-            style: const TextStyle(color: Colors.white70, fontFamily: 'Inter'),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foryou_music/services/covers/cover_store.dart';
 import 'package:foryou_music/services/metadata/metadata_reader.dart';
 
 void main() {
@@ -57,5 +58,16 @@ void main() {
   test('unreadable audio file returns null tags, not a crash', () {
     final f = File('${tmp.path}/broken.mp3')..writeAsBytesSync([0, 1, 2]);
     expect(readTagsSync(f.path, covers: writer), isNull);
+  });
+
+  test('pruneIn removes only covers no song uses (and leftovers)', () async {
+    final keep = writer.save(bytes([1]));
+    final drop = writer.save(bytes([2]));
+    File('${covers.path}/$keep.tmp').writeAsBytesSync([3]);
+    final removed = await CoverStore.pruneIn(covers, {keep});
+    expect(removed, 2);
+    expect(File('${covers.path}/$keep').existsSync(), isTrue);
+    expect(File('${covers.path}/$drop').existsSync(), isFalse);
+    expect(await CoverStore.pruneIn(Directory('${tmp.path}/nope'), {}), 0);
   });
 }

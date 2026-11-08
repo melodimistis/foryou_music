@@ -138,4 +138,85 @@ void main() {
     ]);
     home.dispose();
   });
+
+  test('covers are pruned after a scan and after removing a source', () async {
+    final keeps = <Set<String>>[];
+    await repo.putSongs([
+      const Song(
+        id: 'x',
+        title: 'x',
+        artist: '',
+        uri: 'file:///elsewhere/x.mp3',
+        sourceId: 'other',
+        coverKey: 'keep-1',
+      ),
+    ]);
+    final pruning = LibraryController(
+      repo,
+      scanners: {
+        MusicSourceType.local: LocalFolderScanner(newId: () => 'song${n++}'),
+      },
+      newId: () => 'src${n++}',
+      pruneCovers: (keep) async {
+        keeps.add(keep);
+        return 0;
+      },
+    );
+    touch('a.mp3');
+    final src = await pruning.addLocalFolder(musicDir.path);
+    expect(keeps.last, {'keep-1'});
+    await pruning.removeSource(src!.id);
+    expect(keeps.length, 2);
+    pruning.dispose();
+  });
+
+  test('reset play history clears counts but keeps the songs', () async {
+    touch('a.mp3');
+    touch('b.mp3');
+    await c.addLocalFolder(musicDir.path);
+    for (final s in c.songs) {
+      await c.recordPlay(s.id);
+    }
+    expect(c.mostPlayed, isNotEmpty);
+    await c.resetPlayHistory();
+    expect(c.songs.length, 2);
+    expect(c.songs.every((s) => s.playCount == 0), isTrue);
+    expect(c.songs.every((s) => s.lastPlayedMs == null), isTrue);
+    expect(c.mostPlayed, isEmpty);
+    expect(c.recentlyPlayed, isEmpty);
+  });
+
+  test('clearing the cover cache prunes all and rereads every tag', () async {
+    final keeps = <Set<String>>[];
+    final reads = <int>[];
+    final covers = LibraryController(
+      repo,
+      scanners: {
+        MusicSourceType.local: LocalFolderScanner(
+          newId: () => 'song${n++}',
+          readTags: (paths) async {
+            reads.add(paths.length);
+            return {};
+          },
+        ),
+      },
+      newId: () => 'src${n++}',
+      pruneCovers: (keep) async {
+        keeps.add(keep);
+        return 0;
+      },
+    );
+    touch('a.mp3');
+    touch('b.mp3');
+    final src = await covers.addLocalFolder(musicDir.path);
+    await covers.recordPlay(covers.songs.first.id);
+    await covers.scanSource(src!.id);
+    expect(reads.last, 0);
+    expect(await covers.clearCoverCache(), isTrue);
+    expect(keeps, contains(isEmpty));
+    expect(reads.last, 2);
+    expect(covers.songs.length, 2);
+    expect(covers.songs.map((s) => s.playCount).reduce((a, b) => a + b), 1);
+    covers.dispose();
+  });
 }

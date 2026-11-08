@@ -10,6 +10,7 @@ class ScanResult {
     this.unchanged = 0,
     this.errors = 0,
     this.reachable = true,
+    this.relinked = 0,
   });
 
   final List<Song> upserts;
@@ -19,6 +20,7 @@ class ScanResult {
   final int unchanged;
   final int errors;
   final bool reachable;
+  final int relinked;
 }
 
 abstract class SourceScanner {

@@ -123,6 +123,7 @@ class _ArtistPageState extends State<ArtistPage> {
 }
 
 const _overlay = Color(0x8C000000);
+const _textShadow = [Shadow(color: Color(0x99000000), blurRadius: 18)];
 
 class _Backdrop extends StatelessWidget {
   const _Backdrop({required this.coverKey});
@@ -228,8 +229,9 @@ class _Hero extends StatelessWidget {
                   Color(0x33000000),
                   Colors.transparent,
                   Color(0x40000000),
+                  Colors.transparent,
                 ],
-                stops: [0, 0.3, 1],
+                stops: [0, 0.3, 0.72, 1],
               ),
             ),
           ),
@@ -249,6 +251,7 @@ class _Hero extends StatelessWidget {
                     fontFamily: 'Inter',
                     fontSize: 34,
                     fontWeight: FontWeight.w800,
+                    shadows: _textShadow,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -258,9 +261,11 @@ class _Hero extends StatelessWidget {
                     '$count ${count == 1 ? 'song' : 'songs'}',
                   ].join(' · '),
                   style: const TextStyle(
-                    color: Colors.white70,
+                    color: Colors.white,
                     fontFamily: 'Inter',
                     fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    shadows: _textShadow,
                   ),
                 ),
                 const SizedBox(height: 16),

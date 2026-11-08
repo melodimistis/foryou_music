@@ -14,6 +14,7 @@ class LibraryController extends ChangeNotifier {
     this._repo, {
     Map<MusicSourceType, SourceScanner>? scanners,
     String Function()? newId,
+    this.pruneCovers,
   }) : _scanners = scanners ?? {MusicSourceType.local: LocalFolderScanner()},
        _newId = newId ?? (() => const Uuid().v4()) {
     _reload();
@@ -22,6 +23,7 @@ class LibraryController extends ChangeNotifier {
   final LibraryRepository _repo;
   final Map<MusicSourceType, SourceScanner> _scanners;
   final String Function() _newId;
+  final Future<int> Function(Set<String> keep)? pruneCovers;
 
   static const homeLimit = 10;
   static const recentLimit = 4;
@@ -29,6 +31,8 @@ class LibraryController extends ChangeNotifier {
 
   List<Song> _songs = const [];
   Map<String, Song> _songById = const {};
+  Map<String, int> _countBySource = const {};
+  Map<String, int> _availableBySource = const {};
   List<Song> _mostPlayed = const [];
   List<Song> _recentlyPlayed = const [];
   List<Album> _favouriteAlbums = const [];
@@ -46,6 +50,9 @@ class LibraryController extends ChangeNotifier {
   Album? albumById(String id) => _index.albumById(id);
   Artist? artistById(String id) => _index.artistById(id);
   Song? songById(String id) => _songById[id];
+  int songCountOf(String sourceId) => _countBySource[sourceId] ?? 0;
+  bool isSourceReachable(String sourceId) =>
+      songCountOf(sourceId) == 0 || (_availableBySource[sourceId] ?? 0) > 0;
 
   List<Song> songsByIds(Iterable<String> ids) => [
     for (final id in ids)
@@ -63,6 +70,21 @@ class LibraryController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> resetPlayHistory() async {
+    await _repo.resetPlayHistory();
+    _reload();
+    notifyListeners();
+  }
+
+  Future<bool> clearCoverCache() async {
+    final prune = pruneCovers;
+    if (_isScanning || prune == null) return false;
+    await prune(const {});
+    await _repo.forceTagReread();
+    await scanAll();
+    return true;
+  }
+
   bool get isScanning => _isScanning;
   bool get isEmpty => _songs.isEmpty;
   ScanResult? get lastResult => _lastResult;
@@ -73,6 +95,14 @@ class LibraryController extends ChangeNotifier {
     _songs = _repo.songs()
       ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
     _songById = {for (final s in _songs) s.id: s};
+    final counts = <String, int>{};
+    final reachable = <String, int>{};
+    for (final s in _songs) {
+      counts[s.sourceId] = (counts[s.sourceId] ?? 0) + 1;
+      if (s.available) reachable[s.sourceId] = (reachable[s.sourceId] ?? 0) + 1;
+    }
+    _countBySource = counts;
+    _availableBySource = reachable;
     _index = LibraryIndex.build(_songs);
 
     final available = _songs.where((s) => s.available).toList();
@@ -152,6 +182,20 @@ class LibraryController extends ChangeNotifier {
     await _repo.removeSource(sourceId);
     _reload();
     notifyListeners();
+    await _prune();
+  }
+
+  Future<void> _prune() async {
+    final prune = pruneCovers;
+    if (prune == null) return;
+    try {
+      await prune({
+        for (final s in _songs)
+          if (s.hasCover) s.coverKey,
+      });
+    } catch (e) {
+      debugPrint('Could not prune covers: $e');
+    }
   }
 
   Future<void> _runScan(List<MusicSource> targets) async {
@@ -182,5 +226,6 @@ class LibraryController extends ChangeNotifier {
       _reload();
       notifyListeners();
     }
+    await _prune();
   }
 }

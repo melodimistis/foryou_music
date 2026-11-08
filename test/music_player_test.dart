@@ -103,6 +103,29 @@ void main() {
     expect(find.byType(MusicPlayerPage), findsOneWidget);
     expect(find.text('Im listening with you...'), findsOneWidget);
 
+    double x(Finder f) => tester.getCenter(f).dx;
+    Finder tip(bool Function(String m) test) => find
+        .byWidgetPredicate((w) => w is Tooltip && test(w.message ?? ''))
+        .hitTestable();
+    void expectGrid() {
+      final width =
+          tester.view.physicalSize.width / tester.view.devicePixelRatio;
+      expect(
+        tester.getRect(tip((m) => m == 'More')).right,
+        greaterThan(width - 28),
+      );
+      expect(
+        x(tip((m) => m == 'More')),
+        greaterThan(x(tip((m) => m == 'Favorite' || m == 'Unfavorite'))),
+      );
+      expect(
+        x(tip((m) => m == 'Pause' || m == 'Play')),
+        closeTo(width / 2, 0.01),
+      );
+    }
+
+    expectGrid();
+
     await tester.tap(find.byTooltip('Favorite'));
     await settle(tester);
     expect(collections.isFavourite('a'), isTrue);
@@ -129,6 +152,7 @@ void main() {
     await tester.runAsync(() => lyrics.load(player.current!));
     await tester.tap(find.byTooltip('Lyrics'));
     await settle(tester);
+    expectGrid();
     expect(find.text('Karaoke together!'), findsOneWidget);
     expect(find.text('Oh, my heart hurts so good'), findsOneWidget);
 

@@ -29,6 +29,8 @@ dependencies:
   audio_session: ^0.2.4
   dbus: ^0.8.0
   path_provider: ^2.1.6
+  package_info_plus: ^10.2.2
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:
@@ -41,6 +43,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/fonts/OFL.txt
 
   fonts:
     - family: Inter

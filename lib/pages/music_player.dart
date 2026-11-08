@@ -219,15 +219,24 @@ class _TitleRow extends StatelessWidget {
             ],
           ),
         ),
-        IconButton(
-          tooltip: fav ? 'Unfavorite' : 'Favorite',
-          icon: Icon(
-            fav ? Icons.star_rounded : Icons.star_outline_rounded,
-            color: Colors.white,
+        const SizedBox(width: 8),
+        Transform.translate(
+          offset: const Offset(20, 0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: fav ? 'Unfavorite' : 'Favorite',
+                icon: Icon(
+                  fav ? Icons.star_rounded : Icons.star_outline_rounded,
+                  color: Colors.white,
+                ),
+                onPressed: () => toggleFavouriteWithNotice(context, song),
+              ),
+              MenuButton(actions: (context) => songActions(context, song)),
+            ],
           ),
-          onPressed: () => toggleFavouriteWithNotice(context, song),
         ),
-        MenuButton(actions: (context) => songActions(context, song)),
       ],
     );
   }
@@ -363,52 +372,57 @@ class _Controls extends StatelessWidget {
     final hasNext = context.select<PlayerController, bool>((p) => p.hasNext);
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        IconButton(
-          tooltip: 'Shuffle',
-          icon: Icon(
-            Icons.shuffle_rounded,
-            color: shuffle ? Colors.white : Colors.white38,
+        for (final button in <Widget>[
+          IconButton(
+            tooltip: 'Shuffle',
+            icon: Icon(
+              Icons.shuffle_rounded,
+              color: shuffle ? Colors.white : Colors.white38,
+            ),
+            onPressed: player.toggleShuffle,
           ),
-          onPressed: player.toggleShuffle,
-        ),
-        IconButton(
-          tooltip: 'Previous',
-          iconSize: 40,
-          color: Colors.white,
-          icon: const Icon(Icons.fast_rewind_rounded),
-          onPressed: player.previous,
-        ),
-        IconButton(
-          tooltip: playing ? 'Pause' : 'Play',
-          iconSize: 56,
-          color: Colors.white,
-          icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
-          onPressed: player.togglePlay,
-        ),
-        IconButton(
-          tooltip: 'Next',
-          iconSize: 40,
-          color: Colors.white,
-          disabledColor: Colors.white30,
-          icon: const Icon(Icons.fast_forward_rounded),
-          onPressed: hasNext ? player.next : null,
-        ),
-        IconButton(
-          tooltip: switch (repeat) {
-            RepeatMode.off => 'Repeat off',
-            RepeatMode.all => 'Repeat all',
-            RepeatMode.one => 'Repeat one',
-          },
-          icon: Icon(
-            repeat == RepeatMode.one
-                ? Icons.repeat_one_rounded
-                : Icons.repeat_rounded,
-            color: repeat == RepeatMode.off ? Colors.white38 : Colors.white,
+          IconButton(
+            tooltip: 'Previous',
+            iconSize: 40,
+            color: Colors.white,
+            icon: const Icon(Icons.fast_rewind_rounded),
+            onPressed: player.previous,
           ),
-          onPressed: player.cycleRepeat,
-        ),
+          IconButton(
+            tooltip: playing ? 'Pause' : 'Play',
+            iconSize: 56,
+            padding: EdgeInsets.zero,
+            color: Colors.white,
+            icon: Icon(
+              playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            ),
+            onPressed: player.togglePlay,
+          ),
+          IconButton(
+            tooltip: 'Next',
+            iconSize: 40,
+            color: Colors.white,
+            disabledColor: Colors.white30,
+            icon: const Icon(Icons.fast_forward_rounded),
+            onPressed: hasNext ? player.next : null,
+          ),
+          IconButton(
+            tooltip: switch (repeat) {
+              RepeatMode.off => 'Repeat off',
+              RepeatMode.all => 'Repeat all',
+              RepeatMode.one => 'Repeat one',
+            },
+            icon: Icon(
+              repeat == RepeatMode.one
+                  ? Icons.repeat_one_rounded
+                  : Icons.repeat_rounded,
+              color: repeat == RepeatMode.off ? Colors.white38 : Colors.white,
+            ),
+            onPressed: player.cycleRepeat,
+          ),
+        ])
+          Expanded(child: Center(child: button)),
       ],
     );
   }

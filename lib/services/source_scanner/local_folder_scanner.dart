@@ -25,6 +25,11 @@ class LocalFolderScanner implements SourceScanner {
     '.aac',
   };
 
+  static const relinkToleranceMs = 2000;
+
+  static String relinkKey(String title, String artist) =>
+      '${title.trim().toLowerCase()}|${artist.trim().toLowerCase()}';
+
   final String Function() _newId;
   final TagBatchReader _readTags;
   final DateTime Function() _now;
@@ -92,20 +97,44 @@ class LocalFolderScanner implements SourceScanner {
 
     final tags = await _readTags(candidates.map((c) => c.path).toList());
 
+    final missing = errors > 0
+        ? <Song>[]
+        : byUri.values.where((s) => !seen.contains(s.uri)).toList();
+    final relinkable = <String, List<Song>>{};
+    for (final m in missing) {
+      relinkable.putIfAbsent(relinkKey(m.title, m.artist), () => []).add(m);
+    }
+    final relinkedIds = <String>{};
+    var relinked = 0;
+
     final nowMs = _now().millisecondsSinceEpoch;
     for (final c in candidates) {
       final t = tags[c.path];
-      final old = c.old;
+      final title = t?.title ?? p.basenameWithoutExtension(c.path);
+      final artist = t?.artist ?? '';
+      final durationMs = t?.durationMs ?? 0;
+      var old = c.old;
+      if (old == null) {
+        final pool = relinkable[relinkKey(title, artist)] ?? const <Song>[];
+        for (final m in pool) {
+          if (relinkedIds.contains(m.id)) continue;
+          if ((m.durationMs - durationMs).abs() > relinkToleranceMs) continue;
+          old = m;
+          relinkedIds.add(m.id);
+          relinked++;
+          break;
+        }
+      }
       final song = Song(
         id: old?.id ?? _newId(),
         sourceId: source.id,
         uri: c.uri,
-        title: t?.title ?? p.basenameWithoutExtension(c.path),
-        artist: t?.artist ?? '',
+        title: title,
+        artist: artist,
         album: t?.album ?? '',
         albumArtist: t?.albumArtist ?? '',
         genre: t?.genre ?? '',
-        durationMs: t?.durationMs ?? 0,
+        durationMs: durationMs,
         year: t?.year,
         trackNumber: t?.trackNumber,
         discNumber: t?.discNumber,
@@ -121,12 +150,10 @@ class LocalFolderScanner implements SourceScanner {
       old == null ? added++ : updated++;
     }
 
-    final removed = errors > 0
-        ? <String>[]
-        : byUri.values
-              .where((s) => !seen.contains(s.uri))
-              .map((s) => s.id)
-              .toList();
+    final removed = [
+      for (final m in missing)
+        if (!relinkedIds.contains(m.id)) m.id,
+    ];
 
     return ScanResult(
       upserts: upserts,
@@ -135,6 +162,7 @@ class LocalFolderScanner implements SourceScanner {
       updated: updated,
       unchanged: unchanged,
       errors: errors,
+      relinked: relinked,
     );
   }
 }
