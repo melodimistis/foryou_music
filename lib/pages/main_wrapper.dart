@@ -298,24 +298,20 @@ class _MainWrapperState extends State<MainWrapper> {
             top: 0,
             left: 0,
             right: 0,
-            child: Column(
-              children: [
-                Container(height: topInset, color: AppColors.background),
-                TopNavBar(
-                  title: isSearchOpen
-                      ? "Search"
-                      : isMenuOpen
-                      ? "Settings"
-                      : _titles[_currentIndex],
-                  onMenuTap: () {
-                    setState(() {
-                      isMenuOpen = !isMenuOpen;
-                      isSearchOpen = false;
-                    });
-                  },
-                  onYoruTap: _openYoru,
-                ),
-              ],
+            child: TopNavBar(
+              solid: isSearchOpen || isMenuOpen,
+              title: isSearchOpen
+                  ? "Search"
+                  : isMenuOpen
+                  ? "Settings"
+                  : _titles[_currentIndex],
+              onMenuTap: () {
+                setState(() {
+                  isMenuOpen = !isMenuOpen;
+                  isSearchOpen = false;
+                });
+              },
+              onYoruTap: _openYoru,
             ),
           ),
           BottomNavbar(

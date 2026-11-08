@@ -98,8 +98,9 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final count = artist.songs.length;
+    final top = MediaQuery.paddingOf(context).top;
     return SizedBox(
-      height: 280,
+      height: top + 280,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -119,34 +120,37 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CoverArt(coverKey: artist.coverKey, size: 150, circle: true),
-              const SizedBox(height: 14),
-              Text(
-                artist.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
+          Padding(
+            padding: EdgeInsets.only(top: top),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CoverArt(coverKey: artist.coverKey, size: 150, circle: true),
+                const SizedBox(height: 14),
+                Text(
+                  artist.name,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Inter',
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                [
-                  if (artist.genres.isNotEmpty) joinNatural(artist.genres),
-                  '$count ${count == 1 ? 'song' : 'songs'}',
-                ].join(' · '),
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontFamily: 'Inter',
-                  fontSize: 13,
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if (artist.genres.isNotEmpty) joinNatural(artist.genres),
+                    '$count ${count == 1 ? 'song' : 'songs'}',
+                  ].join(' · '),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

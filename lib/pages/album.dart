@@ -8,6 +8,7 @@ import '../providers/library_controller.dart';
 import '../providers/player_controller.dart';
 import '../widgets/cover_art.dart';
 import '../widgets/detail_scaffold.dart';
+import '../widgets/top_navbar.dart';
 
 class AlbumPage extends StatelessWidget {
   const AlbumPage({super.key, required this.albumId});
@@ -47,7 +48,12 @@ class AlbumPage extends StatelessWidget {
     return DetailScaffold(
       title: 'Albums',
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          GlassTopBar.extentOf(context) + 20,
+          20,
+          40,
+        ),
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
