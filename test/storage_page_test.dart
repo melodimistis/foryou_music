@@ -20,8 +20,12 @@ void main() {
   late LibraryController library;
   late YoruController yoru;
 
-  Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 6 || library.isScanning; i++) {
+  Future<void> settle(WidgetTester tester, {bool Function()? until}) async {
+    for (
+      var i = 0;
+      i < 6 || library.isScanning || !(until?.call() ?? true);
+      i++
+    ) {
       if (i > 200) break;
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 40)),
@@ -114,7 +118,10 @@ void main() {
       findsOneWidget,
     );
     await tester.tap(find.text('Reset').last);
-    await settle(tester);
+    await settle(
+      tester,
+      until: () => library.songs.every((s) => s.playCount == 0),
+    );
     expect(library.songs.every((s) => s.playCount == 0), isTrue);
     await tester.scrollUntilVisible(find.byTooltip('Remove'), -200);
 
@@ -125,7 +132,7 @@ void main() {
       findsOneWidget,
     );
     await tester.tap(find.text('Remove'));
-    await settle(tester);
+    await settle(tester, until: () => library.sources.isEmpty);
     expect(library.sources, isEmpty);
     expect(library.songs, isEmpty);
     expect(File('${music.path}/a.mp3').existsSync(), isTrue);

@@ -45,7 +45,20 @@ void main() {
   late YoruController yoru;
   late CollectionsController collections;
 
+  Future<void> closeHive(WidgetTester tester) async {
+    var closed = false;
+    Hive.close().then((_) => closed = true);
+    for (var i = 0; !closed; i++) {
+      if (i > 500) fail('Hive did not close');
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+  }
+
   Future<void> setUpLibrary(WidgetTester tester) async {
+    await closeHive(tester);
     await tester.runAsync(() async {
       hiveDir = Directory.systemTemp.createTempSync('foryou_pages');
       Hive.init(hiveDir.path);
@@ -65,14 +78,7 @@ void main() {
   }
 
   Future<void> tearDownLibrary(WidgetTester tester) async {
-    var closed = false;
-    Hive.close().then((_) => closed = true);
-    while (!closed) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 10)),
-      );
-      await tester.pump();
-    }
+    await closeHive(tester);
     await tester.runAsync(() async => hiveDir.deleteSync(recursive: true));
     tester.view.reset();
   }

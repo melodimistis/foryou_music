@@ -7,6 +7,8 @@ import 'package:foryou_music/pages/settings/general.dart';
 import 'package:foryou_music/providers/notice_controller.dart';
 import 'package:foryou_music/providers/settings_controller.dart';
 import 'package:foryou_music/providers/yoru_controller.dart';
+import 'package:foryou_music/providers/update_controller.dart';
+import 'package:foryou_music/services/update/update_checker.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -58,11 +60,29 @@ void main() {
         ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider.value(value: yoru),
         ChangeNotifierProvider(create: (_) => NoticeController()),
+        ChangeNotifierProvider(
+          create: (context) => UpdateController(
+            settings: settings,
+            notices: context.read<NoticeController>(),
+            currentVersion: () async => '1.0.0',
+            checker: UpdateChecker(get: (_) async => (status: 404, body: '')),
+          ),
+        ),
       ],
       child: MaterialApp(home: Scaffold(body: home)),
     );
 
     await tester.pumpWidget(app(const GeneralPage()));
+    expect(find.text('Never checked'), findsOneWidget);
+    await tester.tap(find.text('Check now'));
+    final checked = find.text('Last checked just now');
+    for (var i = 0; i < 300 && checked.evaluate().isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+    expect(find.text('Last checked just now'), findsOneWidget);
     expect(
       tester.widget<SwitchListTile>(find.byType(SwitchListTile).first).value,
       isFalse,
@@ -73,9 +93,15 @@ void main() {
     expect(find.text('Version 1.2.3 (4)'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
-    await tester.runAsync(() async {
-      await Hive.close();
-      dir.deleteSync(recursive: true);
-    });
+    var closed = false;
+    Hive.close().then((_) => closed = true);
+    for (var i = 0; i < 500 && !closed; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+    expect(closed, isTrue);
+    await tester.runAsync(() async => dir.deleteSync(recursive: true));
   });
 }

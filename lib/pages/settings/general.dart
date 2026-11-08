@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/motion.dart';
 import '../../providers/settings_controller.dart';
+import '../../providers/update_controller.dart';
 import '../../widgets/settings_scaffold.dart';
 import '../yoru.dart';
 
@@ -31,6 +32,7 @@ class GeneralPage extends StatelessWidget {
           value: settings.autoUpdate,
           onChanged: settings.setAutoUpdate,
         ),
+        _CheckNowTile(last: settings.lastUpdateCheck),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Skip welcome screen', style: _title),
@@ -59,6 +61,48 @@ class GeneralPage extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+String lastCheckedLabel(DateTime? last, DateTime now) {
+  if (last == null) return 'Never checked';
+  final d = now.difference(last);
+  if (d.inMinutes < 1) return 'Last checked just now';
+  if (d.inHours < 1) return 'Last checked ${d.inMinutes} min ago';
+  if (d.inDays < 1) return 'Last checked ${d.inHours} h ago';
+  if (d.inDays == 1) return 'Last checked yesterday';
+  if (d.inDays < 30) return 'Last checked ${d.inDays} days ago';
+  return 'Last checked ${last.day}/${last.month}/${last.year}';
+}
+
+class _CheckNowTile extends StatelessWidget {
+  const _CheckNowTile({required this.last});
+
+  final DateTime? last;
+
+  @override
+  Widget build(BuildContext context) {
+    final updates = context.watch<UpdateController>();
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Check now', style: GeneralPage._title),
+      subtitle: Text(
+        updates.checking
+            ? 'Asking GitHub...'
+            : lastCheckedLabel(last, DateTime.now()),
+        style: GeneralPage._subtitle,
+      ),
+      trailing: updates.checking
+          ? const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white70,
+              ),
+            )
+          : const Icon(Icons.refresh_rounded, color: Colors.white70),
+      onTap: updates.checking ? null : updates.check,
     );
   }
 }

@@ -61,10 +61,16 @@ class CollectionsController extends ChangeNotifier {
     _favouriteSet = favs.keys.toSet();
   }
 
-  Future<void> _commit(Future<void> Function() write) async {
-    await write();
+  Future<void> _commit(Future<void> Function() write) {
+    final pending = write();
     _reload();
     notifyListeners();
+    pending.catchError((Object e) {
+      debugPrint('Could not save collections: $e');
+      _reload();
+      notifyListeners();
+    });
+    return Future.value();
   }
 
   int get _nowMs => _now().millisecondsSinceEpoch;

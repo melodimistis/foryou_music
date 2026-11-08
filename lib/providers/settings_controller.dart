@@ -7,6 +7,7 @@ class SettingsController extends ChangeNotifier {
   static const boxName = 'settings';
   static const _autoUpdateKey = 'autoUpdate';
   static const _skipWelcomeKey = 'skipWelcome';
+  static const _lastUpdateCheckKey = 'lastUpdateCheckMs';
 
   final Box _box;
 
@@ -25,6 +26,16 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setSkipWelcome(bool value) async {
     await _box.put(_skipWelcomeKey, value);
+    notifyListeners();
+  }
+
+  DateTime? get lastUpdateCheck {
+    final ms = _box.get(_lastUpdateCheckKey) as int?;
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  Future<void> setLastUpdateCheck(DateTime at) async {
+    await _box.put(_lastUpdateCheckKey, at.millisecondsSinceEpoch);
     notifyListeners();
   }
 }

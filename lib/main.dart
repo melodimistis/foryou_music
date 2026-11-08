@@ -17,6 +17,8 @@ import 'package:foryou_music/app/scroll_behavior.dart';
 import 'package:foryou_music/app/theme.dart';
 import 'package:foryou_music/providers/player_controller.dart';
 import 'package:foryou_music/providers/notice_controller.dart';
+import 'package:foryou_music/providers/update_controller.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:foryou_music/providers/settings_controller.dart';
 import 'package:foryou_music/providers/shell_controller.dart';
 import 'package:foryou_music/widgets/notice/notice_layer.dart';
@@ -65,6 +67,13 @@ Future<void> main() async {
     await MediaControlsBinding(player, mediaAdapter).start();
   }
 
+  final notices = NoticeController();
+  final updates = UpdateController(
+    settings: settings,
+    notices: notices,
+    currentVersion: () async => (await PackageInfo.fromPlatform()).version,
+  );
+
   runApp(
     MultiProvider(
       providers: [
@@ -73,7 +82,8 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: collections),
         ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider(create: (_) => ShellController()),
-        ChangeNotifierProvider(create: (_) => NoticeController()),
+        ChangeNotifierProvider.value(value: notices),
+        ChangeNotifierProvider.value(value: updates),
         Provider(create: (_) => LyricsService()),
         ChangeNotifierProvider.value(value: player),
       ],
@@ -83,6 +93,9 @@ Future<void> main() async {
 
   unawaited(player.restore(library.songById));
   unawaited(library.scanAll());
+  unawaited(
+    Future<void>.delayed(const Duration(seconds: 6), updates.checkIfDue),
+  );
 }
 
 class ForYouApp extends StatelessWidget {

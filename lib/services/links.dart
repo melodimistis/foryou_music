@@ -15,8 +15,10 @@ class Links {
   static const email = 'azaralfy01@gmail.com';
   static const developer = 'melodimistis';
 
-  static Future<void> open(BuildContext context, String url) async {
-    final notices = context.read<NoticeController>();
+  static Future<void> open(BuildContext context, String url) =>
+      openWith(context.read<NoticeController>(), url);
+
+  static Future<void> openWith(NoticeController notices, String url) async {
     var opened = false;
     try {
       opened = await launchUrl(
