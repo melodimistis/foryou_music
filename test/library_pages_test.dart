@@ -78,9 +78,9 @@ void main() {
   }
 
   Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < 5; i++) {
       await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        () => Future<void>.delayed(const Duration(milliseconds: 40)),
       );
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
@@ -141,8 +141,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ArtistPage), findsOneWidget);
     expect(find.text('Indie & Pop · 12 songs'), findsOneWidget);
+    expect(find.text('Top Songs'), findsOneWidget);
+    expect(find.text('See all 12'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
+    await tester.tap(find.byTooltip('Shuffle'));
+    await tester.pump();
+    expect(player.shuffle, isTrue);
+    expect(player.current?.artist, 'LANY');
+
+    await tester.drag(find.text('Top Songs'), const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('See all 12'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ArtistSongsPage), findsOneWidget);
+    await tester.tap(
+      find.byIcon(Icons.arrow_back_ios_new_rounded).hitTestable().first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ArtistPage), findsOneWidget);
+
+    await tester.tap(
+      find.byIcon(Icons.arrow_back_ios_new_rounded).hitTestable().first,
+    );
     await tester.pumpAndSettle();
     view.value = null;
     await tester.pumpAndSettle();

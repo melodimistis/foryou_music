@@ -46,14 +46,14 @@ class DetailScaffold extends StatelessWidget {
           trailing: trailing ?? const SizedBox(width: 48),
         ),
       ),
-      bottomNavigationBar: dock ? const _DetailDock() : null,
+      bottomNavigationBar: dock ? const DetailDock() : null,
       body: body,
     );
   }
 }
 
-class _DetailDock extends StatelessWidget {
-  const _DetailDock();
+class DetailDock extends StatelessWidget {
+  const DetailDock({super.key});
 
   void _goTo(BuildContext context, void Function(ShellController) action) {
     Navigator.of(context).popUntil((route) => route.isFirst);

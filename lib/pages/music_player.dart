@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide RepeatMode;
+import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 
 import '../app/format.dart';
@@ -630,17 +633,73 @@ class SyncedLyrics extends StatefulWidget {
 
   final Lyrics lyrics;
 
+  static const maxExtrapolation = Duration(seconds: 1);
+
   @override
   State<SyncedLyrics> createState() => _SyncedLyricsState();
 }
 
-class _SyncedLyricsState extends State<SyncedLyrics> {
+class _SyncedLyricsState extends State<SyncedLyrics>
+    with SingleTickerProviderStateMixin {
   late final List<GlobalKey> _keys = [
     for (var i = 0; i < widget.lyrics.lines.length; i++) GlobalKey(),
   ];
   final _introKey = GlobalKey();
+  final _clock = ValueNotifier<Duration>(Duration.zero);
+  late final PlayerController _player;
+  late final Ticker _ticker;
+  StreamSubscription<Duration>? _sub;
+  Duration _base = Duration.zero;
+  DateTime _baseAt = DateTime.now();
+  int _current = -2;
   int _shown = -2;
   DateTime _userScrolledAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  @override
+  void initState() {
+    super.initState();
+    _player = context.read<PlayerController>();
+    _ticker = createTicker((_) => _apply(_extrapolated()));
+    _setBase(_player.position);
+    _sub = _player.positionStream.listen(_setBase);
+    _player.addListener(_onPlayer);
+    _onPlayer();
+  }
+
+  void _setBase(Duration p) {
+    _base = p;
+    _baseAt = DateTime.now();
+    _apply(p);
+  }
+
+  Duration _extrapolated() {
+    if (!_player.isPlaying) return _base;
+    var ahead = DateTime.now().difference(_baseAt);
+    if (ahead > SyncedLyrics.maxExtrapolation) {
+      ahead = SyncedLyrics.maxExtrapolation;
+    }
+    return _base + ahead;
+  }
+
+  void _onPlayer() {
+    if (_player.isPlaying && !_ticker.isActive) {
+      _baseAt = DateTime.now();
+      _ticker.start();
+    } else if (!_player.isPlaying && _ticker.isActive) {
+      _ticker.stop();
+      _apply(_base);
+    }
+  }
+
+  void _apply(Duration pos) {
+    if (!mounted) return;
+    _clock.value = pos;
+    final index = widget.lyrics.indexAt(pos);
+    if (index != _current) {
+      setState(() => _current = index);
+      _follow(index);
+    }
+  }
 
   void _follow(int index) {
     if (index == _shown) return;
@@ -655,16 +714,34 @@ class _SyncedLyricsState extends State<SyncedLyrics> {
       Scrollable.ensureVisible(
         ctx,
         alignment: 0.3,
-        duration: const Duration(milliseconds: 450),
+        duration: const Duration(milliseconds: 500),
         curve: Curves.easeOutCubic,
       );
     });
   }
 
   @override
-  Widget build(BuildContext context) {
-    final player = context.read<PlayerController>();
+  void dispose() {
+    _player.removeListener(_onPlayer);
+    _sub?.cancel();
+    _ticker.dispose();
+    _clock.dispose();
+    super.dispose();
+  }
+
+  Duration _lineEnd(int i) {
     final lines = widget.lyrics.lines;
+    final start = lines[i].time;
+    final next = i + 1 < lines.length ? lines[i + 1].time : null;
+    final cap = start + const Duration(seconds: 8);
+    if (next == null || next > cap) return cap;
+    return next;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = widget.lyrics.lines;
+    final current = _current;
 
     return NotificationListener<UserScrollNotification>(
       onNotification: (_) {
@@ -684,101 +761,178 @@ class _SyncedLyricsState extends State<SyncedLyrics> {
           stops: [0, 0.08, 0.88, 1],
         ).createShader(rect),
         blendMode: BlendMode.dstIn,
-        child: StreamBuilder<Duration>(
-          stream: player.positionStream,
-          initialData: player.position,
-          builder: (context, snap) {
-            final pos = snap.data ?? Duration.zero;
-            final current = widget.lyrics.indexAt(pos);
-            _follow(current);
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (lines.first.time > Duration.zero && !lines.first.isGap)
-                    _Dots(key: _introKey, active: current < 0),
-                  for (final (i, line) in lines.indexed)
-                    GestureDetector(
-                      key: _keys[i],
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => player.seek(line.time),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: line.isGap
-                            ? _Dots(active: i == current)
-                            : _LyricLineView(
-                                line: line,
-                                state: i == current
-                                    ? _LineState.current
-                                    : (i < current
-                                          ? _LineState.past
-                                          : _LineState.future),
-                                position: pos,
-                              ),
-                      ),
-                    ),
-                ],
-              ),
-            );
-          },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (lines.first.time > Duration.zero && !lines.first.isGap)
+                _Dots(key: _introKey, active: current < 0),
+              for (final (i, line) in lines.indexed)
+                GestureDetector(
+                  key: _keys[i],
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _player.seek(line.time),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: line.isGap
+                        ? _Dots(active: i == current)
+                        : LyricLineView(
+                            line: line,
+                            state: i == current
+                                ? LineState.current
+                                : (i < current
+                                      ? LineState.past
+                                      : LineState.future),
+                            clock: _clock,
+                            end: _lineEnd(i),
+                          ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-enum _LineState { past, current, future }
+enum LineState { past, current, future }
 
-class _LyricLineView extends StatelessWidget {
-  const _LyricLineView({
+const _lyricStyle = TextStyle(
+  fontFamily: 'Inter',
+  fontSize: 26,
+  fontWeight: FontWeight.w800,
+  height: 1.25,
+  color: Colors.white,
+);
+
+class LyricLineView extends StatelessWidget {
+  const LyricLineView({
+    super.key,
     required this.line,
     required this.state,
-    required this.position,
+    required this.clock,
+    required this.end,
   });
 
+  static const currentScale = 1.0;
+  static const restScale = 0.92;
+
   final LyricLine line;
-  final _LineState state;
-  final Duration position;
+  final LineState state;
+  final ValueListenable<Duration> clock;
+  final Duration end;
 
   @override
   Widget build(BuildContext context) {
-    final current = state == _LineState.current;
-    final style = TextStyle(
-      fontFamily: 'Inter',
-      fontSize: current ? 28 : 21,
-      fontWeight: FontWeight.w800,
-      height: 1.25,
-      color: switch (state) {
-        _LineState.current => Colors.white,
-        _LineState.past => Colors.white38,
-        _LineState.future => Colors.white60,
+    final current = state == LineState.current;
+    final Widget content = current && line.words.isNotEmpty
+        ? ValueListenableBuilder<Duration>(
+            valueListenable: clock,
+            builder: (context, pos, _) => Wrap(
+              children: [
+                for (final (i, w) in line.words.indexed)
+                  LyricWordView(
+                    text: w.text,
+                    progress: _progress(
+                      pos,
+                      w.time,
+                      i + 1 < line.words.length ? line.words[i + 1].time : end,
+                    ),
+                  ),
+              ],
+            ),
+          )
+        : Text(line.text, style: _lyricStyle);
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      opacity: switch (state) {
+        LineState.current => 1,
+        LineState.past => 0.35,
+        LineState.future => 0.55,
       },
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.centerLeft,
+        scale: current ? currentScale : restScale,
+        child: content,
+      ),
+    );
+  }
+
+  static double _progress(Duration pos, Duration start, Duration end) {
+    final span = (end - start).inMicroseconds;
+    if (span <= 0) return pos >= start ? 1 : 0;
+    return ((pos - start).inMicroseconds / span).clamp(0.0, 1.0);
+  }
+}
+
+class LyricWordView extends StatelessWidget {
+  const LyricWordView({super.key, required this.text, required this.progress});
+
+  static const lift = 3.0;
+  static const softEdge = 0.18;
+
+  final String text;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = progress;
+    final glow = math.sin(math.pi * p);
+    final dimmed = Text(
+      text,
+      style: _lyricStyle.copyWith(color: Colors.white38),
+    );
+    final lit = Text(
+      text,
+      style: _lyricStyle.copyWith(
+        shadows: glow > 0.02
+            ? [
+                Shadow(
+                  color: Colors.white.withValues(alpha: 0.55 * glow),
+                  blurRadius: 16 * glow,
+                ),
+              ]
+            : null,
+      ),
     );
 
-    Widget text;
-    if (current && line.words.isNotEmpty) {
-      text = Text.rich(
-        TextSpan(
-          children: [
-            for (final w in line.words)
-              TextSpan(
-                text: w.text,
-                style: style.copyWith(
-                  color: w.time <= position ? Colors.white : Colors.white38,
-                ),
-              ),
-          ],
-        ),
-      );
+    final Widget body;
+    if (p <= 0) {
+      body = dimmed;
+    } else if (p >= 1) {
+      body = lit;
     } else {
-      text = Text(line.text, style: style);
+      final from = (p - softEdge / 2).clamp(0.0, 1.0);
+      final to = (p + softEdge / 2).clamp(0.0, 1.0);
+      body = Stack(
+        children: [
+          dimmed,
+          ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (rect) => LinearGradient(
+              colors: const [
+                Colors.white,
+                Colors.white,
+                Colors.transparent,
+                Colors.transparent,
+              ],
+              stops: [0, from, to, 1],
+            ).createShader(rect),
+            child: lit,
+          ),
+        ],
+      );
     }
 
-    return AnimatedDefaultTextStyle(
-      duration: const Duration(milliseconds: 250),
-      style: style,
-      child: text,
+    return Transform.translate(
+      offset: Offset(0, -lift * Curves.easeOutCubic.transform(p)),
+      child: body,
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -5,19 +6,34 @@ import 'package:provider/provider.dart';
 
 import '../app/format.dart';
 import '../app/motion.dart';
+import '../app/theme.dart';
 import '../models/album.dart';
+import '../models/song.dart';
+import '../providers/collections_controller.dart';
 import '../providers/library_controller.dart';
 import '../providers/player_controller.dart';
+import '../widgets/collection_view.dart';
+import '../widgets/context_menu.dart';
 import '../widgets/cover_art.dart';
 import '../widgets/detail_scaffold.dart';
-import '../widgets/context_menu.dart';
 import '../widgets/menu_actions.dart';
 import '../widgets/song_swipe.dart';
-import '../widgets/media_row.dart';
+import '../widgets/top_navbar.dart';
 import 'album.dart';
 
-class ArtistPage extends StatelessWidget {
+List<Song> topSongsOf(Artist artist) => List.of(artist.songs)
+  ..sort((a, b) {
+    final plays = b.playCount.compareTo(a.playCount);
+    if (plays != 0) return plays;
+    final last = (b.lastPlayedMs ?? 0).compareTo(a.lastPlayedMs ?? 0);
+    if (last != 0) return last;
+    return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+  });
+
+class ArtistPage extends StatefulWidget {
   const ArtistPage({super.key, required this.artistId});
+
+  static const topCount = 5;
 
   final String artistId;
 
@@ -28,12 +44,22 @@ class ArtistPage extends StatelessWidget {
   );
 
   @override
+  State<ArtistPage> createState() => _ArtistPageState();
+}
+
+class _ArtistPageState extends State<ArtistPage> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final artist = context.select<LibraryController, Artist?>(
-      (l) => l.artistById(artistId),
-    );
-    final currentId = context.select<PlayerController, String?>(
-      (p) => p.current?.id,
+      (l) => l.artistById(widget.artistId),
     );
 
     if (artist == null) {
@@ -48,116 +74,181 @@ class ArtistPage extends StatelessWidget {
       );
     }
 
-    final ids = [for (final s in artist.songs) s.id];
-    return DetailScaffold(
-      title: 'Artists',
-      trailing: MenuButton(actions: (context) => songsActions(context, ids)),
-      body: Builder(
-        builder: (context) => ListView(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.paddingOf(context).bottom + 24,
-          ),
-          children: [
-            _Header(artist: artist),
-            if (artist.albums.isNotEmpty) ...[
-              const _SectionTitle('Albums'),
-              SizedBox(
-                height: 172,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: artist.albums.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 14),
-                  itemBuilder: (context, i) {
-                    final album = artist.albums[i];
-                    return MenuTarget(
-                      actions: (context) => songsActions(context, [
-                        for (final s in album.songs) s.id,
-                      ]),
-                      child: _AlbumTile(
-                        album: album,
-                        onTap: () => AlbumPage.open(context, album),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-            const _SectionTitle('Songs'),
-            for (final (i, song) in artist.songs.indexed)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: SongSwipe(
-                  song: song,
-                  child: MenuTarget(
-                    actions: (context) => songActions(context, song),
-                    child: MediaRow(
-                      title: song.title,
-                      subtitle: song.album,
-                      coverKey: song.coverKey,
-                      trailing: formatDuration(song.durationMs),
-                      active: song.id == currentId,
-                      enabled: song.available,
-                      onTap: () => context.read<PlayerController>().playQueue(
-                        artist.songs,
-                        startIndex: i,
-                      ),
-                    ),
+    final size = MediaQuery.sizeOf(context);
+    final wide = size.width >= DetailScaffold.wideBreakpoint;
+    final heroHeight = math.min(size.width * 1.05, size.height * 0.62);
+    final top = topSongsOf(artist);
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      extendBody: true,
+      bottomNavigationBar: wide ? null : const DetailDock(),
+      body: Stack(
+        children: [
+          Positioned.fill(child: _Backdrop(coverKey: artist.coverKey)),
+          Builder(
+            builder: (context) => CustomScrollView(
+              controller: _scroll,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _Hero(
+                    artist: artist,
+                    height: heroHeight,
+                    scroll: _scroll,
+                    top: top,
                   ),
                 ),
-              ),
-          ],
-        ),
+                SliverToBoxAdapter(
+                  child: _TopSongsCard(artist: artist, top: top),
+                ),
+                if (artist.albums.isNotEmpty)
+                  SliverToBoxAdapter(child: _Albums(albums: artist.albums)),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: MediaQuery.paddingOf(context).bottom + 24,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _TopBar(
+            scroll: _scroll,
+            heroHeight: heroHeight,
+            songIds: [for (final s in artist.songs) s.id],
+          ),
+        ],
       ),
     );
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.artist});
+const _overlay = Color(0x8C000000);
+
+class _Backdrop extends StatelessWidget {
+  const _Backdrop({required this.coverKey});
+
+  final String coverKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
+          child: FittedBox(
+            fit: BoxFit.cover,
+            child: CoverArt(coverKey: coverKey, size: 240, radius: 0),
+          ),
+        ),
+        const ColoredBox(color: _overlay),
+      ],
+    );
+  }
+}
+
+class _Hero extends StatelessWidget {
+  const _Hero({
+    required this.artist,
+    required this.height,
+    required this.scroll,
+    required this.top,
+  });
 
   final Artist artist;
+  final double height;
+  final ScrollController scroll;
+  final List<Song> top;
 
   @override
   Widget build(BuildContext context) {
     final count = artist.songs.length;
-    final top = MediaQuery.paddingOf(context).top;
+    final image = FittedBox(
+      fit: BoxFit.cover,
+      clipBehavior: Clip.hardEdge,
+      child: CoverArt(coverKey: artist.coverKey, size: height, radius: 0),
+    );
+
     return SizedBox(
-      height: top + 280,
+      height: height,
       child: Stack(
         fit: StackFit.expand,
         children: [
           ClipRect(
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-              child: Opacity(
-                opacity: 0.45,
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  child: CoverArt(
-                    coverKey: artist.coverKey,
-                    size: 200,
-                    radius: 0,
-                  ),
+            child: ShaderMask(
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (rect) => const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.white, Colors.white, Colors.transparent],
+                stops: [0, 0.72, 1],
+              ).createShader(rect),
+              child: AnimatedBuilder(
+                animation: scroll,
+                builder: (context, child) {
+                  final offset = scroll.hasClients ? scroll.offset : 0.0;
+                  final stretch = offset < 0 ? 1 + (-offset / height) : 1.0;
+                  return Transform.translate(
+                    offset: Offset(0, offset > 0 ? offset * 0.45 : offset),
+                    child: Transform.scale(
+                      scale: stretch,
+                      alignment: Alignment.bottomCenter,
+                      child: child,
+                    ),
+                  );
+                },
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    image,
+                    ShaderMask(
+                      blendMode: BlendMode.dstIn,
+                      shaderCallback: (rect) => const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Colors.white],
+                        stops: [0.4, 0.85],
+                      ).createShader(rect),
+                      child: ImageFiltered(
+                        imageFilter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+                        child: image,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.only(top: top),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x33000000),
+                  Colors.transparent,
+                  Color(0x40000000),
+                ],
+                stops: [0, 0.3, 1],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: 18,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CoverArt(coverKey: artist.coverKey, size: 150, circle: true),
-                const SizedBox(height: 14),
                 Text(
                   artist.name,
                   textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
                     fontFamily: 'Inter',
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 34,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -172,11 +263,340 @@ class _Header extends StatelessWidget {
                     fontSize: 13,
                   ),
                 ),
+                const SizedBox(height: 16),
+                _HeroButtons(artist: artist, top: top),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _HeroButtons extends StatelessWidget {
+  const _HeroButtons({required this.artist, required this.top});
+
+  final Artist artist;
+  final List<Song> top;
+
+  @override
+  Widget build(BuildContext context) {
+    final ids = [for (final s in artist.songs) s.id];
+    final allFav = context.select<CollectionsController, bool>(
+      (c) => c.allFavourite(ids),
+    );
+    final player = context.read<PlayerController>();
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        GlassCircle(
+          tooltip: allFav ? 'Unfavorite all' : 'Favorite all',
+          icon: allFav ? Icons.star_rounded : Icons.star_outline_rounded,
+          onPressed: () =>
+              context.read<CollectionsController>().setFavourite(ids, !allFav),
+        ),
+        const SizedBox(width: 22),
+        Tooltip(
+          message: 'Play',
+          child: Material(
+            color: Colors.white,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () {
+                if (player.shuffle) player.toggleShuffle();
+                player.playQueue(top);
+              },
+              child: const SizedBox.square(
+                dimension: 60,
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.black,
+                  size: 36,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 22),
+        GlassCircle(
+          tooltip: 'Shuffle',
+          icon: Icons.shuffle_rounded,
+          onPressed: () => player.playShuffled(artist.songs),
+        ),
+      ],
+    );
+  }
+}
+
+class GlassCircle extends StatelessWidget {
+  const GlassCircle({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+    this.size = 44,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String? tooltip;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = ClipOval(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.16),
+          shape: CircleBorder(
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
+          ),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed,
+            child: SizedBox.square(
+              dimension: size,
+              child: Icon(icon, color: Colors.white, size: size * 0.5),
+            ),
+          ),
+        ),
+      ),
+    );
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
+  }
+}
+
+class _GlassCard extends StatelessWidget {
+  const _GlassCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopSongsCard extends StatelessWidget {
+  const _TopSongsCard({required this.artist, required this.top});
+
+  final Artist artist;
+  final List<Song> top;
+
+  void _seeAll(BuildContext context) => pushMotion(
+    context,
+    ScreenMotion.detail,
+    (_) => ArtistSongsPage(artistId: artist.id),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final currentId = context.select<PlayerController, String?>(
+      (p) => p.current?.id,
+    );
+    final shown = top.take(ArtistPage.topCount).toList();
+
+    return _GlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _seeAll(context),
+              child: const Padding(
+                padding: EdgeInsets.fromLTRB(12, 10, 12, 6),
+                child: Row(
+                  children: [
+                    Text(
+                      'Top Songs',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Inter',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: Colors.white70),
+                  ],
+                ),
+              ),
+            ),
+            for (final (i, s) in shown.indexed)
+              SongSwipe(
+                song: s,
+                child: MenuTarget(
+                  actions: (context) => songActions(context, s),
+                  child: _TopSongRow(
+                    song: s,
+                    active: s.id == currentId,
+                    onTap: () => context.read<PlayerController>().playQueue(
+                      top,
+                      startIndex: i,
+                    ),
+                  ),
+                ),
+              ),
+            if (top.length > ArtistPage.topCount)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => _seeAll(context),
+                  child: Text(
+                    'See all ${top.length}',
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopSongRow extends StatelessWidget {
+  const _TopSongRow({
+    required this.song,
+    required this.active,
+    required this.onTap,
+  });
+
+  final Song song;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final sub = [
+      if (song.album.isNotEmpty) song.album,
+      if (song.year != null) '${song.year}',
+    ].join(' · ');
+    return Opacity(
+      opacity: song.available ? 1 : 0.4,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: song.available ? onTap : null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 6, 0, 6),
+          child: Row(
+            children: [
+              CoverArt(coverKey: song.coverKey, size: 46, radius: 8),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Inter',
+                        fontSize: 15,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                    if (sub.isNotEmpty)
+                      Text(
+                        sub,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (active)
+                const Icon(
+                  Icons.graphic_eq_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              MenuButton(
+                color: Colors.white70,
+                actions: (context) => songActions(context, song),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Albums extends StatelessWidget {
+  const _Albums({required this.albums});
+
+  final List<Album> albums;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(24, 18, 24, 10),
+          child: Text(
+            'Albums',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Inter',
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 172,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            itemCount: albums.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 14),
+            itemBuilder: (context, i) {
+              final album = albums[i];
+              return MenuTarget(
+                actions: (context) =>
+                    songsActions(context, [for (final s in album.songs) s.id]),
+                child: _AlbumTile(
+                  album: album,
+                  onTap: () => AlbumPage.open(context, album),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -225,23 +645,123 @@ class _AlbumTile extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
+class _TopBar extends StatelessWidget {
+  const _TopBar({
+    required this.scroll,
+    required this.heroHeight,
+    required this.songIds,
+  });
 
-  final String text;
+  final ScrollController scroll;
+  final double heroHeight;
+  final List<String> songIds;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontFamily: 'Inter',
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-        ),
+    final topInset = MediaQuery.paddingOf(context).top;
+    final start = heroHeight - GlassTopBar.extentOf(context) - 60;
+
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: AnimatedBuilder(
+        animation: scroll,
+        builder: (context, _) {
+          final offset = scroll.hasClients ? scroll.offset : 0.0;
+          final t = ((offset - start) / 60).clamp(0.0, 1.0);
+          return Stack(
+            children: [
+              IgnorePointer(
+                ignoring: t < 0.5,
+                child: Opacity(
+                  opacity: t,
+                  child: GlassTopBar(
+                    title: 'Artists',
+                    leading: IconButton(
+                      tooltip: 'Back',
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                    ),
+                    trailing: MenuButton(
+                      actions: (context) => songsActions(context, songIds),
+                    ),
+                  ),
+                ),
+              ),
+              IgnorePointer(
+                ignoring: t >= 0.5,
+                child: Opacity(
+                  opacity: 1 - t,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, topInset + 8, 16, 0),
+                    child: Row(
+                      children: [
+                        GlassCircle(
+                          tooltip: 'Back',
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          size: 40,
+                          onPressed: () => Navigator.of(context).maybePop(),
+                        ),
+                        const Spacer(),
+                        Builder(
+                          builder: (context) => GlassCircle(
+                            tooltip: 'More',
+                            icon: Icons.more_horiz_rounded,
+                            size: 40,
+                            onPressed: () {
+                              final box =
+                                  context.findRenderObject()! as RenderBox;
+                              showContextMenu(
+                                context,
+                                box.localToGlobal(
+                                  box.size.bottomCenter(Offset.zero),
+                                ),
+                                songsActions(context, songIds),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class ArtistSongsPage extends StatelessWidget {
+  const ArtistSongsPage({super.key, required this.artistId});
+
+  final String artistId;
+
+  @override
+  Widget build(BuildContext context) {
+    final artist = context.select<LibraryController, Artist?>(
+      (l) => l.artistById(artistId),
+    );
+    if (artist == null) {
+      return const DetailScaffold(title: 'Artists', body: SizedBox.shrink());
+    }
+    final ids = [for (final s in artist.songs) s.id];
+    return DetailScaffold(
+      title: 'Artists',
+      trailing: MenuButton(actions: (context) => songsActions(context, ids)),
+      body: CollectionView(
+        title: artist.name,
+        subtitle: 'All songs',
+        meta: joinNatural(artist.genres),
+        coverKey: artist.coverKey,
+        songs: topSongsOf(artist),
       ),
     );
   }

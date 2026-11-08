@@ -101,6 +101,19 @@ class PlayerController extends ChangeNotifier {
     await _loadCurrent();
   }
 
+  Future<void> playShuffled(List<Song> songs) async {
+    final playable = [
+      for (final (i, s) in songs.indexed)
+        if (s.available) i,
+    ];
+    if (playable.isEmpty) return;
+    _shuffle = true;
+    await playQueue(
+      songs,
+      startIndex: playable[_random.nextInt(playable.length)],
+    );
+  }
+
   Future<void> jumpTo(int index) async {
     if (index < 0 || index >= _queue.length) return;
     _index = index;

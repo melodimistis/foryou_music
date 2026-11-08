@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foryou_music/models/lyrics.dart';
 import 'package:foryou_music/pages/music_player.dart';
 import 'package:foryou_music/providers/collections_controller.dart';
 import 'package:foryou_music/providers/notice_controller.dart';
@@ -30,9 +31,9 @@ void main() {
   late LyricsService lyrics;
 
   Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < 5; i++) {
       await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        () => Future<void>.delayed(const Duration(milliseconds: 40)),
       );
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
@@ -134,12 +135,29 @@ void main() {
     engine.emitPosition(const Duration(seconds: 11));
     await tester.pump();
     await tester.pump();
-    final current = tester.widget<Text>(
-      find.text('I love you, baby, so bad, so bad'),
+    double scaleOf(String text) => tester
+        .widget<AnimatedScale>(
+          find.ancestor(
+            of: find.text(text),
+            matching: find.byType(AnimatedScale),
+          ),
+        )
+        .scale;
+    expect(
+      scaleOf('I love you, baby, so bad, so bad'),
+      LyricLineView.currentScale,
     );
-    expect(current.style!.fontSize, 28);
-    final other = tester.widget<Text>(find.text('Oh, my heart hurts so good'));
-    expect(other.style!.fontSize, 21);
+    expect(scaleOf('Oh, my heart hurts so good'), LyricLineView.restScale);
+    expect(
+      tester
+          .widget<Text>(find.text('I love you, baby, so bad, so bad'))
+          .style!
+          .fontSize,
+      tester
+          .widget<Text>(find.text('Oh, my heart hurts so good'))
+          .style!
+          .fontSize,
+    );
 
     await tester.tap(find.text('Oh, oh, my heart hurts so good'));
     await tester.pump();
@@ -159,5 +177,45 @@ void main() {
     expect(find.byType(MusicPlayerPage), findsNothing);
 
     await tearDownAll(tester);
+  });
+
+  testWidgets('word-synced line fills word by word', (tester) async {
+    final clock = ValueNotifier(const Duration(milliseconds: 10600));
+    const line = LyricLine(
+      Duration(seconds: 10),
+      'Oh, my heart',
+      words: [
+        LyricWord(Duration(milliseconds: 10000), 'Oh, '),
+        LyricWord(Duration(milliseconds: 10400), 'my '),
+        LyricWord(Duration(milliseconds: 10800), 'heart'),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LyricLineView(
+            line: line,
+            state: LineState.current,
+            clock: clock,
+            end: const Duration(milliseconds: 11600),
+          ),
+        ),
+      ),
+    );
+    List<double> progress() => tester
+        .widgetList<LyricWordView>(find.byType(LyricWordView))
+        .map((w) => w.progress)
+        .toList();
+
+    expect(progress(), [1.0, 0.5, 0.0]);
+    clock.value = const Duration(milliseconds: 11200);
+    await tester.pump();
+    expect(progress(), [1.0, 1.0, 0.5]);
+    expect(find.byType(ShaderMask), findsOneWidget);
+
+    clock.value = const Duration(seconds: 20);
+    await tester.pump();
+    expect(progress(), [1.0, 1.0, 1.0]);
+    expect(find.byType(ShaderMask), findsNothing);
   });
 }
