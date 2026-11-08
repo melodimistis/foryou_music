@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:foryou_music/app/motion.dart';
 import 'package:foryou_music/pages/settings/audio_quality.dart';
 import 'package:foryou_music/pages/settings/help.dart';
 import 'package:foryou_music/pages/settings/general.dart';
@@ -17,8 +18,7 @@ class SettingsPage extends StatelessWidget {
         style: const TextStyle(color: Colors.white, fontFamily: 'Inter'),
       ),
       trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
-      onTap: () =>
-          Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
+      onTap: () => pushMotion(context, ScreenMotion.settings, (_) => page),
     );
   }
 

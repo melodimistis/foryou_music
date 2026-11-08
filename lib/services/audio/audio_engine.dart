@@ -21,7 +21,6 @@ class JustAudioEngine implements AudioEngine {
 
   @override
   Stream<Duration> get positionStream => _player.positionStream;
-
   @override
   Stream<Duration?> get durationStream => _player.durationStream;
 

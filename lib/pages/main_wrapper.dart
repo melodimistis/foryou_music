@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:foryou_music/pages/search.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
+import 'package:foryou_music/app/motion.dart';
 import 'package:foryou_music/app/theme.dart';
 import 'package:foryou_music/widgets/side_navbar.dart';
 import 'package:foryou_music/pages/home.dart';
@@ -14,7 +15,11 @@ import 'package:foryou_music/pages/yoru.dart';
 import 'package:foryou_music/providers/yoru_controller.dart';
 import 'package:foryou_music/pages/settings/settings.dart';
 import 'package:foryou_music/widgets/mini_player.dart';
+import 'package:foryou_music/pages/music_player.dart';
 import 'package:foryou_music/providers/player_controller.dart';
+import 'package:foryou_music/providers/shell_controller.dart';
+import 'package:foryou_music/widgets/detail_scaffold.dart';
+import 'package:foryou_music/widgets/search_view.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -24,10 +29,6 @@ class MainWrapper extends StatefulWidget {
 }
 
 class _MainWrapperState extends State<MainWrapper> {
-  bool isMenuOpen = false;
-  bool isSearchOpen = false;
-  int _currentIndex = 0;
-
   final List<String> _titles = [
     "Home",
     "Search",
@@ -37,17 +38,20 @@ class _MainWrapperState extends State<MainWrapper> {
   ];
 
   void _openSettings() {
-    Navigator.push(
+    pushMotion(context, ScreenMotion.settings, (_) => const SettingsPage());
+  }
+
+  void _openInfoPage(String title, Widget page) {
+    context.read<ShellController>().closePanels();
+    pushMotion(
       context,
-      MaterialPageRoute(builder: (_) => const SettingsPage()),
+      ScreenMotion.info,
+      (_) => DetailScaffold(title: title, showDock: false, body: page),
     );
   }
 
   void _openYoru() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const YoruPage()),
-    );
+    pushMotion(context, ScreenMotion.settings, (_) => const YoruPage());
   }
 
   Widget _miniPlayer({bool translucent = false}) {
@@ -61,6 +65,7 @@ class _MainWrapperState extends State<MainWrapper> {
           artist: song.artist.isEmpty ? 'Unknown Artist' : song.artist,
           isPlaying: player.isPlaying,
           onPlayPause: player.togglePlay,
+          onTap: () => MusicPlayerPage.open(context),
           translucent: translucent,
         );
       },
@@ -68,15 +73,18 @@ class _MainWrapperState extends State<MainWrapper> {
   }
 
   Widget _buildPages({bool wide = false}) {
-    final index = (!wide && _currentIndex == 1) ? 0 : _currentIndex;
+    final shell = context.read<ShellController>();
+    final index = (!wide && shell.index == ShellController.search)
+        ? ShellController.home
+        : shell.index;
     return IndexedStack(
       index: index,
-      children: const [
-        HomePage(),
-        SearchPage(),
-        LibrariesPage(),
-        AboutUsPage(),
-        LegalPage(),
+      children: [
+        const HomePage(),
+        const SearchPage(),
+        LibrariesPage(view: shell.libraryView),
+        const AboutUsPage(),
+        const LegalPage(),
       ],
     );
   }
@@ -94,12 +102,19 @@ class _MainWrapperState extends State<MainWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return constraints.maxWidth >= 840
-            ? _buildWide(context)
-            : _buildCompact(context);
+    final shell = context.watch<ShellController>();
+    return PopScope(
+      canPop: shell.canPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) shell.handleBack();
       },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return constraints.maxWidth >= 840
+              ? _buildWide(context)
+              : _buildCompact(context);
+        },
+      ),
     );
   }
 
@@ -113,8 +128,8 @@ class _MainWrapperState extends State<MainWrapper> {
       body: Row(
         children: [
           SideNavbar(
-            currentIndex: _currentIndex,
-            onSelect: (i) => setState(() => _currentIndex = i),
+            currentIndex: context.read<ShellController>().index,
+            onSelect: context.read<ShellController>().select,
             onYoruTap: _openYoru,
             onSettingsTap: _openSettings,
           ),
@@ -156,29 +171,36 @@ class _MainWrapperState extends State<MainWrapper> {
     final screenHeight = mq.size.height;
     final topInset = mq.padding.top;
     final headerBottom = topInset + TopNavBar.height;
+    final hasSong = context.select<PlayerController, bool>((p) => p.hasSong);
+    final shell = context.read<ShellController>();
+    final isMenuOpen = shell.menuOpen;
+    final isSearchOpen = shell.searchOpen;
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      extendBody: true,
+      bottomNavigationBar: BottomNavbar(
+        currentIndex: shell.dockIndex,
+        onTap: shell.select,
+        onSearchTap: shell.toggleSearch,
+      ),
       body: Stack(
         children: [
           Positioned.fill(
             child: MediaQuery(
               data: mq.copyWith(
-                padding: mq.padding.copyWith(top: headerBottom),
+                padding: mq.padding.copyWith(
+                  top: headerBottom,
+                  bottom: BottomNavbar.extent(hasSong: hasSong),
+                ),
               ),
               child: _buildPages(),
             ),
           ),
-          Positioned(bottom: 125, left: 30, right: 30, child: _miniPlayer()),
           if (isMenuOpen || isSearchOpen)
             Positioned.fill(
               child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    isMenuOpen = false;
-                    isSearchOpen = false;
-                  });
-                },
+                onTap: shell.closePanels,
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                   child: Container(color: Colors.black.withValues(alpha: 0.4)),
@@ -199,7 +221,7 @@ class _MainWrapperState extends State<MainWrapper> {
                 right: 24,
               ),
               decoration: const BoxDecoration(
-                color: Color(0xFF1C1C1E),
+                color: AppColors.surface,
                 borderRadius: BorderRadius.vertical(
                   bottom: Radius.circular(32),
                 ),
@@ -210,28 +232,18 @@ class _MainWrapperState extends State<MainWrapper> {
                   _buildMenuTile(
                     Icons.gavel_rounded,
                     "Legal",
-                    onTap: () {
-                      setState(() {
-                        isMenuOpen = false;
-                        _currentIndex = 4;
-                      });
-                    },
+                    onTap: () => _openInfoPage('Legal', const LegalPage()),
                   ),
                   _buildMenuTile(
                     Icons.info_outline_rounded,
                     "About Us",
-                    onTap: () {
-                      setState(() {
-                        isMenuOpen = false;
-                        _currentIndex = 3;
-                      });
-                    },
+                    onTap: () => _openInfoPage('About Us', const AboutUsPage()),
                   ),
                   _buildMenuTile(
                     Icons.settings_outlined,
                     "Settings",
                     onTap: () {
-                      setState(() => isMenuOpen = false);
+                      shell.closePanels();
                       _openSettings();
                     },
                   ),
@@ -251,47 +263,15 @@ class _MainWrapperState extends State<MainWrapper> {
                 top: headerBottom + 30,
                 left: 24,
                 right: 24,
+                bottom: 20,
               ),
               decoration: const BoxDecoration(
-                color: Color(0xFF1C1C1E),
+                color: AppColors.surface,
                 borderRadius: BorderRadius.vertical(
                   bottom: Radius.circular(32),
                 ),
               ),
-              child: Column(
-                children: [
-                  TextField(
-                    autofocus: isSearchOpen,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.05),
-                      hintText: "Search local tracks, playlists, artists...",
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        color: Colors.white54,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        "Type to find your rhythm...",
-                        style: TextStyle(
-                          color: Colors.white38,
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              child: SearchView(active: isSearchOpen),
             ),
           ),
           Positioned(
@@ -304,33 +284,10 @@ class _MainWrapperState extends State<MainWrapper> {
                   ? "Search"
                   : isMenuOpen
                   ? "Settings"
-                  : _titles[_currentIndex],
-              onMenuTap: () {
-                setState(() {
-                  isMenuOpen = !isMenuOpen;
-                  isSearchOpen = false;
-                });
-              },
+                  : _titles[shell.index],
+              onMenuTap: shell.toggleMenu,
               onYoruTap: _openYoru,
             ),
-          ),
-          BottomNavbar(
-            currentIndex: isSearchOpen
-                ? 1
-                : (_currentIndex == 1 ? 0 : _currentIndex),
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-                isSearchOpen = false;
-                isMenuOpen = false;
-              });
-            },
-            onSearchTap: () {
-              setState(() {
-                isSearchOpen = !isSearchOpen;
-                isMenuOpen = false;
-              });
-            },
           ),
         ],
       ),

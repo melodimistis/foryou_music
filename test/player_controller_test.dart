@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foryou_music/providers/player_controller.dart';
+import 'package:foryou_music/services/queue_store.dart';
 
 import 'fakes/fake_engine.dart';
 
@@ -149,4 +150,107 @@ void main() {
     expect(player.current?.id, '2');
     expect(player.lastError, isNull);
   });
+
+  group('queue persistence', () {
+    late MemoryQueueStore store;
+    late PlayerController saved;
+
+    setUp(() {
+      store = MemoryQueueStore();
+      saved = PlayerController(engine, recordPlay: (_) async {}, store: store);
+    });
+
+    test('saves queue, index, position and modes as they change', () async {
+      await saved.playQueue([song('a'), song('b'), song('c')], startIndex: 1);
+      expect(store.last!.queueIds, ['a', 'b', 'c']);
+      expect(store.last!.index, 1);
+
+      saved.cycleRepeat();
+      expect(store.last!.repeat, 'all');
+
+      engine.emitPosition(const Duration(seconds: 3));
+      await flush();
+      final before = store.saves;
+      engine.emitPosition(const Duration(seconds: 6));
+      await flush();
+      expect(store.saves, before + 1);
+      expect(store.last!.positionMs, 6000);
+
+      await saved.seek(const Duration(seconds: 42));
+      expect(store.last!.positionMs, 42000);
+    });
+
+    test('restore loads the last song paused at its position', () async {
+      store.saved = const SavedQueue(
+        queueIds: ['b', 'a', 'c'],
+        originalIds: ['a', 'b', 'c'],
+        index: 0,
+        positionMs: 45000,
+        shuffle: true,
+        repeat: 'one',
+      );
+      final library = {
+        for (final id in ['a', 'b', 'c']) id: song(id),
+      };
+      expect(await saved.restore((id) => library[id]), isTrue);
+      await flush();
+      expect(saved.current!.id, 'b');
+      expect(saved.isPlaying, isFalse);
+      expect(saved.shuffle, isTrue);
+      expect(saved.repeat, RepeatMode.one);
+      expect(saved.position, const Duration(seconds: 45));
+      expect(engine.loaded.last, 'file:///m/b.mp3');
+      expect(engine.seeks.last, const Duration(seconds: 45));
+
+      saved.toggleShuffle();
+      expect(saved.queue.map((s) => s.id), ['a', 'b', 'c']);
+    });
+
+    test(
+      'restore drops songs that are gone, gives up if current is gone',
+      () async {
+        store.saved = const SavedQueue(
+          queueIds: ['a', 'x', 'b'],
+          originalIds: ['a', 'x', 'b'],
+          index: 2,
+        );
+        final library = {'a': song('a'), 'b': song('b')};
+        expect(await saved.restore((id) => library[id]), isTrue);
+        expect(saved.queue.map((s) => s.id), ['a', 'b']);
+        expect(saved.current!.id, 'b');
+
+        final other = PlayerController(
+          engine,
+          recordPlay: (_) async {},
+          store: MemoryQueueStore()
+            ..saved = const SavedQueue(
+              queueIds: ['x'],
+              originalIds: ['x'],
+              index: 0,
+            ),
+        );
+        expect(await other.restore((id) => library[id]), isFalse);
+        expect(other.hasSong, isFalse);
+      },
+    );
+
+    test('nothing saved means nothing restored', () async {
+      expect(await saved.restore((_) => null), isFalse);
+    });
+  });
+}
+
+class MemoryQueueStore implements QueueStore {
+  SavedQueue? saved;
+  SavedQueue? last;
+  int saves = 0;
+
+  @override
+  SavedQueue? load() => saved;
+
+  @override
+  Future<void> save(SavedQueue queue) async {
+    last = queue;
+    saves++;
+  }
 }

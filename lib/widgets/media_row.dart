@@ -54,9 +54,10 @@ class MediaRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: active ? AppColors.accent : Colors.white,
+                        color: Colors.white,
                         fontFamily: 'Inter',
                         fontSize: 16,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w400,
                       ),
                     ),
                     if (subtitle.isNotEmpty)
@@ -73,6 +74,14 @@ class MediaRow extends StatelessWidget {
                   ],
                 ),
               ),
+              if (active) ...[
+                const SizedBox(width: 12),
+                const Icon(
+                  Icons.graphic_eq_rounded,
+                  color: AppColors.accent,
+                  size: 18,
+                ),
+              ],
               if (trailing != null && trailing!.isNotEmpty) ...[
                 const SizedBox(width: 12),
                 Text(

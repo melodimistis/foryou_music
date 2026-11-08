@@ -16,3 +16,8 @@ String joinNatural(List<String> items) {
 
 String artistOrUnknown(String artist) =>
     artist.trim().isEmpty ? 'Unknown artist' : artist;
+
+String formatClock(Duration d) {
+  final s = (d.inSeconds % 60).toString().padLeft(2, '0');
+  return '${d.inMinutes}:$s';
+}

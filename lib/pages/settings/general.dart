@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:foryou_music/app/theme.dart';
 import 'package:foryou_music/widgets/settings_scaffold.dart';
 
 class GeneralPage extends StatefulWidget {
@@ -28,7 +27,6 @@ class _GeneralPageState extends State<GeneralPage> {
             style: TextStyle(color: Colors.white54, fontFamily: 'Inter'),
           ),
           value: _autoUpdate,
-          activeThumbColor: AppColors.accent,
           onChanged: (v) => setState(() => _autoUpdate = v),
         ),
       ],

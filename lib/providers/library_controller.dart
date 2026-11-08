@@ -23,7 +23,16 @@ class LibraryController extends ChangeNotifier {
   final Map<MusicSourceType, SourceScanner> _scanners;
   final String Function() _newId;
 
+  static const homeLimit = 10;
+  static const recentLimit = 4;
+  static const recentlyAddedLimit = 6;
+
   List<Song> _songs = const [];
+  Map<String, Song> _songById = const {};
+  List<Song> _mostPlayed = const [];
+  List<Song> _recentlyPlayed = const [];
+  List<Album> _favouriteAlbums = const [];
+  List<Album> _recentlyAdded = const [];
   LibraryIndex _index = LibraryIndex.empty;
   List<MusicSource> _sources = const [];
   bool _isScanning = false;
@@ -36,6 +45,24 @@ class LibraryController extends ChangeNotifier {
   List<Artist> get artists => _index.artists;
   Album? albumById(String id) => _index.albumById(id);
   Artist? artistById(String id) => _index.artistById(id);
+  Song? songById(String id) => _songById[id];
+
+  List<Song> songsByIds(Iterable<String> ids) => [
+    for (final id in ids)
+      if (_songById[id] != null) _songById[id]!,
+  ];
+
+  List<Song> get mostPlayed => _mostPlayed;
+  List<Song> get recentlyPlayed => _recentlyPlayed;
+  List<Album> get favouriteAlbums => _favouriteAlbums;
+  List<Album> get recentlyAdded => _recentlyAdded;
+
+  Future<void> recordPlay(String songId) async {
+    await _repo.recordPlay(songId);
+    _reload();
+    notifyListeners();
+  }
+
   bool get isScanning => _isScanning;
   bool get isEmpty => _songs.isEmpty;
   ScanResult? get lastResult => _lastResult;
@@ -45,8 +72,41 @@ class LibraryController extends ChangeNotifier {
     _sources = _repo.sources();
     _songs = _repo.songs()
       ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    _songById = {for (final s in _songs) s.id: s};
     _index = LibraryIndex.build(_songs);
+
+    final available = _songs.where((s) => s.available).toList();
+    _mostPlayed = _top(
+      available.where((s) => s.playCount > 0),
+      (a, b) => b.playCount != a.playCount
+          ? b.playCount.compareTo(a.playCount)
+          : (b.lastPlayedMs ?? 0).compareTo(a.lastPlayedMs ?? 0),
+      homeLimit,
+    );
+    _recentlyPlayed = _top(
+      available.where((s) => s.lastPlayedMs != null),
+      (a, b) => b.lastPlayedMs!.compareTo(a.lastPlayedMs!),
+      recentLimit,
+    );
+    int plays(Album a) => a.songs.fold(0, (sum, s) => sum + s.playCount);
+    int added(Album a) =>
+        a.songs.fold(0, (m, s) => s.addedMs > m ? s.addedMs : m);
+    _favouriteAlbums = _top(
+      _index.albums,
+      (a, b) => plays(b) != plays(a)
+          ? plays(b).compareTo(plays(a))
+          : added(b).compareTo(added(a)),
+      homeLimit,
+    );
+    _recentlyAdded = _top(
+      _index.albums.where((a) => added(a) > 0),
+      (a, b) => added(b).compareTo(added(a)),
+      recentlyAddedLimit,
+    );
   }
+
+  static List<T> _top<T>(Iterable<T> items, Comparator<T> order, int limit) =>
+      List.unmodifiable((items.toList()..sort(order)).take(limit));
 
   Future<MusicSource?> addLocalFolder(String path, {String? label}) async {
     if (_isScanning) return null;

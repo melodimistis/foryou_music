@@ -88,7 +88,6 @@ class _YoruPageState extends State<YoruPage> {
               style: TextStyle(color: Colors.white, fontFamily: 'Inter'),
             ),
             value: yoru.enabled,
-            activeThumbColor: AppColors.accent,
             onChanged: yoru.setEnabled,
           ),
           const SizedBox(height: 24),

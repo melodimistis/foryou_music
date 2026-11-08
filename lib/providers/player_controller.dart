@@ -3,12 +3,17 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../models/song.dart';
 import '../services/audio/audio_engine.dart';
+import '../services/queue_store.dart';
 
 enum RepeatMode { off, all, one }
 
 class PlayerController extends ChangeNotifier {
-  PlayerController(this._engine, {required this.recordPlay, Random? random})
-    : _random = random ?? Random() {
+  PlayerController(
+    this._engine, {
+    required this.recordPlay,
+    Random? random,
+    this._store,
+  }) : _random = random ?? Random() {
     _subs
       ..add(_engine.playingStream.listen(_onPlaying))
       ..add(_engine.positionStream.listen(_onPosition))
@@ -19,6 +24,9 @@ class PlayerController extends ChangeNotifier {
   final AudioEngine _engine;
   final Future<void> Function(String songId) recordPlay;
   final Random _random;
+  final QueueStore? _store;
+  static const _saveEvery = Duration(seconds: 5);
+  Duration _lastSaved = Duration.zero;
   final _subs = <StreamSubscription<dynamic>>[];
 
   List<Song> _original = const [];
@@ -66,7 +74,10 @@ class PlayerController extends ChangeNotifier {
     await _engine.play();
   }
 
-  Future<void> pause() => _engine.pause();
+  Future<void> pause() async {
+    await _engine.pause();
+    _persist();
+  }
 
   Future<void> next() async {
     if (_queue.isEmpty) return;
@@ -90,10 +101,17 @@ class PlayerController extends ChangeNotifier {
     await _loadCurrent();
   }
 
+  Future<void> jumpTo(int index) async {
+    if (index < 0 || index >= _queue.length) return;
+    _index = index;
+    await _loadCurrent();
+  }
+
   Future<void> seek(Duration position) async {
     _position = position;
     await _engine.seek(position);
     notifyListeners();
+    _persist();
   }
 
   void toggleShuffle() {
@@ -104,11 +122,84 @@ class PlayerController extends ChangeNotifier {
       _index = _queue.indexOf(song);
     }
     notifyListeners();
+    _persist();
   }
 
   void cycleRepeat() {
     _repeat = RepeatMode.values[(_repeat.index + 1) % RepeatMode.values.length];
     notifyListeners();
+    _persist();
+  }
+
+  Future<bool> restore(Song? Function(String id) lookup) async {
+    final saved = _store?.load();
+    if (saved == null || hasSong) return false;
+    List<Song> resolve(List<String> ids) => [
+      for (final id in ids)
+        if (lookup(id) case final s? when s.available) s,
+    ];
+    final queue = resolve(saved.queueIds);
+    final currentId = saved.index >= 0 && saved.index < saved.queueIds.length
+        ? saved.queueIds[saved.index]
+        : null;
+    final current = queue.where((s) => s.id == currentId).firstOrNull;
+    if (current == null) return false;
+
+    _queue = queue;
+    _original = resolve(saved.originalIds);
+    if (_original.isEmpty) _original = List.of(queue);
+    _index = _queue.indexOf(current);
+    _shuffle = saved.shuffle;
+    _repeat = RepeatMode.values.firstWhere(
+      (m) => m.name == saved.repeat,
+      orElse: () => RepeatMode.off,
+    );
+    _duration = Duration(milliseconds: current.durationMs);
+    _position = Duration(milliseconds: saved.positionMs);
+    if (_duration > Duration.zero && _position > _duration) {
+      _position = Duration.zero;
+    }
+    _lastSaved = _position;
+    _counted = _position >= _countThreshold;
+    _lastError = null;
+    final token = ++_loadToken;
+    notifyListeners();
+
+    try {
+      await _engine.load(current.uri);
+      if (token != _loadToken) return true;
+      if (_position > Duration.zero) await _engine.seek(_position);
+    } catch (_) {
+      if (token != _loadToken) return true;
+      _lastError = 'Could not open "${current.title}"';
+      notifyListeners();
+    }
+    return true;
+  }
+
+  Duration get _countThreshold {
+    const cap = Duration(seconds: 30);
+    final half = _duration ~/ 2;
+    return _duration > Duration.zero && half < cap ? half : cap;
+  }
+
+  void _persist() {
+    final store = _store;
+    final song = current;
+    if (store == null || song == null) return;
+    _lastSaved = _position;
+    store
+        .save(
+          SavedQueue(
+            queueIds: [for (final s in _queue) s.id],
+            originalIds: [for (final s in _original) s.id],
+            index: _index,
+            positionMs: _position.inMilliseconds,
+            shuffle: _shuffle,
+            repeat: _repeat.name,
+          ),
+        )
+        .catchError((Object e) => debugPrint('Could not save queue: $e'));
   }
 
   List<Song> _shuffledWithFirst(Song first) {
@@ -126,6 +217,7 @@ class PlayerController extends ChangeNotifier {
     _lastError = null;
     notifyListeners();
 
+    _persist();
     try {
       await _engine.load(song.uri);
       if (token != _loadToken) return;
@@ -142,6 +234,7 @@ class PlayerController extends ChangeNotifier {
     if (playing == _isPlaying) return;
     _isPlaying = playing;
     notifyListeners();
+    if (!playing) _persist();
   }
 
   void _onDuration(Duration? d) {
@@ -153,12 +246,10 @@ class PlayerController extends ChangeNotifier {
   void _onPosition(Duration p) {
     _position = p;
     final song = current;
+    if (song != null && (p - _lastSaved).abs() >= _saveEvery) _persist();
     if (_counted || song == null) return;
 
-    const cap = Duration(seconds: 30);
-    final half = _duration ~/ 2;
-    final threshold = _duration > Duration.zero && half < cap ? half : cap;
-    if (p >= threshold) {
+    if (p >= _countThreshold) {
       _counted = true;
       recordPlay(song.id).ignore();
     }

@@ -4,11 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../app/format.dart';
+import '../app/motion.dart';
 import '../models/album.dart';
 import '../providers/library_controller.dart';
 import '../providers/player_controller.dart';
 import '../widgets/cover_art.dart';
 import '../widgets/detail_scaffold.dart';
+import '../widgets/context_menu.dart';
+import '../widgets/menu_actions.dart';
+import '../widgets/song_swipe.dart';
 import '../widgets/media_row.dart';
 import 'album.dart';
 
@@ -17,9 +21,11 @@ class ArtistPage extends StatelessWidget {
 
   final String artistId;
 
-  static Future<void> open(BuildContext context, Artist artist) => Navigator.of(
+  static Future<void> open(BuildContext context, Artist artist) => pushMotion(
     context,
-  ).push(MaterialPageRoute(builder: (_) => ArtistPage(artistId: artist.id)));
+    ScreenMotion.detail,
+    (_) => ArtistPage(artistId: artist.id),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -42,49 +48,66 @@ class ArtistPage extends StatelessWidget {
       );
     }
 
+    final ids = [for (final s in artist.songs) s.id];
     return DetailScaffold(
       title: 'Artists',
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 40),
-        children: [
-          _Header(artist: artist),
-          if (artist.albums.isNotEmpty) ...[
-            const _SectionTitle('Albums'),
-            SizedBox(
-              height: 172,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: artist.albums.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 14),
-                itemBuilder: (context, i) {
-                  final album = artist.albums[i];
-                  return _AlbumTile(
-                    album: album,
-                    onTap: () => AlbumPage.open(context, album),
-                  );
-                },
-              ),
-            ),
-          ],
-          const _SectionTitle('Songs'),
-          for (final (i, song) in artist.songs.indexed)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: MediaRow(
-                title: song.title,
-                subtitle: song.album,
-                coverKey: song.coverKey,
-                trailing: formatDuration(song.durationMs),
-                active: song.id == currentId,
-                enabled: song.available,
-                onTap: () => context.read<PlayerController>().playQueue(
-                  artist.songs,
-                  startIndex: i,
+      trailing: MenuButton(actions: (context) => songsActions(context, ids)),
+      body: Builder(
+        builder: (context) => ListView(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.paddingOf(context).bottom + 24,
+          ),
+          children: [
+            _Header(artist: artist),
+            if (artist.albums.isNotEmpty) ...[
+              const _SectionTitle('Albums'),
+              SizedBox(
+                height: 172,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: artist.albums.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 14),
+                  itemBuilder: (context, i) {
+                    final album = artist.albums[i];
+                    return MenuTarget(
+                      actions: (context) => songsActions(context, [
+                        for (final s in album.songs) s.id,
+                      ]),
+                      child: _AlbumTile(
+                        album: album,
+                        onTap: () => AlbumPage.open(context, album),
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
-        ],
+            ],
+            const _SectionTitle('Songs'),
+            for (final (i, song) in artist.songs.indexed)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: SongSwipe(
+                  song: song,
+                  child: MenuTarget(
+                    actions: (context) => songActions(context, song),
+                    child: MediaRow(
+                      title: song.title,
+                      subtitle: song.album,
+                      coverKey: song.coverKey,
+                      trailing: formatDuration(song.durationMs),
+                      active: song.id == currentId,
+                      enabled: song.available,
+                      onTap: () => context.read<PlayerController>().playQueue(
+                        artist.songs,
+                        startIndex: i,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:foryou_music/models/music_source.dart';
+import 'package:foryou_music/models/song.dart';
 import 'package:foryou_music/providers/library_controller.dart';
 import 'package:foryou_music/services/library_repository.dart';
 import 'package:foryou_music/services/source_scanner/local_folder_scanner.dart';
@@ -102,5 +103,39 @@ void main() {
     final c2 = LibraryController(repo);
     expect(c2.songs.length, 1);
     c2.dispose();
+  });
+
+  test('recordPlay updates home lists and notifies', () async {
+    await repo.putSongs([
+      for (final id in ['a', 'b', 'c', 'd', 'e'])
+        Song(
+          id: id,
+          title: id,
+          artist: 'LANY',
+          album: id == 'e' ? 'Other' : 'Malibu Nights',
+          albumArtist: 'LANY',
+          uri: 'file:///m/$id.mp3',
+          sourceId: 's',
+          available: id != 'd',
+        ),
+    ]);
+    var minute = 0;
+    for (final id in ['a', 'b', 'b', 'c', 'd', 'e', 'e']) {
+      await repo.recordPlay(id, at: DateTime(2026, 1, 1, 0, minute++));
+    }
+    final home = LibraryController(repo);
+    var notified = 0;
+    home.addListener(() => notified++);
+
+    await home.recordPlay('e');
+
+    expect(notified, 1);
+    expect(home.mostPlayed.map((s) => s.id), ['e', 'b', 'c', 'a']);
+    expect(home.recentlyPlayed.map((s) => s.id), ['e', 'c', 'b', 'a']);
+    expect(home.favouriteAlbums.map((a) => a.title), [
+      'Malibu Nights',
+      'Other',
+    ]);
+    home.dispose();
   });
 }

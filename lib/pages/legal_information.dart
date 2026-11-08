@@ -10,7 +10,7 @@ class LegalPage extends StatelessWidget {
         24,
         MediaQuery.paddingOf(context).top + 28,
         24,
-        220,
+        MediaQuery.paddingOf(context).bottom + 24,
       ),
       children: [
         _Section(

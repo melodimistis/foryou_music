@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:foryou_music/app/theme.dart';
-import 'package:foryou_music/widgets/cover_art.dart';
 import 'package:foryou_music/widgets/yoru_avatar.dart';
 
 class MiniPlayer extends StatelessWidget {
@@ -10,18 +9,19 @@ class MiniPlayer extends StatelessWidget {
   final bool translucent;
   final String title;
   final String artist;
-  final String coverKey;
   final bool isPlaying;
   final VoidCallback onPlayPause;
+  final VoidCallback? onTap;
 
   const MiniPlayer({
     super.key,
     required this.title,
     required this.artist,
-    this.coverKey = '',
     required this.isPlaying,
     required this.onPlayPause,
+    this.onTap,
     this.translucent = false,
+    required String coverKey,
   });
 
   @override
@@ -39,7 +39,18 @@ class MiniPlayer extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CoverArt(coverKey: coverKey, size: 44),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.music_note_rounded,
+              color: AppColors.accent,
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -95,13 +106,17 @@ class MiniPlayer extends StatelessWidget {
           )
         : bar;
 
-    return DecoratedBox(
-      position: DecorationPosition.foreground,
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        border: Border.all(color: Colors.white10),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          border: Border.all(color: Colors.white10),
+        ),
+        child: body,
       ),
-      child: body,
     );
   }
 }

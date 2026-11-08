@@ -26,10 +26,10 @@ class YoruAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.pinkAccent.withValues(alpha: 0.12),
+        color: Colors.white.withValues(alpha: 0.08),
         border: Border.all(color: Colors.white10),
       ),
-      child: Icon(_icon, color: Colors.pinkAccent, size: size * 0.5),
+      child: Icon(_icon, color: Colors.white70, size: size * 0.5),
     );
   }
 }

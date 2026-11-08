@@ -1,79 +1,334 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:foryou_music/app/format.dart';
-import 'package:foryou_music/app/theme.dart';
-import 'package:foryou_music/pages/album.dart';
-import 'package:foryou_music/pages/artist.dart';
-import 'package:foryou_music/providers/library_controller.dart';
-import 'package:foryou_music/providers/player_controller.dart';
-import 'package:foryou_music/services/storage_permission.dart';
-import 'package:foryou_music/widgets/media_row.dart';
-import 'package:foryou_music/widgets/yoru_avatar.dart';
 
-class LibrariesPage extends StatefulWidget {
-  const LibrariesPage({super.key});
+import '../app/format.dart';
+import '../models/album.dart';
+import '../providers/collections_controller.dart';
+import '../providers/library_controller.dart';
+import '../providers/notice_controller.dart';
+import '../providers/player_controller.dart';
+import '../providers/yoru_controller.dart';
+import '../services/storage_permission.dart';
+import '../widgets/add_to_playlist_sheet.dart';
+import '../widgets/collection_view.dart';
+import '../widgets/cover_art.dart';
+import '../widgets/media_row.dart';
+import '../widgets/song_swipe.dart';
+import '../widgets/menu_actions.dart';
+import '../widgets/context_menu.dart';
+import '../widgets/yoru_avatar.dart';
+import 'album.dart';
+import 'artist.dart';
+import 'playlist.dart';
 
-  @override
-  State<LibrariesPage> createState() => _LibrariesPageState();
+enum LibraryView {
+  songs('Songs', Icons.music_note_rounded, 'You have a good taste you know?'),
+  albums(
+    'Albums',
+    Icons.album_outlined,
+    'Wow, you have a lot of albums here. Whats your favorite?',
+  ),
+  artists(
+    'Artists',
+    Icons.mic_none_rounded,
+    'Tell me your favorite artist! I wanna hear them song with you',
+  ),
+  playlists('Playlists', Icons.queue_music_rounded, 'What your mood today?');
+
+  const LibraryView(this.label, this.icon, this.yoruLine);
+
+  final String label;
+  final IconData icon;
+  final String yoruLine;
 }
 
-class _LibrariesPageState extends State<LibrariesPage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tab = TabController(length: 4, vsync: this);
-  bool _tabsVisible = true;
+class LibrariesPage extends StatelessWidget {
+  const LibrariesPage({super.key, required this.view});
+
+  final ValueNotifier<LibraryView?> view;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<LibraryView?>(
+      valueListenable: view,
+      builder: (context, current, _) => current == null
+          ? _Hub(onOpen: (v) => view.value = v)
+          : _LibraryList(view: current, onSelect: (v) => view.value = v),
+    );
+  }
+}
+
+Future<void> _addFolder(BuildContext context) async {
+  final lib = context.read<LibraryController>();
+  final notices = context.read<NoticeController>();
+
+  if (!await ensureAudioPermission()) {
+    notices.show(
+      'Audio permission is needed to read your music',
+      icon: Icons.lock_outline_rounded,
+    );
+    return;
+  }
+
+  final path = await FilePicker.getDirectoryPath(
+    dialogTitle: 'Choose your music folder',
+  );
+  if (path == null) return;
+  if (path == '/') {
+    notices.show(
+      'That folder is protected. Try another one.',
+      icon: Icons.folder_off_outlined,
+    );
+    return;
+  }
+
+  await lib.addLocalFolder(path);
+  final error = lib.lastError;
+  if (error != null) {
+    notices.show(error, icon: Icons.error_outline_rounded);
+  }
+}
+
+class _Hub extends StatelessWidget {
+  const _Hub({required this.onOpen});
+
+  final ValueChanged<LibraryView> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final lib = context.watch<LibraryController>();
+    final mq = MediaQuery.paddingOf(context);
+
+    if (lib.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.only(top: mq.top, bottom: mq.bottom),
+        child: _EmptyState(
+          lib.isScanning ? 'Scanning your music...' : 'No songs yet',
+          action: lib.isScanning
+              ? null
+              : FilledButton.icon(
+                  onPressed: () => _addFolder(context),
+                  icon: const Icon(Icons.folder_open_rounded),
+                  label: const Text('Add music folder'),
+                ),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(24, mq.top + 24, 24, mq.bottom + 24),
+      children: [
+        const Text(
+          'Anything?',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Inter',
+            fontSize: 24,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const Text(
+          'See all your music here',
+          style: TextStyle(
+            color: Colors.white70,
+            fontFamily: 'Inter',
+            fontSize: 13,
+          ),
+        ),
+        const SizedBox(height: 14),
+        for (final pair in const [
+          [LibraryView.songs, LibraryView.artists],
+          [LibraryView.albums, LibraryView.playlists],
+        ])
+          Row(
+            children: [
+              for (final v in pair)
+                Expanded(
+                  child: _HubEntry(view: v, onTap: () => onOpen(v)),
+                ),
+            ],
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: lib.isScanning ? null : () => _addFolder(context),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white54,
+              padding: EdgeInsets.zero,
+            ),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: Text(
+              lib.isScanning ? 'Scanning...' : 'Add music folder',
+              style: const TextStyle(fontFamily: 'Inter', fontSize: 13),
+            ),
+          ),
+        ),
+        if (lib.recentlyAdded.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Text(
+            'Recently Added',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Inter',
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _AlbumGrid(albums: lib.recentlyAdded),
+        ],
+      ],
+    );
+  }
+}
+
+class _HubEntry extends StatelessWidget {
+  const _HubEntry({required this.view, required this.onTap});
+
+  final LibraryView view;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Icon(view.icon, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                view.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Inter',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AlbumGrid extends StatelessWidget {
+  const _AlbumGrid({required this.albums});
+
+  final List<Album> albums;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 20.0;
+        final columns = constraints.maxWidth >= 600 ? 4 : 2;
+        final size = (constraints.maxWidth - gap * (columns - 1)) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: 18,
+          children: [
+            for (final a in albums)
+              MenuTarget(
+                actions: (context) =>
+                    songsActions(context, [for (final s in a.songs) s.id]),
+                child: GestureDetector(
+                  onTap: () => AlbumPage.open(context, a),
+                  child: SizedBox(
+                    width: size,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CoverArt(coverKey: a.coverKey, size: size, radius: 10),
+                        const SizedBox(height: 8),
+                        Text(
+                          a.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Inter',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          artistOrUnknown(a.artist),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LibraryList extends StatefulWidget {
+  const _LibraryList({required this.view, required this.onSelect});
+
+  final LibraryView view;
+  final ValueChanged<LibraryView> onSelect;
+
+  @override
+  State<_LibraryList> createState() => _LibraryListState();
+}
+
+class _LibraryListState extends State<_LibraryList> {
+  bool _chipsVisible = true;
   double _scrollAccum = 0;
   static const _hideAfter = 24.0;
   static const _showAfter = 8.0;
 
   @override
-  void initState() {
-    super.initState();
-    _tab.addListener(_onTabChanged);
+  void didUpdateWidget(_LibraryList old) {
+    super.didUpdateWidget(old);
+    if (old.view != widget.view) {
+      _scrollAccum = 0;
+      _chipsVisible = true;
+    }
   }
 
-  @override
-  void dispose() {
-    _tab.removeListener(_onTabChanged);
-    _tab.dispose();
-    super.dispose();
-  }
-
-  void _onTabChanged() {
-    _scrollAccum = 0;
-    _showTabs();
-  }
-
-  void _showTabs() {
-    if (!_tabsVisible) setState(() => _tabsVisible = true);
-  }
-
-  void _hideTabs() {
-    if (_tabsVisible) setState(() => _tabsVisible = false);
+  void _setChips(bool visible) {
+    if (_chipsVisible != visible) setState(() => _chipsVisible = visible);
   }
 
   bool _onScroll(ScrollNotification n) {
-    if (n.metrics.axis != Axis.vertical) {
+    if (n.metrics.axis != Axis.vertical || n is! ScrollUpdateNotification) {
       return false;
     }
-    if (n is! ScrollUpdateNotification) return false;
-
     if (n.metrics.pixels <= 0) {
       _scrollAccum = 0;
-      _showTabs();
+      _setChips(true);
       return false;
     }
-
     final delta = n.scrollDelta ?? 0;
     if ((delta > 0 && _scrollAccum < 0) || (delta < 0 && _scrollAccum > 0)) {
       _scrollAccum = 0;
     }
     _scrollAccum += delta;
-
     if (_scrollAccum > _hideAfter) {
-      _hideTabs();
+      _setChips(false);
     } else if (_scrollAccum < -_showAfter) {
-      _showTabs();
+      _setChips(true);
     }
     return false;
   }
@@ -82,7 +337,8 @@ class _LibrariesPageState extends State<LibrariesPage>
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
     final wide = MediaQuery.sizeOf(context).width >= 840;
-    final visible = wide || _tabsVisible;
+    final visible = wide || _chipsVisible;
+    final yoruOn = context.select<YoruController, bool>((y) => y.enabled);
 
     return Padding(
       padding: EdgeInsets.only(top: topInset),
@@ -101,19 +357,42 @@ class _LibrariesPageState extends State<LibrariesPage>
                   opacity: visible ? 1 : 0,
                   duration: Duration(milliseconds: visible ? 180 : 260),
                   curve: visible ? Curves.easeOut : Curves.easeInOut,
-                  child: TabBar(
-                    controller: _tab,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.white54,
-                    indicatorColor: AppColors.accent,
-                    dividerColor: Colors.transparent,
-                    tabs: const [
-                      Tab(text: 'Songs'),
-                      Tab(text: 'Albums'),
-                      Tab(text: 'Artists'),
-                      Tab(text: 'Playlists'),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 14, 24, 4),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final v in LibraryView.values)
+                                _Chip(
+                                  label: v.label,
+                                  selected: v == widget.view,
+                                  onTap: () => widget.onSelect(v),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (yoruOn)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 14, 24, 6),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              widget.view.yoruLine,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -122,15 +401,12 @@ class _LibrariesPageState extends State<LibrariesPage>
             Expanded(
               child: NotificationListener<ScrollNotification>(
                 onNotification: _onScroll,
-                child: TabBarView(
-                  controller: _tab,
-                  children: [
-                    _songs(context),
-                    _albums(context),
-                    _artists(context),
-                    const _EmptyState('Your playlist will appear here'),
-                  ],
-                ),
+                child: switch (widget.view) {
+                  LibraryView.songs => const _SongList(),
+                  LibraryView.albums => const _AlbumList(),
+                  LibraryView.artists => const _ArtistList(),
+                  LibraryView.playlists => const _PlaylistList(),
+                },
               ),
             ),
           ],
@@ -138,93 +414,96 @@ class _LibrariesPageState extends State<LibrariesPage>
       ),
     );
   }
+}
 
-  Future<void> _addFolder(BuildContext context) async {
-    final lib = context.read<LibraryController>();
-    final messenger = ScaffoldMessenger.of(context);
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
-    if (!await ensureAudioPermission()) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Audio permission is needed to read your music'),
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white30 : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? Colors.white54 : Colors.white70),
         ),
-      );
-      return;
-    }
-
-    final path = await FilePicker.getDirectoryPath(
-      dialogTitle: 'Choose your music folder',
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontFamily: 'Inter',
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
     );
-    if (path == null) return;
-    if (path == '/') {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('That folder is protected. Try another one.'),
-        ),
-      );
-      return;
-    }
-
-    await lib.addLocalFolder(path);
-    final error = lib.lastError;
-    if (error != null) {
-      messenger.showSnackBar(SnackBar(content: Text(error)));
-    }
   }
+}
 
-  Widget _songs(BuildContext context) {
+EdgeInsets _listPadding(BuildContext context) =>
+    EdgeInsets.fromLTRB(16, 4, 16, MediaQuery.paddingOf(context).bottom + 24);
+
+class _SongList extends StatelessWidget {
+  const _SongList();
+
+  @override
+  Widget build(BuildContext context) {
     final lib = context.watch<LibraryController>();
-
-    if (lib.isEmpty) {
+    final songs = lib.songs;
+    if (songs.isEmpty) {
       return _EmptyState(
         lib.isScanning ? 'Scanning your music...' : 'No songs yet',
-        action: lib.isScanning
-            ? null
-            : FilledButton.icon(
-                onPressed: () => _addFolder(context),
-                icon: const Icon(Icons.folder_open_rounded),
-                label: const Text('Add music folder'),
-              ),
       );
     }
-
-    final songs = lib.songs;
     final currentId = context.select<PlayerController, String?>(
       (p) => p.current?.id,
     );
-
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 220),
-      itemCount: songs.length + 1,
+      padding: _listPadding(context),
+      itemCount: songs.length,
       itemBuilder: (context, i) {
-        if (i == 0) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: lib.isScanning ? null : () => _addFolder(context),
-              icon: const Icon(Icons.add_rounded),
-              label: Text(lib.isScanning ? 'Scanning...' : 'Add folder'),
+        final s = songs[i];
+        return SongSwipe(
+          song: s,
+          child: MenuTarget(
+            actions: (context) => songActions(context, s),
+            child: MediaRow(
+              title: s.title,
+              subtitle: artistOrUnknown(s.artist),
+              coverKey: s.coverKey,
+              trailing: formatDuration(s.durationMs),
+              active: s.id == currentId,
+              enabled: s.available,
+              onTap: () => context.read<PlayerController>().playQueue(
+                songs,
+                startIndex: i,
+              ),
             ),
-          );
-        }
-        final s = songs[i - 1];
-        return MediaRow(
-          title: s.title,
-          subtitle: artistOrUnknown(s.artist),
-          coverKey: s.coverKey,
-          trailing: formatDuration(s.durationMs),
-          active: s.id == currentId,
-          enabled: s.available,
-          onTap: () => context.read<PlayerController>().playQueue(
-            songs,
-            startIndex: i - 1,
           ),
         );
       },
     );
   }
+}
 
-  Widget _albums(BuildContext context) {
+class _AlbumList extends StatelessWidget {
+  const _AlbumList();
+
+  @override
+  Widget build(BuildContext context) {
     final lib = context.watch<LibraryController>();
     final albums = lib.albums;
     if (albums.isEmpty) {
@@ -233,21 +512,30 @@ class _LibrariesPageState extends State<LibrariesPage>
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 220),
+      padding: _listPadding(context),
       itemCount: albums.length,
       itemBuilder: (context, i) {
         final a = albums[i];
-        return MediaRow(
-          title: a.title,
-          subtitle: artistOrUnknown(a.artist),
-          coverKey: a.coverKey,
-          onTap: () => AlbumPage.open(context, a),
+        return MenuTarget(
+          actions: (context) =>
+              songsActions(context, [for (final s in a.songs) s.id]),
+          child: MediaRow(
+            title: a.title,
+            subtitle: artistOrUnknown(a.artist),
+            coverKey: a.coverKey,
+            onTap: () => AlbumPage.open(context, a),
+          ),
         );
       },
     );
   }
+}
 
-  Widget _artists(BuildContext context) {
+class _ArtistList extends StatelessWidget {
+  const _ArtistList();
+
+  @override
+  Widget build(BuildContext context) {
     final lib = context.watch<LibraryController>();
     final artists = lib.artists;
     if (artists.isEmpty) {
@@ -256,26 +544,80 @@ class _LibrariesPageState extends State<LibrariesPage>
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 220),
+      padding: _listPadding(context),
       itemCount: artists.length,
       itemBuilder: (context, i) {
         final a = artists[i];
-        return MediaRow(
-          title: a.name,
-          subtitle: joinNatural(a.genres),
-          coverKey: a.coverKey,
-          circle: true,
-          onTap: () => ArtistPage.open(context, a),
+        return MenuTarget(
+          actions: (context) =>
+              songsActions(context, [for (final s in a.songs) s.id]),
+          child: MediaRow(
+            title: a.name,
+            subtitle: joinNatural(a.genres),
+            coverKey: a.coverKey,
+            circle: true,
+            onTap: () => ArtistPage.open(context, a),
+          ),
         );
       },
     );
   }
 }
 
+class _PlaylistList extends StatelessWidget {
+  const _PlaylistList();
+
+  @override
+  Widget build(BuildContext context) {
+    final collections = context.watch<CollectionsController>();
+    final lib = context.watch<LibraryController>();
+    final favourites = lib.songsByIds(collections.favouriteIds);
+    final playlists = collections.playlists;
+
+    return ListView(
+      padding: _listPadding(context),
+      children: [
+        MediaRow(
+          title: 'Favourites',
+          subtitle: '${favourites.length} songs',
+          coverKey: coverOf(favourites),
+          onTap: () => FavouritesPage.open(context),
+        ),
+        MediaRow(
+          title: 'New playlist',
+          subtitle: 'Give your mood a name',
+          onTap: () async {
+            final name = await askPlaylistName(context);
+            if (name == null || name.trim().isEmpty) return;
+            final p = await collections.createPlaylist(name);
+            if (context.mounted) await PlaylistPage.open(context, p.id);
+          },
+        ),
+        for (final p in playlists)
+          Builder(
+            builder: (context) {
+              final songs = lib.songsByIds(p.songIds);
+              return MenuTarget(
+                actions: (context) => playlistActions(context, p),
+                child: MediaRow(
+                  title: p.name,
+                  subtitle: songs.isEmpty ? 'Empty' : artistsSummary(songs),
+                  coverKey: coverOf(songs),
+                  onTap: () => PlaylistPage.open(context, p.id),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
+  const _EmptyState(this.message, {this.action});
+
   final String message;
   final Widget? action;
-  const _EmptyState(this.message, {this.action});
 
   @override
   Widget build(BuildContext context) {
