@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:foryou_music/app/theme.dart';
+import 'package:foryou_music/widgets/cover_art.dart';
 import 'package:foryou_music/widgets/yoru_avatar.dart';
 
 class MiniPlayer extends StatelessWidget {
@@ -9,6 +10,7 @@ class MiniPlayer extends StatelessWidget {
   final bool translucent;
   final String title;
   final String artist;
+  final String coverKey;
   final bool isPlaying;
   final VoidCallback onPlayPause;
 
@@ -16,6 +18,7 @@ class MiniPlayer extends StatelessWidget {
     super.key,
     required this.title,
     required this.artist,
+    this.coverKey = '',
     required this.isPlaying,
     required this.onPlayPause,
     this.translucent = false,
@@ -36,18 +39,7 @@ class MiniPlayer extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.music_note_rounded,
-              color: AppColors.accent,
-            ),
-          ),
+          CoverArt(coverKey: coverKey, size: 44),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

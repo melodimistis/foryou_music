@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
+import '../models/album.dart';
 import '../models/music_source.dart';
 import '../models/song.dart';
+import '../services/library_index.dart';
 import '../services/library_repository.dart';
 import '../services/source_scanner/local_folder_scanner.dart';
 import '../services/source_scanner/source_scanner.dart';
@@ -22,6 +24,7 @@ class LibraryController extends ChangeNotifier {
   final String Function() _newId;
 
   List<Song> _songs = const [];
+  LibraryIndex _index = LibraryIndex.empty;
   List<MusicSource> _sources = const [];
   bool _isScanning = false;
   ScanResult? _lastResult;
@@ -29,6 +32,10 @@ class LibraryController extends ChangeNotifier {
 
   List<Song> get songs => List.unmodifiable(_songs);
   List<MusicSource> get sources => List.unmodifiable(_sources);
+  List<Album> get albums => _index.albums;
+  List<Artist> get artists => _index.artists;
+  Album? albumById(String id) => _index.albumById(id);
+  Artist? artistById(String id) => _index.artistById(id);
   bool get isScanning => _isScanning;
   bool get isEmpty => _songs.isEmpty;
   ScanResult? get lastResult => _lastResult;
@@ -38,6 +45,7 @@ class LibraryController extends ChangeNotifier {
     _sources = _repo.sources();
     _songs = _repo.songs()
       ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    _index = LibraryIndex.build(_songs);
   }
 
   Future<MusicSource?> addLocalFolder(String path, {String? label}) async {

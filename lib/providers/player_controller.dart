@@ -40,6 +40,10 @@ class PlayerController extends ChangeNotifier {
   bool get shuffle => _shuffle;
   RepeatMode get repeat => _repeat;
   Duration get duration => _duration;
+
+  Duration get position => _position;
+  bool get hasNext =>
+      hasSong && (_index < _queue.length - 1 || _repeat == RepeatMode.all);
   String? get lastError => _lastError;
 
   Stream<Duration> get positionStream => _engine.positionStream;
@@ -54,11 +58,15 @@ class PlayerController extends ChangeNotifier {
     await _loadCurrent();
   }
 
-  Future<void> togglePlay() async {
+  Future<void> togglePlay() => _isPlaying ? pause() : play();
+
+  Future<void> play() async {
     if (!hasSong) return;
     if (_lastError != null) return _loadCurrent();
-    _isPlaying ? await _engine.pause() : await _engine.play();
+    await _engine.play();
   }
+
+  Future<void> pause() => _engine.pause();
 
   Future<void> next() async {
     if (_queue.isEmpty) return;
@@ -85,6 +93,7 @@ class PlayerController extends ChangeNotifier {
   Future<void> seek(Duration position) async {
     _position = position;
     await _engine.seek(position);
+    notifyListeners();
   }
 
   void toggleShuffle() {

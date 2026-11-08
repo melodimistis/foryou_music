@@ -7,9 +7,13 @@ import '../metadata/metadata_reader.dart';
 import 'source_scanner.dart';
 
 class LocalFolderScanner implements SourceScanner {
-  LocalFolderScanner({String Function()? newId, TagBatchReader? readTags})
-    : _newId = newId ?? (() => const Uuid().v4()),
-      _readTags = readTags ?? readTagsBatch;
+  LocalFolderScanner({
+    String Function()? newId,
+    TagBatchReader? readTags,
+    DateTime Function()? now,
+  }) : _newId = newId ?? (() => const Uuid().v4()),
+       _readTags = readTags ?? readTagsBatch,
+       _now = now ?? DateTime.now;
 
   static const audioExtensions = {
     '.mp3',
@@ -23,6 +27,7 @@ class LocalFolderScanner implements SourceScanner {
 
   final String Function() _newId;
   final TagBatchReader _readTags;
+  final DateTime Function() _now;
 
   @override
   Future<ScanResult> scan(MusicSource source, Iterable<Song> existing) async {
@@ -64,7 +69,9 @@ class LocalFolderScanner implements SourceScanner {
       seen.add(uri);
       final old = byUri[uri];
 
-      if (old == null || old.modifiedMs != modifiedMs) {
+      if (old == null ||
+          old.modifiedMs != modifiedMs ||
+          old.tagVersion < Song.currentTagVersion) {
         candidates.add((
           path: entity.path,
           uri: uri,
@@ -85,40 +92,33 @@ class LocalFolderScanner implements SourceScanner {
 
     final tags = await _readTags(candidates.map((c) => c.path).toList());
 
+    final nowMs = _now().millisecondsSinceEpoch;
     for (final c in candidates) {
       final t = tags[c.path];
-      final title = t?.title ?? p.basenameWithoutExtension(c.path);
       final old = c.old;
-
-      if (old == null) {
-        upserts.add(
-          Song(
-            id: _newId(),
-            title: title,
-            artist: t?.artist ?? '',
-            album: t?.album ?? '',
-            genre: t?.genre ?? '',
-            durationMs: t?.durationMs ?? 0,
-            uri: c.uri,
-            sourceId: source.id,
-            modifiedMs: c.modifiedMs,
-          ),
-        );
-        added++;
-      } else {
-        upserts.add(
-          old.copyWith(
-            title: title,
-            artist: t?.artist ?? '',
-            album: t?.album ?? '',
-            genre: t?.genre ?? '',
-            durationMs: t?.durationMs ?? 0,
-            modifiedMs: c.modifiedMs,
-            available: true,
-          ),
-        );
-        updated++;
-      }
+      final song = Song(
+        id: old?.id ?? _newId(),
+        sourceId: source.id,
+        uri: c.uri,
+        title: t?.title ?? p.basenameWithoutExtension(c.path),
+        artist: t?.artist ?? '',
+        album: t?.album ?? '',
+        albumArtist: t?.albumArtist ?? '',
+        genre: t?.genre ?? '',
+        durationMs: t?.durationMs ?? 0,
+        year: t?.year,
+        trackNumber: t?.trackNumber,
+        discNumber: t?.discNumber,
+        coverKey: t?.coverKey ?? '',
+        modifiedMs: c.modifiedMs,
+        addedMs: old == null
+            ? nowMs
+            : (old.addedMs > 0 ? old.addedMs : old.modifiedMs),
+        playCount: old?.playCount ?? 0,
+        lastPlayedMs: old?.lastPlayedMs,
+      );
+      upserts.add(song);
+      old == null ? added++ : updated++;
     }
 
     final removed = errors > 0

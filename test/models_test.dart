@@ -25,6 +25,33 @@ void main() {
     final s = Song.fromMap({'id': 'x', 'uri': 'file:///x', 'sourceId': 's'});
     expect(s.title, '');
     expect(s.playCount, 0);
+    expect(s.coverKey, '');
+    expect(s.year, isNull);
+    expect(s.addedMs, 0);
+    expect(s.tagVersion, 1);
+  });
+
+  test('Song round-trip keeps the tag fields added for Fase 2.2', () {
+    const s = Song(
+      id: 'a',
+      title: 'Run',
+      artist: 'LANY',
+      uri: 'file:///a.flac',
+      sourceId: 's',
+      albumArtist: 'LANY',
+      year: 2018,
+      trackNumber: 6,
+      discNumber: 1,
+      coverKey: 'ff-10',
+      addedMs: 42,
+    );
+    final b = Song.fromMap(s.toMap());
+    expect(
+      (b.albumArtist, b.year, b.trackNumber, b.discNumber, b.coverKey),
+      ('LANY', 2018, 6, 1, 'ff-10'),
+    );
+    expect(b.addedMs, 42);
+    expect(b.tagVersion, Song.currentTagVersion);
   });
 
   test('MusicSource round-trip and an unknown type falls into local', () {

@@ -57,6 +57,7 @@ class _MainWrapperState extends State<MainWrapper> {
         if (song == null) return const SizedBox.shrink();
         return MiniPlayer(
           title: song.title,
+          coverKey: song.coverKey,
           artist: song.artist.isEmpty ? 'Unknown Artist' : song.artist,
           isPlaying: player.isPlaying,
           onPlayPause: player.togglePlay,

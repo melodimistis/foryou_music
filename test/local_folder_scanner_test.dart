@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foryou_music/models/music_source.dart';
+import 'package:foryou_music/models/song.dart';
 import 'package:foryou_music/services/source_scanner/local_folder_scanner.dart';
 import 'package:foryou_music/services/metadata/metadata_reader.dart';
 
@@ -156,4 +157,66 @@ void main() {
       expect(calls, 1);
     },
   );
+
+  test('songs stored with an older tag version are re-read once, keeping '
+      'id, play stats, and getting addedMs from the file date', () async {
+    touch('a.mp3');
+    final first = await scanner.scan(source, const []);
+    final old = Song.fromMap(
+      Map.of(first.upserts.single.toMap())
+        ..remove('tagVersion')
+        ..remove('addedMs')
+        ..['playCount'] = 7
+        ..['lastPlayedMs'] = 123,
+    );
+    expect(old.tagVersion, 1);
+
+    final s = LocalFolderScanner(
+      readTags: (paths) async => {
+        for (final p in paths)
+          p: const TrackTags(
+            title: 'T',
+            year: 2018,
+            trackNumber: 3,
+            discNumber: 1,
+            albumArtist: 'LANY',
+            coverKey: 'abc-1',
+          ),
+      },
+    );
+    final r = await s.scan(source, [old]);
+    final song = r.upserts.single;
+    expect(r.updated, 1);
+    expect(song.id, old.id);
+    expect(song.playCount, 7);
+    expect(song.lastPlayedMs, 123);
+    expect(song.tagVersion, Song.currentTagVersion);
+    expect(song.addedMs, old.modifiedMs);
+    expect(
+      (song.year, song.trackNumber, song.discNumber, song.albumArtist),
+      (2018, 3, 1, 'LANY'),
+    );
+    expect(song.coverKey, 'abc-1');
+
+    final again = await s.scan(source, [song]);
+    expect(again.upserts, isEmpty);
+  });
+
+  test('new songs get addedMs = now; rescans keep it', () async {
+    touch('a.mp3');
+    final t1 = DateTime(2026, 11, 8);
+    final s = LocalFolderScanner(readTags: (_) async => {}, now: () => t1);
+    final first = await s.scan(source, const []);
+    expect(first.upserts.single.addedMs, t1.millisecondsSinceEpoch);
+
+    final changed = File('${dir.path}/a.mp3')
+      ..setLastModifiedSync(DateTime.now().add(const Duration(hours: 1)));
+    expect(changed.existsSync(), isTrue);
+    final later = LocalFolderScanner(
+      readTags: (_) async => {},
+      now: () => DateTime(2027),
+    );
+    final second = await later.scan(source, first.upserts);
+    expect(second.upserts.single.addedMs, t1.millisecondsSinceEpoch);
+  });
 }

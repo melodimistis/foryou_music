@@ -1,10 +1,14 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:foryou_music/app/format.dart';
 import 'package:foryou_music/app/theme.dart';
+import 'package:foryou_music/pages/album.dart';
+import 'package:foryou_music/pages/artist.dart';
 import 'package:foryou_music/providers/library_controller.dart';
 import 'package:foryou_music/providers/player_controller.dart';
 import 'package:foryou_music/services/storage_permission.dart';
+import 'package:foryou_music/widgets/media_row.dart';
 import 'package:foryou_music/widgets/yoru_avatar.dart';
 
 class LibrariesPage extends StatefulWidget {
@@ -122,8 +126,8 @@ class _LibrariesPageState extends State<LibrariesPage>
                   controller: _tab,
                   children: [
                     _songs(context),
-                    const _EmptyState('No album yet'),
-                    const _EmptyState('No artist yet'),
+                    _albums(context),
+                    _artists(context),
                     const _EmptyState('Your playlist will appear here'),
                   ],
                 ),
@@ -168,13 +172,6 @@ class _LibrariesPageState extends State<LibrariesPage>
     }
   }
 
-  String _fmt(int ms) {
-    if (ms <= 0) return '';
-    final d = Duration(milliseconds: ms);
-    final s = (d.inSeconds % 60).toString().padLeft(2, '0');
-    return '${d.inMinutes}:$s';
-  }
-
   Widget _songs(BuildContext context) {
     final lib = context.watch<LibraryController>();
 
@@ -211,53 +208,64 @@ class _LibrariesPageState extends State<LibrariesPage>
           );
         }
         final s = songs[i - 1];
-        return Opacity(
-          opacity: s.available ? 1.0 : 0.4,
-          child: ListTile(
-            onTap: s.available
-                ? () => context.read<PlayerController>().playQueue(
-                    songs,
-                    startIndex: i - 1,
-                  )
-                : null,
-            leading: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.music_note_rounded,
-                color: Colors.white54,
-              ),
-            ),
-            title: Text(
-              s.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: s.id == currentId ? AppColors.accent : Colors.white,
-                fontFamily: 'Inter',
-              ),
-            ),
-            subtitle: Text(
-              s.artist.isEmpty ? 'Unknown artist' : s.artist,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white54,
-                fontFamily: 'Inter',
-              ),
-            ),
-            trailing: Text(
-              _fmt(s.durationMs),
-              style: const TextStyle(
-                color: Colors.white38,
-                fontFamily: 'Inter',
-              ),
-            ),
+        return MediaRow(
+          title: s.title,
+          subtitle: artistOrUnknown(s.artist),
+          coverKey: s.coverKey,
+          trailing: formatDuration(s.durationMs),
+          active: s.id == currentId,
+          enabled: s.available,
+          onTap: () => context.read<PlayerController>().playQueue(
+            songs,
+            startIndex: i - 1,
           ),
+        );
+      },
+    );
+  }
+
+  Widget _albums(BuildContext context) {
+    final lib = context.watch<LibraryController>();
+    final albums = lib.albums;
+    if (albums.isEmpty) {
+      return _EmptyState(
+        lib.isScanning ? 'Scanning your music...' : 'No album yet',
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 220),
+      itemCount: albums.length,
+      itemBuilder: (context, i) {
+        final a = albums[i];
+        return MediaRow(
+          title: a.title,
+          subtitle: artistOrUnknown(a.artist),
+          coverKey: a.coverKey,
+          onTap: () => AlbumPage.open(context, a),
+        );
+      },
+    );
+  }
+
+  Widget _artists(BuildContext context) {
+    final lib = context.watch<LibraryController>();
+    final artists = lib.artists;
+    if (artists.isEmpty) {
+      return _EmptyState(
+        lib.isScanning ? 'Scanning your music...' : 'No artist yet',
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 220),
+      itemCount: artists.length,
+      itemBuilder: (context, i) {
+        final a = artists[i];
+        return MediaRow(
+          title: a.name,
+          subtitle: joinNatural(a.genres),
+          coverKey: a.coverKey,
+          circle: true,
+          onTap: () => ArtistPage.open(context, a),
         );
       },
     );
