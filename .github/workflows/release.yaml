@@ -16,7 +16,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Read version
         id: version
@@ -48,9 +48,9 @@ jobs:
     needs: check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -91,7 +91,7 @@ jobs:
       - name: Rename APK
         run: mv build/app/outputs/flutter-apk/app-release.apk "ForYou-Music-${{ needs.check.outputs.version }}.apk"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android
           path: ForYou-Music-*.apk
@@ -105,7 +105,7 @@ jobs:
     needs: check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install build dependencies
         run: |
@@ -149,7 +149,7 @@ jobs:
           chmod +x appimagetool
           ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool "$APPDIR" "ForYou-Music-$VERSION-x86_64.AppImage"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux
           path: ForYou-Music-*.AppImage
@@ -162,14 +162,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           body_path: .github/release-notes/${{ github.ref_name }}.md
