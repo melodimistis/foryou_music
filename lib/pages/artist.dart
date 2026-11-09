@@ -12,6 +12,7 @@ import '../models/song.dart';
 import '../providers/collections_controller.dart';
 import '../providers/library_controller.dart';
 import '../providers/player_controller.dart';
+import '../services/covers/blurred_cover.dart';
 import '../widgets/collection_view.dart';
 import '../widgets/context_menu.dart';
 import '../widgets/cover_art.dart';
@@ -79,13 +80,35 @@ class _ArtistPageState extends State<ArtistPage> {
     final heroHeight = math.min(size.width * 1.05, size.height * 0.62);
     final top = topSongsOf(artist);
 
+    return FutureBuilder<BlurredCover?>(
+      future: BlurredCover.of(artist.coverKey),
+      initialData: BlurredCover.cached(artist.coverKey),
+      builder: (context, snap) => _page(
+        context,
+        artist: artist,
+        heroHeight: heroHeight,
+        top: top,
+        wide: wide,
+        blur: snap.data,
+      ),
+    );
+  }
+
+  Widget _page(
+    BuildContext context, {
+    required Artist artist,
+    required double heroHeight,
+    required List<Song> top,
+    required bool wide,
+    required BlurredCover? blur,
+  }) {
     return Scaffold(
       backgroundColor: AppColors.background,
       extendBody: true,
       bottomNavigationBar: wide ? null : const DetailDock(),
       body: Stack(
         children: [
-          Positioned.fill(child: _Backdrop(coverKey: artist.coverKey)),
+          Positioned.fill(child: _Backdrop(blur: blur)),
           Builder(
             builder: (context) => CustomScrollView(
               controller: _scroll,
@@ -96,6 +119,7 @@ class _ArtistPageState extends State<ArtistPage> {
                     height: heroHeight,
                     scroll: _scroll,
                     top: top,
+                    blur: blur,
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -126,22 +150,22 @@ const _overlay = Color(0x8C000000);
 const _textShadow = [Shadow(color: Color(0x99000000), blurRadius: 18)];
 
 class _Backdrop extends StatelessWidget {
-  const _Backdrop({required this.coverKey});
+  const _Backdrop({required this.blur});
 
-  final String coverKey;
+  final BlurredCover? blur;
 
   @override
   Widget build(BuildContext context) {
+    final image = blur?.backdrop;
     return Stack(
       fit: StackFit.expand,
       children: [
-        ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-          child: FittedBox(
+        if (image != null)
+          RawImage(
+            image: image,
             fit: BoxFit.cover,
-            child: CoverArt(coverKey: coverKey, size: 240, radius: 0),
+            filterQuality: FilterQuality.medium,
           ),
-        ),
         const ColoredBox(color: _overlay),
       ],
     );
@@ -154,12 +178,14 @@ class _Hero extends StatelessWidget {
     required this.height,
     required this.scroll,
     required this.top,
+    required this.blur,
   });
 
   final Artist artist;
   final double height;
   final ScrollController scroll;
   final List<Song> top;
+  final BlurredCover? blur;
 
   @override
   Widget build(BuildContext context) {
@@ -202,19 +228,12 @@ class _Hero extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     image,
-                    ShaderMask(
-                      blendMode: BlendMode.dstIn,
-                      shaderCallback: (rect) => const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.white],
-                        stops: [0.4, 0.85],
-                      ).createShader(rect),
-                      child: ImageFiltered(
-                        imageFilter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-                        child: image,
+                    if (blur != null)
+                      RawImage(
+                        image: blur!.fade,
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.medium,
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -298,6 +317,7 @@ class _HeroButtons extends StatelessWidget {
       children: [
         GlassCircle(
           tooltip: allFav ? 'Unfavorite all' : 'Favorite all',
+          blur: false,
           icon: allFav ? Icons.star_rounded : Icons.star_outline_rounded,
           onPressed: () =>
               context.read<CollectionsController>().setFavourite(ids, !allFav),
@@ -328,6 +348,7 @@ class _HeroButtons extends StatelessWidget {
         const SizedBox(width: 22),
         GlassCircle(
           tooltip: 'Shuffle',
+          blur: false,
           icon: Icons.shuffle_rounded,
           onPressed: () => player.playShuffled(artist.songs),
         ),
@@ -343,33 +364,38 @@ class GlassCircle extends StatelessWidget {
     required this.onPressed,
     this.tooltip,
     this.size = 44,
+    this.blur = true,
   });
 
   final IconData icon;
   final VoidCallback onPressed;
   final String? tooltip;
   final double size;
+  final bool blur;
 
   @override
   Widget build(BuildContext context) {
-    final button = ClipOval(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: Material(
-          color: Colors.white.withValues(alpha: 0.16),
-          shape: CircleBorder(
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
-          ),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onPressed,
-            child: SizedBox.square(
-              dimension: size,
-              child: Icon(icon, color: Colors.white, size: size * 0.5),
-            ),
-          ),
+    final face = Material(
+      color: Colors.white.withValues(alpha: blur ? 0.16 : 0.2),
+      shape: CircleBorder(
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: SizedBox.square(
+          dimension: size,
+          child: Icon(icon, color: Colors.white, size: size * 0.5),
         ),
       ),
+    );
+    final button = ClipOval(
+      child: blur
+          ? BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+              child: face,
+            )
+          : face,
     );
     return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
   }
@@ -384,18 +410,15 @@ class _GlassCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-            ),
-            child: child,
-          ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Material(type: MaterialType.transparency, child: child),
         ),
       ),
     );

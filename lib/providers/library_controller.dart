@@ -30,6 +30,7 @@ class LibraryController extends ChangeNotifier {
   static const recentlyAddedLimit = 6;
 
   List<Song> _songs = const [];
+  List<Song> _songsView = const [];
   Map<String, Song> _songById = const {};
   Map<String, int> _countBySource = const {};
   Map<String, int> _availableBySource = const {};
@@ -43,7 +44,7 @@ class LibraryController extends ChangeNotifier {
   ScanResult? _lastResult;
   String? _lastError;
 
-  List<Song> get songs => List.unmodifiable(_songs);
+  List<Song> get songs => _songsView;
   List<MusicSource> get sources => List.unmodifiable(_sources);
   List<Album> get albums => _index.albums;
   List<Artist> get artists => _index.artists;
@@ -94,6 +95,7 @@ class LibraryController extends ChangeNotifier {
     _sources = _repo.sources();
     _songs = _repo.songs()
       ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    _songsView = List.unmodifiable(_songs);
     _songById = {for (final s in _songs) s.id: s};
     final counts = <String, int>{};
     final reachable = <String, int>{};

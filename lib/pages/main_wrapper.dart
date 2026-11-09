@@ -191,7 +191,7 @@ class _MainWrapperState extends State<MainWrapper> {
               data: mq.copyWith(
                 padding: mq.padding.copyWith(
                   top: headerBottom,
-                  bottom: BottomNavbar.extent(hasSong: hasSong),
+                  bottom: BottomNavbar.extent(context, hasSong: hasSong),
                 ),
               ),
               child: _buildPages(),

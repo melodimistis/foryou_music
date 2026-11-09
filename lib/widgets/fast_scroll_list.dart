@@ -9,6 +9,7 @@ class FastScrollList extends StatefulWidget {
     required this.itemBuilder,
     required this.labelOf,
     this.padding,
+    this.prototypeItem,
   });
 
   static const minItems = 30;
@@ -18,6 +19,7 @@ class FastScrollList extends StatefulWidget {
   final IndexedWidgetBuilder itemBuilder;
   final String Function(int index) labelOf;
   final EdgeInsetsGeometry? padding;
+  final Widget? prototypeItem;
 
   static String letterOf(String text) {
     final t = text.trim();
@@ -60,6 +62,7 @@ class _FastScrollListState extends State<FastScrollList> {
       padding: widget.padding,
       itemCount: widget.itemCount,
       itemBuilder: widget.itemBuilder,
+      prototypeItem: widget.prototypeItem,
     );
     if (widget.itemCount <= FastScrollList.minItems) return list;
 

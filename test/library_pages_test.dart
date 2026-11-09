@@ -232,6 +232,7 @@ void main() {
     await setUpLibrary(tester);
     final view = ValueNotifier<LibraryView?>(LibraryView.albums);
     await tester.pumpWidget(app(Scaffold(body: LibrariesPage(view: view))));
+    await tester.pump();
     await tester.tap(find.text('Malibu Nights'));
     await settle(tester);
 

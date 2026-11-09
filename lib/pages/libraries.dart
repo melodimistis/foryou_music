@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
 import '../app/format.dart';
 import '../app/motion.dart';
+import '../app/theme.dart';
 import '../models/album.dart';
+import '../models/song.dart';
 import '../providers/collections_controller.dart';
 import '../providers/library_controller.dart';
 import '../providers/player_controller.dart';
@@ -253,6 +256,7 @@ class _LibraryList extends StatefulWidget {
 class _LibraryListState extends State<_LibraryList> {
   bool _chipsVisible = true;
   double _scrollAccum = 0;
+  double _headerHeight = 0;
   static const _hideAfter = 24.0;
   static const _showAfter = 8.0;
 
@@ -298,79 +302,145 @@ class _LibraryListState extends State<_LibraryList> {
     final visible = wide || _chipsVisible;
     final yoruOn = context.select<YoruController, bool>((y) => y.enabled);
 
+    final header = ColoredBox(
+      color: AppColors.background,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 14, 24, 4),
+            child: SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final v in LibraryView.values)
+                    _Chip(
+                      label: v.label,
+                      selected: v == widget.view,
+                      onTap: () => widget.onSelect(v),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (yoruOn)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 14, 24, 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  widget.view.yoruLine,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
     return Padding(
       padding: EdgeInsets.only(top: topInset),
       child: MediaQuery.removePadding(
         context: context,
         removeTop: true,
-        child: Column(
-          children: [
-            ClipRect(
-              child: AnimatedAlign(
-                alignment: Alignment.bottomCenter,
-                heightFactor: visible ? 1 : 0,
-                duration: Duration(milliseconds: visible ? 220 : 260),
-                curve: visible ? Curves.easeOutCubic : Curves.easeInCubic,
-                child: AnimatedOpacity(
-                  opacity: visible ? 1 : 0,
-                  duration: Duration(milliseconds: visible ? 180 : 260),
-                  curve: visible ? Curves.easeOut : Curves.easeInOut,
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 14, 24, 4),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final v in LibraryView.values)
-                                _Chip(
-                                  label: v.label,
-                                  selected: v == widget.view,
-                                  onTap: () => widget.onSelect(v),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (yoruOn)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 14, 24, 6),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              widget.view.yoruLine,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontFamily: 'Inter',
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+        child: ClipRect(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: _HeaderSpace(
+                  height: _headerHeight,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: _onScroll,
+                    child: switch (widget.view) {
+                      LibraryView.songs => const _SongList(),
+                      LibraryView.albums => const _AlbumList(),
+                      LibraryView.artists => const _ArtistList(),
+                      LibraryView.playlists => const _PlaylistList(),
+                    },
                   ),
                 ),
               ),
-            ),
-            Expanded(
-              child: NotificationListener<ScrollNotification>(
-                onNotification: _onScroll,
-                child: switch (widget.view) {
-                  LibraryView.songs => const _SongList(),
-                  LibraryView.albums => const _AlbumList(),
-                  LibraryView.artists => const _ArtistList(),
-                  LibraryView.playlists => const _PlaylistList(),
-                },
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  ignoring: !visible,
+                  child: AnimatedSlide(
+                    offset: visible ? Offset.zero : const Offset(0, -1),
+                    duration: Duration(milliseconds: visible ? 220 : 260),
+                    curve: visible ? Curves.easeOutCubic : Curves.easeInCubic,
+                    child: AnimatedOpacity(
+                      opacity: visible ? 1 : 0,
+                      duration: Duration(milliseconds: visible ? 180 : 260),
+                      curve: visible ? Curves.easeOut : Curves.easeInOut,
+                      child: _SizeReporter(
+                        onHeight: (h) {
+                          if (h != _headerHeight) {
+                            setState(() => _headerHeight = h);
+                          }
+                        },
+                        child: header,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+}
+
+class _HeaderSpace extends InheritedWidget {
+  const _HeaderSpace({required this.height, required super.child});
+
+  final double height;
+
+  static double of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_HeaderSpace>()?.height ?? 0;
+
+  @override
+  bool updateShouldNotify(_HeaderSpace old) => old.height != height;
+}
+
+class _SizeReporter extends SingleChildRenderObjectWidget {
+  const _SizeReporter({required this.onHeight, required super.child});
+
+  final ValueChanged<double> onHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSizeReporter(onHeight);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSizeReporter renderObject,
+  ) => renderObject.onHeight = onHeight;
+}
+
+class _RenderSizeReporter extends RenderProxyBox {
+  _RenderSizeReporter(this.onHeight);
+
+  ValueChanged<double> onHeight;
+  double? _last;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final h = size.height;
+    if (h == _last) return;
+    _last = h;
+    WidgetsBinding.instance.addPostFrameCallback((_) => onHeight(h));
   }
 }
 
@@ -411,19 +481,24 @@ class _Chip extends StatelessWidget {
   }
 }
 
-EdgeInsets _listPadding(BuildContext context) =>
-    EdgeInsets.fromLTRB(16, 4, 16, MediaQuery.paddingOf(context).bottom + 24);
+EdgeInsets _listPadding(BuildContext context) => EdgeInsets.fromLTRB(
+  16,
+  _HeaderSpace.of(context) + 4,
+  16,
+  MediaQuery.paddingOf(context).bottom + 24,
+);
 
 class _SongList extends StatelessWidget {
   const _SongList();
 
   @override
   Widget build(BuildContext context) {
-    final lib = context.watch<LibraryController>();
-    final songs = lib.songs;
+    final songs = context.select<LibraryController, List<Song>>((l) => l.songs);
     if (songs.isEmpty) {
       return _EmptyState(
-        lib.isScanning ? 'Scanning your music...' : 'No songs yet',
+        context.select<LibraryController, bool>((l) => l.isScanning)
+            ? 'Scanning your music...'
+            : 'No songs yet',
       );
     }
     final currentId = context.select<PlayerController, String?>(
@@ -432,6 +507,7 @@ class _SongList extends StatelessWidget {
     return FastScrollList(
       padding: _listPadding(context),
       itemCount: songs.length,
+      prototypeItem: MediaRow.prototype,
       labelOf: (i) => songs[i].title,
       itemBuilder: (context, i) {
         final s = songs[i];
@@ -463,16 +539,20 @@ class _AlbumList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lib = context.watch<LibraryController>();
-    final albums = lib.albums;
+    final albums = context.select<LibraryController, List<Album>>(
+      (l) => l.albums,
+    );
     if (albums.isEmpty) {
       return _EmptyState(
-        lib.isScanning ? 'Scanning your music...' : 'No album yet',
+        context.select<LibraryController, bool>((l) => l.isScanning)
+            ? 'Scanning your music...'
+            : 'No album yet',
       );
     }
     return FastScrollList(
       padding: _listPadding(context),
       itemCount: albums.length,
+      prototypeItem: MediaRow.prototype,
       labelOf: (i) => albums[i].title,
       itemBuilder: (context, i) {
         final a = albums[i];
@@ -496,16 +576,20 @@ class _ArtistList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lib = context.watch<LibraryController>();
-    final artists = lib.artists;
+    final artists = context.select<LibraryController, List<Artist>>(
+      (l) => l.artists,
+    );
     if (artists.isEmpty) {
       return _EmptyState(
-        lib.isScanning ? 'Scanning your music...' : 'No artist yet',
+        context.select<LibraryController, bool>((l) => l.isScanning)
+            ? 'Scanning your music...'
+            : 'No artist yet',
       );
     }
     return FastScrollList(
       padding: _listPadding(context),
       itemCount: artists.length,
+      prototypeItem: MediaRow.prototype,
       labelOf: (i) => artists[i].name,
       itemBuilder: (context, i) {
         final a = artists[i];

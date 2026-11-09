@@ -33,41 +33,49 @@ void main() {
     ),
   );
 
-  testWidgets('only nav icons without a song, player pops out with one', (
+  testWidgets('labelled tabs, mini player pops out as its own pill', (
     tester,
   ) async {
     await tester.pumpWidget(dock());
     expect(find.byIcon(Icons.fast_forward_rounded), findsNothing);
+    for (final label in ['Home', 'Search', 'Libraries']) {
+      expect(find.text(label), findsOneWidget);
+    }
 
-    await tester.tap(find.byIcon(Icons.library_music_rounded));
+    await tester.tap(find.text('Libraries'));
     await tester.tap(find.byIcon(Icons.search_rounded));
-    expect(taps, [2, 1]);
+    await tester.tap(find.text('Home'));
+    expect(taps, [2, 1, 0]);
+
+    final navRect = tester.getRect(find.byType(GlassPill));
+    expect(navRect.height, BottomNavbar.navHeight);
+
+    double x(Finder f) => tester.getCenter(f).dx;
+    expect(x(find.text('Home')), x(find.byIcon(Icons.home_rounded)));
+    expect(
+      x(find.text('Libraries')),
+      x(find.byIcon(Icons.library_music_rounded)),
+    );
+    expect(
+      tester.getRect(find.text('Home')).top,
+      greaterThan(tester.getRect(find.byIcon(Icons.home_rounded)).bottom),
+    );
 
     await player.playQueue([song('a'), song('b')]);
     await tester.pumpAndSettle();
     expect(find.text('Lagu a'), findsOneWidget);
-    expect(find.text('0:00/1:40'), findsOneWidget);
     expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.fast_rewind_rounded), findsNothing);
+    expect(find.byType(GlassPill), findsNWidgets(2));
 
-    double x(IconData icon) => tester.getCenter(find.byIcon(icon)).dx;
-    expect(x(Icons.fast_rewind_rounded), x(Icons.home_rounded));
-    expect(x(Icons.pause_rounded), x(Icons.search_rounded));
-    expect(x(Icons.fast_forward_rounded), x(Icons.library_music_rounded));
-
+    final mini = tester.getRect(find.byType(GlassPill).first);
+    final nav = tester.getRect(find.byType(GlassPill).last);
+    expect(mini.height, BottomNavbar.miniHeight);
+    expect(nav.top - mini.bottom, BottomNavbar.pillGap);
+    expect(mini.left, nav.left);
+    expect(mini.width, nav.width);
     final cover = tester.getRect(find.byType(CoverArt));
-    final bar = tester.getRect(
-      find
-          .ancestor(
-            of: find.byType(LinearProgressIndicator),
-            matching: find.byType(Row),
-          )
-          .first,
-    );
-    expect(
-      cover.top,
-      lessThanOrEqualTo(tester.getRect(find.text('Lagu a')).top),
-    );
-    expect((cover.bottom - bar.bottom).abs(), lessThan(1));
+    expect((cover.center.dy - mini.center.dy).abs(), lessThan(1));
 
     await tester.tap(find.byIcon(Icons.pause_rounded));
     await tester.pumpAndSettle();
@@ -82,14 +90,19 @@ void main() {
     );
     expect(next.onPressed, isNull);
 
-    engine.emitPosition(const Duration(seconds: 56));
+    engine.emitPosition(const Duration(seconds: 50));
     await tester.pump();
     await tester.pump();
-    expect(find.text('0:56/1:40'), findsOneWidget);
+    final bar = tester.widget<LinearProgressIndicator>(
+      find.byType(LinearProgressIndicator),
+    );
+    expect(bar.value, closeTo(0.5, 0.001));
 
+    final context = tester.element(find.byType(BottomNavbar));
     expect(
-      BottomNavbar.extent(hasSong: true) - BottomNavbar.extent(hasSong: false),
-      BottomNavbar.playerHeight,
+      BottomNavbar.extent(context, hasSong: true) -
+          BottomNavbar.extent(context, hasSong: false),
+      BottomNavbar.miniHeight + BottomNavbar.pillGap,
     );
     player.dispose();
   });

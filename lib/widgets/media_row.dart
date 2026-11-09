@@ -18,6 +18,12 @@ class MediaRow extends StatelessWidget {
 
   static const coverSize = 56.0;
 
+  static const prototype = MediaRow(
+    title: 'Ag',
+    subtitle: 'Ag',
+    trailing: '0:00',
+  );
+
   final String title;
   final String subtitle;
   final String coverKey;
@@ -47,6 +53,7 @@ class MediaRow extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
