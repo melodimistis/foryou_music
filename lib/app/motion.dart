@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum ScreenMotion { detail, info, settings, player, fadeThrough }
+enum ScreenMotion { detail, info, settings, yoru, player, fadeThrough }
 
 class MotionSpec {
   const MotionSpec({
@@ -77,6 +77,18 @@ final Map<ScreenMotion, MotionSpec> motionSlots = {
     enter: (a, child) => SlideTransition(
       position: Tween(
         begin: const Offset(0, 0.12),
+        end: Offset.zero,
+      ).animate(_curve(a)),
+      child: FadeTransition(opacity: _curve(a), child: child),
+    ),
+    covered: (s, child) => _shrink(s, child, 0.95),
+  ),
+  ScreenMotion.yoru: MotionSpec(
+    duration: const Duration(milliseconds: 420),
+    reverseDuration: const Duration(milliseconds: 320),
+    enter: (a, child) => SlideTransition(
+      position: Tween(
+        begin: const Offset(0, -0.12),
         end: Offset.zero,
       ).animate(_curve(a)),
       child: FadeTransition(opacity: _curve(a), child: child),

@@ -59,6 +59,20 @@ class HelpPage extends StatelessWidget {
             'Songs. Tap the note in the player to change or remove it.',
       ),
       Faq(
+        'How do I turn on crossfade?',
+        'Go to Settings > Audio Quality and slide Crossfade to the length '
+            'you like, up to 12 seconds. Songs that follow each other on the '
+            'same album keep playing without a gap instead, so live albums '
+            'and mixes stay as they were made.',
+      ),
+      Faq(
+        'Can I use my playlists in another player?',
+        'Yes. Open a playlist or Favourites, tap the three dots and choose '
+            'Export as .m3u. Pick where to save it. The file lists where '
+            'each song is on this device, so it works in players on the same '
+            'device, like VLC or Poweramp.',
+      ),
+      Faq(
         'What is "Usually at this hour" on Home?',
         'Songs you often play around this time of day. It appears after you '
             'have listened for a while. Songs you keep skipping are left out '

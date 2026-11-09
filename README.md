@@ -25,6 +25,8 @@ It runs on **Android** and **Linux**. Windows builds are possible but not a prio
 - **Lyrics that follow along.** Timed `.lrc` files scroll with the song, and the enhanced format lights up word by word. A second line with the same time, like romanization or a translation, shows smaller underneath.
 - **Library you can browse.** Songs, albums, artists and playlists, with search, favourites and a fast scroller for big collections.
 - **Your queue, your way.** Play next or add to the queue from any song, album, artist or playlist, then reorder or remove songs in the queue.
+- **Songs that flow.** Gapless playback, an optional crossfade of up to 12 seconds, and a soft fade when you play or pause. Songs that follow each other on the same album never crossfade.
+- **Take your playlists with you.** Export any playlist or your favourites as an `.m3u` file that VLC, Poweramp, foobar2000 and other players can open.
 - **Notes on songs.** Write a short note on a song, like where it takes you back to, and see it in the player.
 - **Suggestions that know the time.** Home learns which songs you play at which hour, and songs you keep skipping stay out of the suggestions.
 - **No voice notes in your music.** Short clips without an album and folders like WhatsApp Voice Notes or Recordings are hidden. You can hide more folders yourself.
@@ -121,9 +123,7 @@ Release builds for Android are signed with a key that is not part of this reposi
 
 Planned for the next updates. These are plans, not promises, and none of them will hold up other releases.
 
-- **Audio Quality options.** The Audio Quality page in Settings says "Soon" for now; files play as they are.
-- **Crossfade and gapless playback**, so songs flow into each other.
-- **Export favourites and playlists** as `.m3u` files.
+- **More audio options** in Settings > Audio Quality.
 - **A better output picker** for headphones and speakers, in ForYou's own style.
 - **More of Yoru**: its own artwork and voice, a home screen widget on Android, and an ambient mode.
 - **Smaller Android downloads**, with a separate file for each type of phone.

@@ -18,6 +18,8 @@ class SettingsController extends ChangeNotifier {
   static const _hideShortKey = 'hideShortSeconds';
   static const _hideSystemKey = 'hideSystemFolders';
   static const _excludedKey = 'excludedFolders';
+  static const _crossfadeKey = 'crossfadeSeconds';
+  static const maxCrossfade = 12;
   static const hideShortChoices = [0, 15, 30, 60];
 
   final Box _box;
@@ -90,6 +92,13 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setNotificationsAsked() =>
       _box.put(_notificationsAskedKey, true);
+
+  int get crossfadeSeconds => _box.get(_crossfadeKey, defaultValue: 0) as int;
+
+  Future<void> setCrossfadeSeconds(int value) async {
+    await _box.put(_crossfadeKey, value.clamp(0, maxCrossfade));
+    notifyListeners();
+  }
 
   bool get haptics => _box.get(_hapticsKey, defaultValue: true) as bool;
 

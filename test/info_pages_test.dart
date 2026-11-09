@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foryou_music/pages/legal_information.dart';
@@ -5,6 +7,8 @@ import 'package:foryou_music/pages/licenses.dart';
 import 'package:foryou_music/pages/settings/audio_quality.dart';
 import 'package:foryou_music/pages/settings/help.dart';
 import 'package:foryou_music/providers/notice_controller.dart';
+import 'package:foryou_music/providers/settings_controller.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -63,8 +67,38 @@ void main() {
     expect(find.text('Copy app info'), findsOneWidget);
   });
 
-  testWidgets('Audio Quality says soon', (tester) async {
-    await tester.pumpWidget(app(const AudioQualityPage()));
-    expect(find.text('Soon'), findsOneWidget);
+  testWidgets('Audio Quality sets the crossfade and keeps it', (tester) async {
+    late Directory dir;
+    late SettingsController settings;
+    await tester.runAsync(() async {
+      dir = Directory.systemTemp.createTempSync('foryou_audio');
+      Hive.init(dir.path);
+      settings = await SettingsController.open();
+    });
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: settings,
+        child: app(const AudioQualityPage()),
+      ),
+    );
+    expect(find.text('Crossfade'), findsOneWidget);
+    expect(find.text('Off'), findsOneWidget);
+    expect(find.text('Gapless playback'), findsOneWidget);
+
+    final slider = find.byType(Slider);
+    final box = tester.getRect(slider);
+    await tester.runAsync(() async {
+      await tester.tapAt(Offset(box.right - 24, box.center.dy));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pump();
+    expect(settings.crossfadeSeconds, SettingsController.maxCrossfade);
+    expect(find.text('12 seconds'), findsOneWidget);
+    expect(AudioQualityPage.crossfadeLabel(1), '1 second');
+
+    await tester.runAsync(() async {
+      await Hive.close();
+      dir.deleteSync(recursive: true);
+    });
   });
 }

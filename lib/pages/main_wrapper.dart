@@ -51,7 +51,7 @@ class _MainWrapperState extends State<MainWrapper> {
   }
 
   void _openYoru() {
-    pushMotion(context, ScreenMotion.settings, (_) => const YoruPage());
+    pushMotion(context, ScreenMotion.yoru, (_) => const YoruPage());
   }
 
   Widget _miniPlayer({bool translucent = false}) {

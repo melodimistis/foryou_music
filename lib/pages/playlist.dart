@@ -93,6 +93,14 @@ class FavouritesPage extends StatelessWidget {
 
     return DetailScaffold(
       title: 'Favourite',
+      trailing: songs.isEmpty
+          ? null
+          : MenuButton(
+              actions: (context) => [
+                ...queueActions(context, songs),
+                exportAction(context, 'Favourites', songs),
+              ],
+            ),
       body: CollectionView(
         title: 'Favourites',
         subtitle: 'Songs you starred',

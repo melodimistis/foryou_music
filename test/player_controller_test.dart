@@ -224,6 +224,97 @@ void main() {
     expect(player.lastError, isNull);
   });
 
+  group('next song and crossfade', () {
+    test('the engine always knows the next song', () async {
+      await player.playQueue([song('1'), song('2'), song('3')]);
+      await flush();
+      expect(engine.lastNext?.uri, 'file:///m/2.mp3');
+      expect(engine.lastNext?.crossfade, Duration.zero);
+
+      player.moveItem(2, 1);
+      await flush();
+      expect(engine.lastNext?.uri, 'file:///m/3.mp3');
+
+      player.cycleRepeat();
+      player.cycleRepeat();
+      await flush();
+      expect(player.repeat, RepeatMode.one);
+      expect(engine.lastNext?.uri, isNull);
+    });
+
+    test('when the engine moves on by itself, the player follows', () async {
+      await player.playQueue([song('1'), song('2'), song('3')]);
+      await flush();
+      engine.emitPosition(const Duration(seconds: 40));
+      await flush();
+      expect(counted, ['1']);
+
+      engine.advance();
+      await flush();
+      expect(player.current?.id, '2');
+      expect(player.position, Duration.zero);
+      expect(engine.loaded, ['file:///m/1.mp3']);
+      expect(engine.lastNext?.uri, 'file:///m/3.mp3');
+
+      engine.emitPosition(const Duration(seconds: 40));
+      await flush();
+      expect(counted, ['1', '2']);
+
+      engine.advance();
+      await flush();
+      expect(player.current?.id, '3');
+      expect(engine.lastNext?.uri, isNull);
+    });
+
+    test('repeat all wraps the next song around to the start', () async {
+      await player.playQueue([song('1'), song('2')], startIndex: 1);
+      player.cycleRepeat();
+      await flush();
+      expect(player.repeat, RepeatMode.all);
+      expect(engine.lastNext?.uri, 'file:///m/1.mp3');
+    });
+
+    test('crossfade is used between songs but not inside an album', () async {
+      player.setCrossfade(const Duration(seconds: 6));
+      await player.playQueue([
+        song('1', album: 'Live', track: 1),
+        song('2', album: 'Live', track: 2),
+        song('3', album: 'Other', track: 1),
+        song('4', album: 'Live', track: 7),
+      ]);
+      await flush();
+      expect(engine.lastNext?.crossfade, Duration.zero);
+
+      engine.advance();
+      await flush();
+      expect(player.current?.id, '2');
+      expect(engine.lastNext?.crossfade, const Duration(seconds: 6));
+
+      expect(
+        player.crossfadeBetween(
+          song('a', album: 'Live', track: 2),
+          song('b', album: 'Live', track: 7),
+        ),
+        const Duration(seconds: 6),
+      );
+      expect(
+        player.crossfadeBetween(song('a'), song('b')),
+        const Duration(seconds: 6),
+      );
+      expect(
+        player.crossfadeBetween(
+          song('a', album: 'Mix'),
+          song('b', album: 'Mix'),
+        ),
+        Duration.zero,
+      );
+
+      player.setCrossfade(Duration.zero);
+      await flush();
+      expect(engine.lastNext?.crossfade, Duration.zero);
+    });
+  });
+
   group('queue persistence', () {
     late MemoryQueueStore store;
     late PlayerController saved;

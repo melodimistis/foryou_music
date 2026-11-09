@@ -8,6 +8,7 @@ import '../providers/library_controller.dart';
 import '../providers/notice_controller.dart';
 import '../providers/player_controller.dart';
 import '../services/haptics.dart';
+import '../services/playlist_export.dart';
 import 'add_to_playlist_sheet.dart';
 import 'context_menu.dart';
 import 'note_sheet.dart';
@@ -55,6 +56,22 @@ List<MenuAction> queueActions(BuildContext context, List<Song> songs) {
       }
     }),
   ];
+}
+
+MenuAction exportAction(BuildContext context, String name, List<Song> songs) {
+  final notices = context.read<NoticeController>();
+  return MenuAction('Export as .m3u', Icons.ios_share_rounded, () async {
+    final file = PlaylistExport.fileName(name);
+    switch (await PlaylistExport.save(name, songs)) {
+      case ExportResult.saved:
+        notices.show('Saved $file', icon: Icons.check_rounded);
+      case ExportResult.failed:
+        notices.show('Could not save $file', icon: Icons.error_outline_rounded);
+      case ExportResult.empty:
+      case ExportResult.cancelled:
+        break;
+    }
+  });
 }
 
 List<MenuAction> songActions(
@@ -150,6 +167,12 @@ List<MenuAction> playlistActions(
         'Add to Playlist',
         Icons.add_rounded,
         () => showAddToPlaylist(context, songIds),
+      ),
+    if (songIds.isNotEmpty)
+      exportAction(
+        context,
+        playlist.name,
+        context.read<LibraryController>().songsByIds(songIds),
       ),
     MenuAction('Delete', Icons.delete_outline_rounded, () async {
       if (!await confirmDeletePlaylist(context, playlist)) return;

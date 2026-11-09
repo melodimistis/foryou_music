@@ -68,11 +68,8 @@ class GeneralPage extends StatelessWidget {
             Icons.chevron_right_rounded,
             color: Colors.white38,
           ),
-          onTap: () => pushMotion(
-            context,
-            ScreenMotion.settings,
-            (_) => const YoruPage(),
-          ),
+          onTap: () =>
+              pushMotion(context, ScreenMotion.yoru, (_) => const YoruPage()),
         ),
       ],
     );

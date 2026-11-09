@@ -19,7 +19,8 @@ class PlayerController extends ChangeNotifier {
       ..add(_engine.playingStream.listen(_onPlaying))
       ..add(_engine.positionStream.listen(_onPosition))
       ..add(_engine.durationStream.listen(_onDuration))
-      ..add(_engine.completedStream.listen((_) => _onCompleted()));
+      ..add(_engine.completedStream.listen((_) => _onCompleted()))
+      ..add(_engine.advancedStream.listen((_) => _onAdvanced()));
   }
 
   final AudioEngine _engine;
@@ -41,6 +42,8 @@ class PlayerController extends ChangeNotifier {
   Duration _duration = Duration.zero;
   bool _counted = false;
   int _loadToken = 0;
+  Duration _crossfade = Duration.zero;
+  Future<void> _nextSync = Future.value();
   String? _lastError;
   Song? get current =>
       _index >= 0 && _index < _queue.length ? _queue[_index] : null;
@@ -57,6 +60,64 @@ class PlayerController extends ChangeNotifier {
   String? get lastError => _lastError;
 
   Stream<Duration> get positionStream => _engine.positionStream;
+
+  Duration get crossfade => _crossfade;
+
+  void setCrossfade(Duration value) {
+    if (value == _crossfade) return;
+    _crossfade = value;
+    _syncNext();
+  }
+
+  int? get _nextIndex {
+    if (!hasSong || _repeat == RepeatMode.one) return null;
+    if (_index < _queue.length - 1) return _index + 1;
+    if (_repeat == RepeatMode.all) return 0;
+    return null;
+  }
+
+  Duration crossfadeBetween(Song from, Song to) {
+    if (_crossfade <= Duration.zero) return Duration.zero;
+    final album = from.album.trim();
+    final sameAlbum =
+        album.isNotEmpty &&
+        album == to.album.trim() &&
+        from.albumArtist == to.albumArtist;
+    if (!sameAlbum) return _crossfade;
+    final a = from.trackNumber;
+    final b = to.trackNumber;
+    final follows = a == null || b == null
+        ? !_shuffle
+        : b == a + 1 && from.discNumber == to.discNumber;
+    return follows ? Duration.zero : _crossfade;
+  }
+
+  void _syncNext() {
+    final playing = current;
+    final i = _nextIndex;
+    final next = i == null ? null : _queue[i];
+    final fade = playing == null || next == null
+        ? Duration.zero
+        : crossfadeBetween(playing, next);
+    _nextSync = _nextSync
+        .then((_) => _engine.setNext(next?.uri, crossfade: fade))
+        .catchError((Object e) => debugPrint('Could not queue next: $e'));
+  }
+
+  void _onAdvanced() {
+    final i = _nextIndex;
+    if (i == null) return;
+    _index = i;
+    final song = current!;
+    _counted = false;
+    _position = Duration.zero;
+    _lastSaved = Duration.zero;
+    _duration = Duration(milliseconds: song.durationMs);
+    _lastError = null;
+    notifyListeners();
+    _persist();
+    _syncNext();
+  }
 
   Future<void> playQueue(List<Song> songs, {int startIndex = 0}) async {
     if (startIndex < 0 || startIndex >= songs.length) return;
@@ -165,6 +226,7 @@ class PlayerController extends ChangeNotifier {
     }
     notifyListeners();
     _persist();
+    _syncNext();
   }
 
   void removeAt(int index) {
@@ -177,6 +239,7 @@ class PlayerController extends ChangeNotifier {
     if (index < _index) _index--;
     notifyListeners();
     _persist();
+    _syncNext();
   }
 
   void moveItem(int from, int to) {
@@ -190,6 +253,7 @@ class PlayerController extends ChangeNotifier {
     if (!_shuffle) _original = List.of(_queue);
     notifyListeners();
     _persist();
+    _syncNext();
   }
 
   Future<void> seek(Duration position) async {
@@ -208,12 +272,14 @@ class PlayerController extends ChangeNotifier {
     }
     notifyListeners();
     _persist();
+    _syncNext();
   }
 
   void cycleRepeat() {
     _repeat = RepeatMode.values[(_repeat.index + 1) % RepeatMode.values.length];
     notifyListeners();
     _persist();
+    _syncNext();
   }
 
   Future<bool> restore(Song? Function(String id) lookup) async {
@@ -254,6 +320,7 @@ class PlayerController extends ChangeNotifier {
       await _engine.load(current.uri);
       if (token != _loadToken) return true;
       if (_position > Duration.zero) await _engine.seek(_position);
+      _syncNext();
     } catch (_) {
       if (token != _loadToken) return true;
       _lastError = 'Could not open "${current.title}"';
@@ -307,6 +374,7 @@ class PlayerController extends ChangeNotifier {
       await _engine.load(song.uri);
       if (token != _loadToken) return;
       await _engine.play();
+      _syncNext();
     } catch (_) {
       if (token != _loadToken) return;
       _lastError = 'Could not play "${song.title}"';

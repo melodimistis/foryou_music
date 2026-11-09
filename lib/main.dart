@@ -37,6 +37,7 @@ import 'package:foryou_music/services/source_scanner/local_folder_scanner.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AppLicenses.register();
+  JustAudioMediaKit.prefetchPlaylist = true;
   JustAudioMediaKit.ensureInitialized();
   await Hive.initFlutter();
 
@@ -63,11 +64,15 @@ Future<void> main() async {
   }
 
   final player = PlayerController(
-    JustAudioEngine(),
+    MixEngine(),
     recordPlay: library.recordPlay,
     recordSkip: library.recordSkip,
     store: await HiveQueueStore.open(),
   );
+  void syncCrossfade() =>
+      player.setCrossfade(Duration(seconds: settings.crossfadeSeconds));
+  syncCrossfade();
+  settings.addListener(syncCrossfade);
   final mediaAdapter = MediaControlsBinding.platformAdapter();
   if (mediaAdapter != null) {
     await MediaControlsBinding(player, mediaAdapter).start();

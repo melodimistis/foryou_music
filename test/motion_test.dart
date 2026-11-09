@@ -147,4 +147,25 @@ void main() {
       expect(faded, 1.0);
     });
   }
+
+  testWidgets('Yoru comes down from the top', (tester) async {
+    final nav = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: nav,
+        home: const Scaffold(body: Text('base')),
+      ),
+    );
+    nav.currentState!.push(
+      MotionRoute<void>(
+        motion: ScreenMotion.yoru,
+        builder: (_) => const Scaffold(body: Text('yoru')),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(tester.getTopLeft(find.byType(Scaffold).last).dy, lessThan(0));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.byType(Scaffold).last), Offset.zero);
+  });
 }
