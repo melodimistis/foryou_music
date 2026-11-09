@@ -12,6 +12,9 @@ class SettingsController extends ChangeNotifier {
   static const _skipWelcomeKey = 'skipWelcome';
   static const _lastUpdateCheckKey = 'lastUpdateCheckMs';
   static const _hapticsKey = 'haptics';
+  static const _yoruMessagesKey = 'yoruMessages';
+  static const _messagesPerDayKey = 'messagesPerDay';
+  static const _notificationsAskedKey = 'notificationsAsked';
   static const _hideShortKey = 'hideShortSeconds';
   static const _hideSystemKey = 'hideSystemFolders';
   static const _excludedKey = 'excludedFolders';
@@ -65,6 +68,28 @@ class SettingsController extends ChangeNotifier {
     hideSystemFolders: hideSystemFolders,
     excludedFolders: excludedFolders,
   );
+
+  bool get yoruMessages =>
+      _box.get(_yoruMessagesKey, defaultValue: true) as bool;
+
+  Future<void> setYoruMessages(bool value) async {
+    await _box.put(_yoruMessagesKey, value);
+    notifyListeners();
+  }
+
+  int get messagesPerDay =>
+      _box.get(_messagesPerDayKey, defaultValue: 2) as int;
+
+  Future<void> setMessagesPerDay(int value) async {
+    await _box.put(_messagesPerDayKey, value.clamp(1, 3));
+    notifyListeners();
+  }
+
+  bool get notificationsAsked =>
+      _box.get(_notificationsAskedKey, defaultValue: false) as bool;
+
+  Future<void> setNotificationsAsked() =>
+      _box.put(_notificationsAskedKey, true);
 
   bool get haptics => _box.get(_hapticsKey, defaultValue: true) as bool;
 

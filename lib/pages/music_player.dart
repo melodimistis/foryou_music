@@ -22,6 +22,7 @@ import '../services/lyrics/lyrics_service.dart';
 import '../widgets/context_menu.dart';
 import '../widgets/cover_art.dart';
 import '../widgets/menu_actions.dart';
+import '../widgets/note_sheet.dart';
 
 class MusicPlayerPage extends StatefulWidget {
   const MusicPlayerPage({super.key});

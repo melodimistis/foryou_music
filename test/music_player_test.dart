@@ -10,6 +10,7 @@ import 'package:foryou_music/providers/player_controller.dart';
 import 'package:foryou_music/providers/yoru_controller.dart';
 import 'package:foryou_music/services/lyrics/lyrics_service.dart';
 import 'package:foryou_music/widgets/bottom_navbar.dart';
+import 'package:foryou_music/widgets/note_sheet.dart';
 import 'package:foryou_music/widgets/notice/notice_layer.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:provider/provider.dart';
@@ -240,6 +241,41 @@ void main() {
     await tester.binding.handlePopRoute();
     await settle(tester);
     expect(find.byType(MusicPlayerPage), findsNothing);
+    await tearDownAll(tester);
+  });
+
+  testWidgets('note sheet rises from the bottom, saves and removes', (
+    tester,
+  ) async {
+    await setUpAll(tester);
+    await tester.pumpWidget(app());
+    await player.playQueue([song('a')]);
+    await settle(tester);
+    editNote(tester.element(find.byType(Scaffold).first), song('a'));
+    await settle(tester);
+    expect(find.byType(NoteSheet), findsOneWidget);
+    expect(find.text('Remove note'), findsNothing);
+    final sheet = tester.getRect(find.byType(NoteSheet));
+    expect(sheet.bottom, greaterThan(700));
+
+    await tester.enterText(find.byType(TextField), 'Line one\nLine two');
+    await tester.tap(find.text('Save note'));
+    await settle(tester);
+    expect(collections.noteOf('a'), 'Line one\nLine two');
+
+    editNote(tester.element(find.byType(Scaffold).first), song('a'));
+    await settle(tester);
+    await tester.tap(find.text('Remove note'));
+    await settle(tester);
+    expect(collections.hasNote('a'), isFalse);
+
+    editNote(tester.element(find.byType(Scaffold).first), song('a'));
+    await settle(tester);
+    await tester.enterText(find.byType(TextField), 'not saved');
+    await tester.drag(find.text('Note'), const Offset(0, 500));
+    await settle(tester);
+    expect(find.byType(NoteSheet), findsNothing);
+    expect(collections.hasNote('a'), isFalse);
     await tearDownAll(tester);
   });
 

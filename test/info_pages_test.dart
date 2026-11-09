@@ -18,8 +18,9 @@ void main() {
   ) async {
     AppLicenses.register();
     await tester.pumpWidget(app(const LegalPage()));
-    expect(find.textContaining('GPL-3.0-only'), findsOneWidget);
     expect(find.text('Your data stays with you'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('GPL-3.0-only'), 200);
+    expect(find.textContaining('GPL-3.0-only'), findsOneWidget);
 
     final open = find.text('View third-party licenses');
     await tester.scrollUntilVisible(open, 200);

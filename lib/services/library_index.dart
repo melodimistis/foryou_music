@@ -4,7 +4,13 @@ import '../models/album.dart';
 import '../models/song.dart';
 
 class LibraryIndex {
-  LibraryIndex._(this.albums, this.artists, this._albumById, this._artistById);
+  LibraryIndex._(
+    this.albums,
+    this.artists,
+    this._albumById,
+    this._artistById, [
+    this._leadBySong = const {},
+  ]);
 
   static const variousArtists = 'Various Artists';
 
@@ -12,9 +18,14 @@ class LibraryIndex {
   final List<Artist> artists;
   final Map<String, Album> _albumById;
   final Map<String, Artist> _artistById;
+  final Map<String, String> _leadBySong;
 
   Album? albumById(String id) => _albumById[id];
   Artist? artistById(String id) => _artistById[id];
+  Artist? leadArtistOf(String songId) {
+    final key = _leadBySong[songId];
+    return key == null ? null : _artistById[key];
+  }
 
   static final empty = LibraryIndex._(const [], const [], const {}, const {});
 
@@ -274,6 +285,11 @@ class LibraryIndex {
       List.unmodifiable(artists),
       {for (final a in albums) a.id: a},
       {for (final a in artists) a.id: a},
+      {
+        for (final e in credits.entries)
+          if (e.value.primary.isNotEmpty)
+            e.key: artistKey(e.value.primary.first),
+      },
     );
   }
 }

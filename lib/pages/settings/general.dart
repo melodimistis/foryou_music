@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../../app/motion.dart';
 import '../../providers/settings_controller.dart';
 import '../../providers/update_controller.dart';
+import '../../providers/yoru_controller.dart';
+import '../../services/yoru_messages/yoru_messenger.dart';
+import '../../app/theme.dart';
 import '../../widgets/settings_scaffold.dart';
 import '../yoru.dart';
 
@@ -53,6 +56,7 @@ class GeneralPage extends StatelessWidget {
           value: settings.skipWelcome,
           onChanged: settings.setSkipWelcome,
         ),
+        if (YoruMessenger.supported) const _YoruMessagesTiles(),
         ListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Yoru', style: _title),
@@ -118,6 +122,81 @@ class _CheckNowTile extends StatelessWidget {
             )
           : const Icon(Icons.refresh_rounded, color: Colors.white70),
       onTap: busy ? null : updates.check,
+    );
+  }
+}
+
+class _YoruMessagesTiles extends StatelessWidget {
+  const _YoruMessagesTiles();
+
+  static String _label(int n) => n == 1 ? 'Once a day' : '$n times a day';
+
+  Future<void> _pick(BuildContext context) async {
+    final settings = context.read<SettingsController>();
+    final chosen = await showDialog<int>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Messages from Yoru'),
+        children: [
+          for (final n in const [1, 2, 3])
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(n),
+              child: Row(
+                children: [
+                  Icon(
+                    n == settings.messagesPerDay
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_off_rounded,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(_label(n), style: GeneralPage._title),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (chosen != null) await settings.setMessagesPerDay(chosen);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watch<SettingsController>();
+    final yoruOn = context.select<YoruController, bool>((y) => y.enabled);
+    final on = yoruOn && settings.yoruMessages;
+    return Column(
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Messages from Yoru', style: GeneralPage._title),
+          subtitle: Text(
+            yoruOn
+                ? 'Little notes about your music. Written on your phone from '
+                      'your listening, never sent anywhere.'
+                : 'Turn on Yoru to get messages.',
+            style: GeneralPage._subtitle,
+          ),
+          value: on,
+          onChanged: yoruOn ? settings.setYoruMessages : null,
+        ),
+        if (on)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('How often', style: GeneralPage._title),
+            subtitle: Text(
+              _label(settings.messagesPerDay),
+              style: GeneralPage._subtitle,
+            ),
+            trailing: const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white38,
+            ),
+            onTap: () => _pick(context),
+          ),
+      ],
     );
   }
 }

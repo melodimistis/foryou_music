@@ -28,6 +28,7 @@ It runs on **Android** and **Linux**. Windows builds are possible but not a prio
 - **Notes on songs.** Write a short note on a song, like where it takes you back to, and see it in the player.
 - **Suggestions that know the time.** Home learns which songs you play at which hour, and songs you keep skipping stay out of the suggestions.
 - **No voice notes in your music.** Short clips without an album and folders like WhatsApp Voice Notes or Recordings are hidden. You can hide more folders yourself.
+- **Messages from Yoru** (Android). One to three short notifications a day about your own music: a song you haven't heard in a while, a line from lyrics you love, a guess about who's been on repeat. Written on your phone, never sent anywhere. Change or turn them off in Settings > General.
 - **Every artist gets credit.** A song by "A feat. B" shows up on both artists' pages instead of creating a new artist for the pair.
 - **Plays in the background.** Media notification, lock screen and headset controls on Android; MPRIS on Linux, so media keys and desktop widgets work.
 - **Yoru.** A small companion that greets you and listens along. You can turn it off.

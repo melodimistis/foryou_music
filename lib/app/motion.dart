@@ -125,6 +125,10 @@ class MotionRoute<T> extends PageRouteBuilder<T> {
       );
 
   final ScreenMotion motion;
+
+  @override
+  bool canTransitionTo(TransitionRoute<dynamic> nextRoute) =>
+      !(nextRoute is MotionRoute && nextRoute.motion == ScreenMotion.player);
 }
 
 Future<T?> pushMotion<T>(

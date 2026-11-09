@@ -10,6 +10,7 @@ import '../providers/player_controller.dart';
 import '../services/haptics.dart';
 import 'add_to_playlist_sheet.dart';
 import 'context_menu.dart';
+import 'note_sheet.dart';
 
 Future<void> toggleFavouriteWithNotice(BuildContext context, Song song) async {
   final collections = context.read<CollectionsController>();
@@ -54,46 +55,6 @@ List<MenuAction> queueActions(BuildContext context, List<Song> songs) {
       }
     }),
   ];
-}
-
-Future<void> editNote(BuildContext context, Song song) async {
-  final collections = context.read<CollectionsController>();
-  final existing = collections.noteOf(song.id);
-  final controller = TextEditingController(text: existing ?? '');
-  final result = await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(existing == null ? 'Add a note' : 'Edit note'),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        maxLength: CollectionsController.noteLimit,
-        maxLines: 3,
-        minLines: 1,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(
-          hintText: 'This song is from the trip to...',
-        ),
-      ),
-      actions: [
-        if (existing != null)
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(''),
-            child: const Text('Remove'),
-          ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(controller.text),
-          child: const Text('Save'),
-        ),
-      ],
-    ),
-  );
-  controller.dispose();
-  if (result != null) await collections.setNote(song.id, result);
 }
 
 List<MenuAction> songActions(

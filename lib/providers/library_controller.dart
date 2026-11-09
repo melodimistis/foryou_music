@@ -85,6 +85,7 @@ class LibraryController extends ChangeNotifier {
   List<Artist> get artists => _index.artists;
   Album? albumById(String id) => _index.albumById(id);
   Artist? artistById(String id) => _index.artistById(id);
+  Artist? leadArtistOf(String songId) => _index.leadArtistOf(songId);
   Song? songById(String id) => _songById[id];
   int songCountOf(String sourceId) => _countBySource[sourceId] ?? 0;
   bool isSourceReachable(String sourceId) =>

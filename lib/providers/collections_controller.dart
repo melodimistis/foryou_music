@@ -18,7 +18,7 @@ class CollectionsController extends ChangeNotifier {
   static const playlistsBoxName = 'playlists';
   static const favouritesBoxName = 'favourites';
   static const notesBoxName = 'notes';
-  static const noteLimit = 140;
+  static const noteLimit = 500;
 
   static Future<CollectionsController> open({
     String Function()? newId,
@@ -54,7 +54,12 @@ class CollectionsController extends ChangeNotifier {
   bool hasNote(String songId) => _notes.containsKey(songId);
 
   Future<void> setNote(String songId, String text) {
-    final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final clean = text
+        .split('\n')
+        .map((l) => l.trim().replaceAll(RegExp(r'[ \t]+'), ' '))
+        .join('\n')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
     final note = clean.length > noteLimit
         ? clean.substring(0, noteLimit)
         : clean;

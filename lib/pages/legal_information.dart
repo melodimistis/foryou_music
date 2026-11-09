@@ -34,11 +34,21 @@ class LegalPage extends StatelessWidget {
               'covers are never downloaded; they come from your own files.',
         ),
         const InfoSection(
+          'Messages from Yoru',
+          'On Android, Yoru can send you a few notifications a day about your '
+              'music, and one if you haven\'t opened the app for a month. They '
+              'are written on your phone from your own library and listening, '
+              'scheduled on your phone, and never sent through any server. Turn '
+              'them off in Settings > General, or by turning Yoru off.',
+        ),
+        const InfoSection(
           'Permissions',
           'On Android, ForYou Music asks to read your audio files, so it can '
               'play the folders you choose. It keeps playing in the background '
               'with a media notification, so you can control it from the lock '
-              'screen or your headphones. To update itself, it asks Android once '
+              'screen or your headphones. It asks to show notifications for '
+              'the player and for messages from Yoru, and to know when the phone '
+              'restarts so those messages stay scheduled. To update itself, it asks Android once '
               'for permission to install apps, and you still confirm every '
               'update in the system installer. It never changes or deletes '
               'your files.',

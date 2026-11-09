@@ -65,6 +65,26 @@ class HelpPage extends StatelessWidget {
             'of the suggestions on Home.',
       ),
     ],
+    'Messages from Yoru': [
+      Faq(
+        'Why does Yoru send me notifications?',
+        'Yoru sends one to three short messages a day about your music, like '
+            'a song you haven\'t heard in a while or a line from your '
+            'favourite lyrics. Tap one to play what it talks about. They are '
+            'made on your phone; nothing is sent anywhere.',
+      ),
+      Faq(
+        'How do I change or stop them?',
+        'Settings > General > Messages from Yoru. Choose how often, or turn '
+            'them off. Turning Yoru off stops them too.',
+      ),
+      Faq(
+        'I didn\'t get a message.',
+        'Android may delay messages to save battery, and stops them if the app '
+            'is force stopped or put in Deep sleeping apps on Samsung. Opening '
+            'ForYou Music schedules them again.',
+      ),
+    ],
     'Lyrics & covers': [
       Faq(
         'How do I get lyrics?',

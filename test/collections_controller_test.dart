@@ -73,10 +73,10 @@ void main() {
 
   test('notes: trimmed, limited, removed when empty', () async {
     expect(c.noteOf('a'), isNull);
-    await c.setNote('a', '  from the trip\n to Bandung  ');
-    expect(c.noteOf('a'), 'from the trip to Bandung');
+    await c.setNote('a', '  from the  trip \n\n\n\n to Bandung  ');
+    expect(c.noteOf('a'), 'from the trip\n\nto Bandung');
     expect(c.hasNote('a'), isTrue);
-    await c.setNote('b', 'x' * 200);
+    await c.setNote('b', 'x' * 600);
     expect(c.noteOf('b')!.length, CollectionsController.noteLimit);
     await c.setNote('a', '   ');
     expect(c.hasNote('a'), isFalse);

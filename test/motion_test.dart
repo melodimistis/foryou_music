@@ -41,4 +41,69 @@ void main() {
       expect(find.text('base'), findsOneWidget);
     });
   }
+
+  for (final under in [ScreenMotion.detail, ScreenMotion.fadeThrough]) {
+    testWidgets('${under.name} page stays in place under the player', (
+      tester,
+    ) async {
+      final nav = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: nav,
+          home: const Scaffold(body: Text('base')),
+        ),
+      );
+      nav.currentState!.push(
+        MotionRoute<void>(
+          motion: under,
+          builder: (_) => const Scaffold(body: Text('under')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final before = tester.getTopLeft(find.text('under'));
+
+      double opacity() => tester
+          .widgetList<FadeTransition>(
+            find.ancestor(
+              of: find.text('under'),
+              matching: find.byType(FadeTransition),
+            ),
+          )
+          .fold(1.0, (v, f) => v * f.opacity.value);
+
+      nav.currentState!.push(
+        MotionRoute<void>(
+          motion: ScreenMotion.player,
+          builder: (_) => const SizedBox.shrink(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(opacity(), 1.0);
+      expect(tester.getTopLeft(find.text('under')), before);
+
+      nav.currentState!.push(
+        MotionRoute<void>(
+          motion: ScreenMotion.detail,
+          builder: (_) => const Scaffold(body: Text('top')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      nav.currentState!.pop();
+      nav.currentState!.pop();
+      await tester.pumpAndSettle();
+      nav.currentState!.push(
+        MotionRoute<void>(
+          motion: ScreenMotion.detail,
+          builder: (_) => const Scaffold(body: Text('top')),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        opacity() < 1.0 || tester.getTopLeft(find.text('under')) != before,
+        isTrue,
+      );
+    });
+  }
 }
