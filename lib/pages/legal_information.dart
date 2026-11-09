@@ -26,18 +26,21 @@ class LegalPage extends StatelessWidget {
         ),
         const InfoSection(
           'Internet connection',
-          'The only connection ForYou Music makes is to GitHub, to ask whether '
-              'a new version exists. It sends nothing about you or your music. '
-              'You can turn it off in Settings > General. Lyrics and covers are '
-              'never downloaded; they come from your own files.',
+          'The only connection ForYou Music makes is to GitHub: to ask whether '
+              'a new version exists and, on Android, to download it when you '
+              'tap Update. It sends nothing about you or your music. You can '
+              'turn the daily check off in Settings > General. Lyrics and '
+              'covers are never downloaded; they come from your own files.',
         ),
         const InfoSection(
           'Permissions',
           'On Android, ForYou Music asks to read your audio files, so it can '
               'play the folders you choose. It keeps playing in the background '
               'with a media notification, so you can control it from the lock '
-              'screen or your headphones. It never changes or deletes your '
-              'files.',
+              'screen or your headphones. To update itself, it asks Android once '
+              'for permission to install apps, and you still confirm every '
+              'update in the system installer. It never changes or deletes '
+              'your files.',
         ),
         InfoSection(
           'License',

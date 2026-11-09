@@ -15,6 +15,8 @@ ForYou Music plays the songs sitting in your folders. There is no account, no st
 
 It runs on **Android** and **Linux**. Windows builds are possible but not a priority yet.
 
+**Reading this on Codeberg?** Codeberg only holds a copy of the source code. Downloads, release notes, issues and everything else live on GitHub: [github.com/melodimistis/foryou_music](https://github.com/melodimistis/foryou_music).
+
 ## What it does
 
 - **Plays your folders.** Add one or more music folders and ForYou scans them, including everything inside. MP3, FLAC, WAV, OGG, OPUS, M4A and AAC are supported.
@@ -31,7 +33,7 @@ Nothing is downloaded from the internet: lyrics and covers come from your own fi
 
 Downloads are on the [Releases](https://github.com/melodimistis/foryou_music/releases) page.
 
-**Android** (7.0 or newer): download the `.apk`, open it, and allow installing from your browser or file manager when asked. Updates are installed the same way, on top of the old version.
+**Android** (7.0 or newer): download the `.apk`, open it, and allow installing from your browser or file manager when asked.
 
 **Linux**: download the AppImage, make it executable and run it.
 
@@ -46,7 +48,14 @@ It needs `libmpv` for playback and `libfuse2` for the AppImage itself. On Debian
 sudo apt install libmpv2 libfuse2
 ```
 
+### Updates
+
 ForYou checks GitHub once a day for a new version and tells you when one is out. You can turn that off in Settings > General.
+
+- **Android:** tap **Update** on the card. ForYou downloads the new version, checks that the file is intact, and opens the installer; you confirm with one tap. The first time, Android asks you to allow ForYou to install apps.
+- **Linux:** the card takes you to the Releases page; download the new AppImage and replace the old one.
+
+Only official builds from GitHub Releases can update each other, because they are signed with the same key.
 
 ## Getting your music in
 
@@ -81,7 +90,7 @@ More answers are in the app under **Settings > Help**.
 
 ## Privacy
 
-ForYou collects nothing. The only connection it makes is the update check to the GitHub API, and it sends nothing about you or your music. The full statement is in the app under **Legal**.
+ForYou collects nothing. The only connection it makes is to GitHub, to check for a new version and, when you tap Update on Android, to download it. It sends nothing about you or your music. The full statement is in the app under **Legal**.
 
 ## Building from source
 

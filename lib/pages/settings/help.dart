@@ -94,6 +94,28 @@ class HelpPage extends StatelessWidget {
             'artists is not supported yet.',
       ),
     ],
+    'Updates': [
+      Faq(
+        'How do updates work?',
+        'ForYou Music asks GitHub once a day whether a new version exists. On '
+            'Android, tap Update on the card and it downloads the new version '
+            'and opens the installer for you. On Linux, it takes you to the '
+            'GitHub Releases page.',
+      ),
+      Faq(
+        'Android asks me to allow installing apps.',
+        'That happens once, the first time you update. Allow ForYou Music in '
+            'the screen Android shows, go back, and the installer continues. '
+            'You can turn the permission off again at any time.',
+      ),
+      Faq(
+        'The update says "App not installed".',
+        'Only official builds from GitHub Releases can update each other. If '
+            'you installed ForYou Music from somewhere else, uninstall it '
+            'first, then install the version from GitHub. Uninstalling clears '
+            'your favourites, playlists and play history.',
+      ),
+    ],
     'Troubleshooting': [
       Faq(
         'Android: music stops when the screen turns off.',

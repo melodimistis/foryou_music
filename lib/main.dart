@@ -28,6 +28,7 @@ import 'package:foryou_music/models/music_source.dart';
 import 'package:foryou_music/services/covers/cover_store.dart';
 import 'package:foryou_music/services/lyrics/lyrics_service.dart';
 import 'package:foryou_music/services/queue_store.dart';
+import 'package:foryou_music/services/update/apk_installer.dart';
 import 'package:foryou_music/services/metadata/metadata_reader.dart';
 import 'package:foryou_music/services/source_scanner/local_folder_scanner.dart';
 
@@ -72,7 +73,9 @@ Future<void> main() async {
     settings: settings,
     notices: notices,
     currentVersion: () async => (await PackageInfo.fromPlatform()).version,
+    installer: ApkInstaller.supported ? ApkInstaller() : null,
   );
+  unawaited(updates.installer?.clean());
 
   runApp(
     MultiProvider(

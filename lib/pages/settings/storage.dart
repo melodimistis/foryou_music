@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/format.dart';
 import '../../app/theme.dart';
 import '../../models/music_source.dart';
 import '../../providers/library_controller.dart';
@@ -272,18 +273,6 @@ const _tileSubtitle = TextStyle(
   fontFamily: 'Inter',
   fontSize: 12,
 );
-
-String formatBytes(int bytes) {
-  if (bytes < 1024) return '$bytes B';
-  const units = ['KB', 'MB', 'GB'];
-  var value = bytes / 1024;
-  var unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  return '${value.toStringAsFixed(value < 10 ? 1 : 0)} ${units[unit]}';
-}
 
 class _CloudHint extends StatelessWidget {
   @override

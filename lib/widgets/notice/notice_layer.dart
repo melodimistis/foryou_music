@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -194,11 +195,21 @@ class _IslandContent extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            notice.message,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: _textStyle,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                notice.message,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: _textStyle,
+              ),
+              if (notice.progress != null) ...[
+                const SizedBox(height: 8),
+                _IslandProgress(progress: notice.progress!),
+              ],
+            ],
           ),
         ),
         if (notice.actionLabel != null) ...[
@@ -219,6 +230,43 @@ class _IslandContent extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _IslandProgress extends StatelessWidget {
+  const _IslandProgress({required this.progress});
+
+  final ValueListenable<double> progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: progress,
+      builder: (context, value, _) => Row(
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: value,
+                minHeight: 3,
+                backgroundColor: Colors.white24,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '${(value * 100).floor()}%',
+            style: _textStyle.copyWith(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

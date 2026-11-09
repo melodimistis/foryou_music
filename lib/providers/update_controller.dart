@@ -1,6 +1,11 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
+import '../app/format.dart';
 import '../services/links.dart';
+import '../services/update/apk_installer.dart';
 import '../services/update/update_checker.dart';
 import 'notice_controller.dart';
 import 'settings_controller.dart';
@@ -11,6 +16,7 @@ class UpdateController extends ChangeNotifier {
     required this.notices,
     required this.currentVersion,
     UpdateChecker? checker,
+    this.installer,
     DateTime Function()? now,
   }) : _checker = checker ?? UpdateChecker(),
        _now = now ?? DateTime.now;
@@ -20,11 +26,18 @@ class UpdateController extends ChangeNotifier {
   final SettingsController settings;
   final NoticeController notices;
   final Future<String> Function() currentVersion;
+  final ApkInstaller? installer;
   final UpdateChecker _checker;
   final DateTime Function() _now;
 
   bool _checking = false;
   bool get checking => _checking;
+
+  ValueNotifier<double>? _progress;
+  bool get downloading => _progress != null;
+  double? get downloadProgress => _progress?.value;
+
+  final _ready = <String, File>{};
 
   bool get isDue {
     final last = settings.lastUpdateCheck;
@@ -49,14 +62,7 @@ class UpdateController extends ChangeNotifier {
 
     switch (result.status) {
       case UpdateStatus.available:
-        notices.showUpdate(
-          title: 'Update available',
-          message:
-              'ForYou Music ${result.version} is ready. Download it from '
-              'GitHub Releases.',
-          actionLabel: 'GitHub',
-          onAction: () => Links.openWith(notices, result.url ?? Links.releases),
-        );
+        _announce(result);
       case UpdateStatus.upToDate:
         if (!quiet) {
           notices.show(
@@ -73,5 +79,97 @@ class UpdateController extends ChangeNotifier {
         }
     }
     return result;
+  }
+
+  void _openReleases(UpdateResult result) =>
+      Links.openWith(notices, result.url ?? Links.releases);
+
+  void _announce(UpdateResult result) {
+    final apk = result.apk;
+    if (installer == null || apk == null) {
+      notices.showUpdate(
+        title: 'Update available',
+        message:
+            'ForYou Music ${result.version} is ready. Download it from '
+            'GitHub Releases.',
+        actionLabel: 'GitHub',
+        onAction: () => _openReleases(result),
+      );
+      return;
+    }
+    final size = apk.size > 0 ? ' (${formatBytes(apk.size)})' : '';
+    notices.showUpdate(
+      title: 'Update available',
+      message:
+          'ForYou Music ${result.version} is ready$size. Tap Update to '
+          'download it and install it over this version.',
+      actionLabel: 'Update',
+      onAction: () => unawaited(downloadAndInstall(result)),
+    );
+  }
+
+  Future<void> downloadAndInstall(UpdateResult result) async {
+    final installer = this.installer;
+    final apk = result.apk;
+    final version = result.version;
+    if (installer == null || apk == null || version == null || downloading) {
+      return;
+    }
+
+    var file = _ready[version];
+    if (file == null || !await file.exists()) {
+      final progress = ValueNotifier<double>(0);
+      _progress = progress;
+      notifyListeners();
+      notices.show(
+        'Downloading ForYou Music $version',
+        icon: Icons.downloading_rounded,
+        progress: progress,
+        duration: const Duration(hours: 1),
+      );
+      var shown = 0;
+      try {
+        file = await installer.download(
+          apk,
+          version,
+          onProgress: (p) {
+            progress.value = p;
+            final percent = (p * 100).floor();
+            if (percent != shown) {
+              shown = percent;
+              notifyListeners();
+            }
+          },
+        );
+        _ready[version] = file;
+      } catch (e) {
+        debugPrint('Update download failed: $e');
+        notices.show(
+          'Download failed. Check your connection and try again',
+          icon: Icons.cloud_off_rounded,
+          actionLabel: 'Retry',
+          onAction: () => unawaited(downloadAndInstall(result)),
+          duration: const Duration(seconds: 6),
+        );
+        return;
+      } finally {
+        _progress = null;
+        notifyListeners();
+      }
+    }
+
+    notices.show(
+      'Update downloaded. Opening the installer',
+      icon: Icons.install_mobile_rounded,
+    );
+    if (!await installer.install(file)) {
+      notices.show(
+        'Could not open the installer',
+        icon: Icons.error_outline_rounded,
+        actionLabel: 'GitHub',
+        onAction: () => _openReleases(result),
+        duration: const Duration(seconds: 6),
+      );
+    }
   }
 }

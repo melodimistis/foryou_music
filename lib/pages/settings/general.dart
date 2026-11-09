@@ -84,25 +84,30 @@ class _CheckNowTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final updates = context.watch<UpdateController>();
+    final progress = updates.downloadProgress;
+    final busy = updates.checking || progress != null;
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: const Text('Check now', style: GeneralPage._title),
       subtitle: Text(
-        updates.checking
+        progress != null
+            ? 'Downloading update ${(progress * 100).floor()}%'
+            : updates.checking
             ? 'Asking GitHub...'
             : lastCheckedLabel(last, DateTime.now()),
         style: GeneralPage._subtitle,
       ),
-      trailing: updates.checking
-          ? const SizedBox.square(
+      trailing: busy
+          ? SizedBox.square(
               dimension: 20,
               child: CircularProgressIndicator(
+                value: progress,
                 strokeWidth: 2,
                 color: Colors.white70,
               ),
             )
           : const Icon(Icons.refresh_rounded, color: Colors.white70),
-      onTap: updates.checking ? null : updates.check,
+      onTap: busy ? null : updates.check,
     );
   }
 }

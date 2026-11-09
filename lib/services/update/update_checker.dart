@@ -5,13 +5,55 @@ import '../links.dart';
 
 enum UpdateStatus { available, upToDate, failed }
 
+class UpdateAsset {
+  const UpdateAsset({
+    required this.name,
+    required this.url,
+    required this.size,
+    this.sha256,
+  });
+
+  final String name;
+  final Uri url;
+  final int size;
+  final String? sha256;
+
+  static UpdateAsset? apkFrom(Object? assets) {
+    if (assets is! List) return null;
+    for (final a in assets) {
+      if (a is! Map) continue;
+      final name = a['name'];
+      final url = a['browser_download_url'];
+      if (name is! String || url is! String) continue;
+      if (!name.toLowerCase().endsWith('.apk')) continue;
+      final digest = a['digest'];
+      return UpdateAsset(
+        name: name,
+        url: Uri.parse(url),
+        size: a['size'] is int ? a['size'] as int : 0,
+        sha256: digest is String && digest.startsWith('sha256:')
+            ? digest.substring(7).toLowerCase()
+            : null,
+      );
+    }
+    return null;
+  }
+}
+
 class UpdateResult {
-  const UpdateResult(this.status, {this.version, this.url, this.notes});
+  const UpdateResult(
+    this.status, {
+    this.version,
+    this.url,
+    this.notes,
+    this.apk,
+  });
 
   final UpdateStatus status;
   final String? version;
   final String? url;
   final String? notes;
+  final UpdateAsset? apk;
 }
 
 typedef HttpGet = Future<({int status, String body})> Function(Uri uri);
@@ -67,6 +109,7 @@ class UpdateChecker {
         version: version,
         url: url,
         notes: json['body'] as String?,
+        apk: UpdateAsset.apkFrom(json['assets']),
       );
     } catch (_) {
       return const UpdateResult(UpdateStatus.failed);

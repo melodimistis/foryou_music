@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 enum NoticeKind { island, update }
@@ -12,6 +13,7 @@ class Notice {
     this.actionLabel,
     this.onAction,
     this.dismissLabel,
+    this.progress,
     this.duration = const Duration(seconds: 3),
   });
 
@@ -23,6 +25,7 @@ class Notice {
   final String? actionLabel;
   final VoidCallback? onAction;
   final String? dismissLabel;
+  final ValueListenable<double>? progress;
   final Duration duration;
 }
 
@@ -37,6 +40,7 @@ class NoticeController extends ChangeNotifier {
     IconData? icon,
     String? actionLabel,
     VoidCallback? onAction,
+    ValueListenable<double>? progress,
     Duration duration = const Duration(seconds: 3),
   }) => _put(
     Notice(
@@ -46,6 +50,7 @@ class NoticeController extends ChangeNotifier {
       icon: icon,
       actionLabel: actionLabel,
       onAction: onAction,
+      progress: progress,
       duration: duration,
     ),
   );
