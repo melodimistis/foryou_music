@@ -6,11 +6,17 @@ class LyricWord {
 }
 
 class LyricLine {
-  const LyricLine(this.time, this.text, {this.words = const []});
+  const LyricLine(
+    this.time,
+    this.text, {
+    this.words = const [],
+    this.extra = const [],
+  });
 
   final Duration time;
   final String text;
   final List<LyricWord> words;
+  final List<String> extra;
 
   bool get isGap => text.trim().isEmpty;
 }

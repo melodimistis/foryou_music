@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../services/haptics.dart';
 
 class MenuAction {
   const MenuAction(this.label, this.icon, this.onSelected);
@@ -19,6 +20,7 @@ Future<void> showContextMenu(
   List<MenuAction> actions,
 ) async {
   if (actions.isEmpty) return;
+  Haptics.menu();
   FocusManager.instance.primaryFocus?.unfocus();
   final chosen = await showGeneralDialog<MenuAction>(
     context: context,

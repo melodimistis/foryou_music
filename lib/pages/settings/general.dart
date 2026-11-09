@@ -35,6 +35,16 @@ class GeneralPage extends StatelessWidget {
         _CheckNowTile(last: settings.lastUpdateCheck),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
+          title: const Text('Haptic feedback', style: _title),
+          subtitle: const Text(
+            'A light tap when you favourite, open a menu or jump by letter.',
+            style: _subtitle,
+          ),
+          value: settings.haptics,
+          onChanged: settings.setHaptics,
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
           title: const Text('Skip welcome screen', style: _title),
           subtitle: const Text(
             'Open straight to Home, without the greeting.',

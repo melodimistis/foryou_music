@@ -23,6 +23,8 @@ void main() {
 
     final open = find.text('View third-party licenses');
     await tester.scrollUntilVisible(open, 200);
+    await tester.ensureVisible(open);
+    await tester.pumpAndSettle();
     await tester.tap(open);
     for (var i = 0; i < 10; i++) {
       await tester.runAsync(

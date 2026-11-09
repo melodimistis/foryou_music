@@ -139,6 +139,79 @@ void main() {
     expect(counted, ['1']);
   });
 
+  test('next before the play counts is a skip, after it is not', () async {
+    final skipped = <String>[];
+    final p = PlayerController(
+      engine,
+      recordPlay: (id) async {},
+      recordSkip: (id) async => skipped.add(id),
+    );
+    await p.playQueue([song('1'), song('2'), song('3')]);
+    engine.emitPosition(const Duration(seconds: 5));
+    await flush();
+    await p.next();
+    expect(skipped, ['1']);
+    engine.emitPosition(const Duration(seconds: 40));
+    await flush();
+    await p.next();
+    expect(skipped, ['1']);
+    await p.next();
+    expect(skipped, ['1']);
+  });
+
+  group('editing the queue', () {
+    List<String> ids() => player.queue.map((s) => s.id).toList();
+
+    test(
+      'play next goes right after the current song, add goes last',
+      () async {
+        await player.playQueue([song('1'), song('2'), song('3')]);
+        await player.playNext([song('9'), song('3')]);
+        expect(ids(), ['1', '9', '3', '2']);
+        await player.addToQueue([song('8'), song('1')]);
+        expect(ids(), ['1', '9', '3', '2', '8']);
+        expect(player.current?.id, '1');
+        await player.next();
+        expect(player.current?.id, '9');
+      },
+    );
+
+    test('with nothing playing, play next starts playing', () async {
+      await player.addToQueue([song('5'), song('6')]);
+      await flush();
+      expect(player.current?.id, '5');
+      expect(ids(), ['5', '6']);
+    });
+
+    test('remove and reorder keep the current song playing', () async {
+      await player.playQueue([song('1'), song('2'), song('3'), song('4')]);
+      await player.next();
+      expect(player.current?.id, '2');
+      player.removeAt(0);
+      expect(ids(), ['2', '3', '4']);
+      expect(player.current?.id, '2');
+      player.removeAt(0);
+      expect(ids(), ['2', '3', '4']);
+      player.moveItem(2, 0);
+      expect(ids(), ['4', '2', '3']);
+      expect(player.current?.id, '2');
+      await player.next();
+      expect(player.current?.id, '3');
+    });
+
+    test(
+      'songs added while shuffled stay when shuffle is turned off',
+      () async {
+        await player.playQueue([song('1'), song('2'), song('3')]);
+        player.toggleShuffle();
+        await player.playNext([song('7')]);
+        expect(player.queue[1].id, '7');
+        player.toggleShuffle();
+        expect(ids(), ['1', '7', '2', '3']);
+      },
+    );
+  });
+
   test('Files that fail to open do not cause the player to freeze.', () async {
     engine.failing.add('file:///m/1.mp3');
     await player.playQueue([song('1'), song('2')]);

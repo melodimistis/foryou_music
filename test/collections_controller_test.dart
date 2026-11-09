@@ -71,15 +71,29 @@ void main() {
     expect(await c.addToPlaylist('missing', ['x']), 0);
   });
 
+  test('notes: trimmed, limited, removed when empty', () async {
+    expect(c.noteOf('a'), isNull);
+    await c.setNote('a', '  from the trip\n to Bandung  ');
+    expect(c.noteOf('a'), 'from the trip to Bandung');
+    expect(c.hasNote('a'), isTrue);
+    await c.setNote('b', 'x' * 200);
+    expect(c.noteOf('b')!.length, CollectionsController.noteLimit);
+    await c.setNote('a', '   ');
+    expect(c.hasNote('a'), isFalse);
+  });
+
   test('data survives reopening', () async {
     final p = await c.createPlaylist('Keep', songIds: ['x']);
     await c.toggleFavourite('x');
+    await c.setNote('x', 'keep me');
+    await Future<void>.delayed(const Duration(milliseconds: 20));
     c.dispose();
     await Hive.close();
     Hive.init(dir.path);
     c = await CollectionsController.open();
     expect(c.playlistById(p.id)!.songIds, ['x']);
     expect(c.isFavourite('x'), isTrue);
+    expect(c.noteOf('x'), 'keep me');
   });
 
   test('Playlist.fromMap tolerates missing keys', () {

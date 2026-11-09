@@ -17,6 +17,7 @@ import '../providers/notice_controller.dart';
 import '../providers/player_controller.dart';
 import '../providers/yoru_controller.dart';
 import '../services/audio_output.dart';
+import '../services/covers/blurred_cover.dart';
 import '../services/lyrics/lyrics_service.dart';
 import '../widgets/context_menu.dart';
 import '../widgets/cover_art.dart';
@@ -32,9 +33,56 @@ class MusicPlayerPage extends StatefulWidget {
   State<MusicPlayerPage> createState() => _MusicPlayerPageState();
 }
 
-class _MusicPlayerPageState extends State<MusicPlayerPage> {
+class _MusicPlayerPageState extends State<MusicPlayerPage>
+    with SingleTickerProviderStateMixin {
+  static const _closeDistance = 140.0;
+  static const _closeVelocity = 900.0;
+  static const _veilBlur = 18.0;
+  static const _veilDim = 0.35;
+
   bool _lyrics = false;
   double _drag = 0;
+  AnimationController? _snap;
+  double _snapFrom = 0;
+  ModalRoute<Object?>? _route;
+  Animation<double>? _routeCurve;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != _route) {
+      _route = route;
+      final animation = route?.animation;
+      _routeCurve = animation == null
+          ? null
+          : CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            );
+    }
+  }
+
+  @override
+  void dispose() {
+    _snap?.dispose();
+    super.dispose();
+  }
+
+  void _setSeeThrough(bool on) {
+    final route = _route;
+    if (route == null || route.overlayEntries.isEmpty) return;
+    if (!on && route.animation?.status != AnimationStatus.completed) return;
+    final entry = route.overlayEntries.first;
+    final opaque = !on && route.opaque;
+    if (entry.opaque != opaque) entry.opaque = opaque;
+  }
+
+  void _onDragStart(DragStartDetails _) {
+    _snap?.stop();
+    _setSeeThrough(true);
+  }
 
   void _onDragUpdate(DragUpdateDetails d) {
     final next = math.max(0.0, _drag + d.delta.dy);
@@ -42,72 +90,121 @@ class _MusicPlayerPageState extends State<MusicPlayerPage> {
   }
 
   void _onDragEnd(DragEndDetails d) {
-    if (_drag > 140 || (d.primaryVelocity ?? 0) > 900) {
+    if (_drag > _closeDistance || (d.primaryVelocity ?? 0) > _closeVelocity) {
       Navigator.of(context).maybePop();
     } else {
-      setState(() => _drag = 0);
+      _snapBack();
     }
+  }
+
+  void _snapBack() {
+    if (_drag == 0) {
+      _setSeeThrough(false);
+      return;
+    }
+    _snapFrom = _drag;
+    final snap = _snap ??= AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    )..addListener(_onSnap);
+    snap.forward(from: 0).whenComplete(() {
+      if (mounted && _drag == 0) _setSeeThrough(false);
+    });
+  }
+
+  void _onSnap() {
+    final t = Curves.easeOutCubic.transform(_snap!.value);
+    setState(() => _drag = _snapFrom * (1 - t));
   }
 
   @override
   Widget build(BuildContext context) {
     final song = context.select<PlayerController, Song?>((p) => p.current);
+    final height = MediaQuery.sizeOf(context).height;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onVerticalDragUpdate: _onDragUpdate,
-        onVerticalDragEnd: _onDragEnd,
-        child: AnimatedContainer(
-          duration: Duration(milliseconds: _drag == 0 ? 220 : 0),
-          curve: Curves.easeOutCubic,
-          transform: Matrix4.translationValues(0, _drag, 0),
-          child: song == null
-              ? const _NothingPlaying()
-              : Stack(
-                  children: [
-                    Positioned.fill(child: _Backdrop(coverKey: song.coverKey)),
-                    SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 28),
-                        child: Column(
-                          children: [
-                            const _Grabber(),
-                            Expanded(
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 320),
-                                switchInCurve: Curves.easeOutCubic,
-                                switchOutCurve: Curves.easeInCubic,
-                                child: _lyrics
-                                    ? _LyricsPanel(
-                                        key: const ValueKey('lyrics'),
-                                        song: song,
-                                      )
-                                    : _CoverPanel(
-                                        key: const ValueKey('cover'),
-                                        song: song,
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            const _SeekBar(),
-                            const SizedBox(height: 8),
-                            const _Controls(),
-                            const SizedBox(height: 16),
-                            _BottomRow(
-                              lyricsOn: _lyrics,
-                              onLyrics: () =>
-                                  setState(() => _lyrics = !_lyrics),
-                            ),
-                            _YoruCaption(lyricsOn: _lyrics),
-                            const SizedBox(height: 12),
-                          ],
+    final Widget content = song == null
+        ? const ColoredBox(
+            color: AppColors.background,
+            child: _NothingPlaying(),
+          )
+        : Stack(
+            children: [
+              Positioned.fill(child: _Backdrop(coverKey: song.coverKey)),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: Column(
+                    children: [
+                      const _Grabber(),
+                      Expanded(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 320),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: _lyrics
+                              ? _LyricsPanel(
+                                  key: const ValueKey('lyrics'),
+                                  song: song,
+                                )
+                              : _CoverPanel(
+                                  key: const ValueKey('cover'),
+                                  song: song,
+                                ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      const _SeekBar(),
+                      const SizedBox(height: 8),
+                      const _Controls(),
+                      const SizedBox(height: 16),
+                      _BottomRow(
+                        lyricsOn: _lyrics,
+                        onLyrics: () => setState(() => _lyrics = !_lyrics),
+                      ),
+                      _YoruCaption(lyricsOn: _lyrics),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
                 ),
+              ),
+            ],
+          );
+
+    final routeCurve = _routeCurve ?? kAlwaysCompleteAnimation;
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragStart: _onDragStart,
+        onVerticalDragUpdate: _onDragUpdate,
+        onVerticalDragEnd: _onDragEnd,
+        onVerticalDragCancel: _snapBack,
+        child: AnimatedBuilder(
+          animation: routeCurve,
+          child: RepaintBoundary(child: content),
+          builder: (context, child) {
+            final offset = (1 - routeCurve.value) * height + _drag;
+            final strength = (1 - offset / height).clamp(0.0, 1.0);
+            final moving = offset > 0;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                if (moving && strength > 0)
+                  BackdropFilter(
+                    filter: ImageFilter.blur(
+                      sigmaX: _veilBlur * strength,
+                      sigmaY: _veilBlur * strength,
+                    ),
+                    child: ColoredBox(
+                      color: Colors.black.withValues(
+                        alpha: _veilDim * strength,
+                      ),
+                    ),
+                  ),
+                Transform.translate(offset: Offset(0, offset), child: child),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -135,27 +232,38 @@ class _Backdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-          child: FittedBox(
-            fit: BoxFit.cover,
-            child: CoverArt(coverKey: coverKey, size: 240, radius: 0),
-          ),
-        ),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0x55000000), Color(0x99000000), Color(0xEE000000)],
-              stops: [0, 0.55, 1],
+    return FutureBuilder<BlurredCover?>(
+      future: BlurredCover.of(coverKey),
+      initialData: BlurredCover.cached(coverKey),
+      builder: (context, snap) {
+        final image = snap.data?.backdrop;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            const ColoredBox(color: AppColors.background),
+            if (image != null)
+              RawImage(
+                image: image,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.medium,
+              ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x55000000),
+                    Color(0x99000000),
+                    Color(0xEE000000),
+                  ],
+                  stops: [0, 0.55, 1],
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -274,7 +382,60 @@ class _CoverPanel extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _TitleRow(song: song),
+        _SongNote(song: song),
       ],
+    );
+  }
+}
+
+class _SongNote extends StatelessWidget {
+  const _SongNote({required this.song});
+
+  final Song song;
+
+  @override
+  Widget build(BuildContext context) {
+    final note = context.select<CollectionsController, String?>(
+      (c) => c.noteOf(song.id),
+    );
+    if (note == null) return const SizedBox.shrink();
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => editNote(context, song),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 1),
+                child: Icon(
+                  Icons.edit_note_rounded,
+                  color: Colors.white54,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  note,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -518,56 +679,126 @@ Future<void> showQueueSheet(BuildContext context) {
         listenable: player,
         builder: (context, _) {
           final queue = player.queue;
-          final current = player.current?.id;
-          return ListView.builder(
-            itemCount: queue.length + 1,
-            itemBuilder: (context, i) {
-              if (i == 0) {
-                return const Padding(
-                  padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
-                  child: Text(
-                    'Up next',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Inter',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                );
-              }
-              final s = queue[i - 1];
-              final active = s.id == current;
-              return ListTile(
-                leading: CoverArt(coverKey: s.coverKey, size: 44, radius: 8),
-                title: Text(
-                  s.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          final current = player.current;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(24, 0, 24, 2),
+                child: Text(
+                  'Up next',
                   style: TextStyle(
+                    color: Colors.white,
                     fontFamily: 'Inter',
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                subtitle: Text(
-                  artistOrUnknown(s.artist),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+                child: Text(
+                  'Drag to reorder, swipe left to remove.',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                  ),
                 ),
-                trailing: active
-                    ? const Icon(Icons.graphic_eq_rounded, color: Colors.white)
-                    : null,
-                onTap: () {
-                  player.jumpTo(i - 1);
-                  Navigator.of(context).pop();
-                },
-              );
-            },
+              ),
+              Expanded(
+                child: ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
+                  itemCount: queue.length,
+                  onReorderItem: player.moveItem,
+                  itemBuilder: (context, i) {
+                    final s = queue[i];
+                    final active = s == current;
+                    final tile = _QueueTile(
+                      song: s,
+                      index: i,
+                      active: active,
+                      onTap: () {
+                        player.jumpTo(i);
+                        Navigator.of(context).pop();
+                      },
+                    );
+                    if (active) {
+                      return KeyedSubtree(key: ValueKey(s.id), child: tile);
+                    }
+                    return Dismissible(
+                      key: ValueKey(s.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        color: Colors.white12,
+                        child: const Icon(
+                          Icons.remove_circle_outline_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                      onDismissed: (_) => player.removeAt(i),
+                      child: tile,
+                    );
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),
     ),
   );
+}
+
+class _QueueTile extends StatelessWidget {
+  const _QueueTile({
+    required this.song,
+    required this.index,
+    required this.active,
+    required this.onTap,
+  });
+
+  final Song song;
+  final int index;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: CoverArt(coverKey: song.coverKey, size: 44, radius: 8),
+      title: Text(
+        song.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+        ),
+      ),
+      subtitle: Text(
+        artistOrUnknown(song.artist),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (active) const Icon(Icons.graphic_eq_rounded, color: Colors.white),
+          ReorderableDragStartListener(
+            index: index,
+            child: const Padding(
+              padding: EdgeInsets.all(8),
+              child: Icon(Icons.drag_handle_rounded, color: Colors.white38),
+            ),
+          ),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
 }
 
 class _LyricsPanel extends StatelessWidget {
@@ -821,6 +1052,14 @@ const _lyricStyle = TextStyle(
   color: Colors.white,
 );
 
+const _lyricExtraStyle = TextStyle(
+  fontFamily: 'Inter',
+  fontSize: 16,
+  fontWeight: FontWeight.w600,
+  height: 1.3,
+  color: Colors.white70,
+);
+
 class LyricLineView extends StatelessWidget {
   const LyricLineView({
     super.key,
@@ -859,6 +1098,20 @@ class LyricLineView extends StatelessWidget {
             ),
           )
         : Text(line.text, style: _lyricStyle);
+    final Widget body = line.extra.isEmpty
+        ? content
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              content,
+              for (final e in line.extra)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(e, style: _lyricExtraStyle),
+                ),
+            ],
+          );
 
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 400),
@@ -873,7 +1126,7 @@ class LyricLineView extends StatelessWidget {
         curve: Curves.easeOutCubic,
         alignment: Alignment.centerLeft,
         scale: current ? currentScale : restScale,
-        child: content,
+        child: body,
       ),
     );
   }

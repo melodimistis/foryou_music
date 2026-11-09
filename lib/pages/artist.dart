@@ -13,6 +13,7 @@ import '../providers/collections_controller.dart';
 import '../providers/library_controller.dart';
 import '../providers/player_controller.dart';
 import '../services/covers/blurred_cover.dart';
+import '../services/haptics.dart';
 import '../widgets/collection_view.dart';
 import '../widgets/context_menu.dart';
 import '../widgets/cover_art.dart';
@@ -319,8 +320,10 @@ class _HeroButtons extends StatelessWidget {
           tooltip: allFav ? 'Unfavorite all' : 'Favorite all',
           blur: false,
           icon: allFav ? Icons.star_rounded : Icons.star_outline_rounded,
-          onPressed: () =>
-              context.read<CollectionsController>().setFavourite(ids, !allFav),
+          onPressed: () {
+            Haptics.favourite();
+            context.read<CollectionsController>().setFavourite(ids, !allFav);
+          },
         ),
         const SizedBox(width: 22),
         Tooltip(

@@ -13,6 +13,7 @@ class AudioServiceAdapter implements MediaControlsAdapter {
         androidNotificationChannelId: 'com.melodimistis.foryou.playback',
         androidNotificationChannelName: 'Playback',
         androidNotificationChannelDescription: 'Now playing controls',
+        androidNotificationIcon: 'drawable/ic_stat_foryou',
         androidStopForegroundOnPause: true,
       ),
     );

@@ -44,7 +44,7 @@ Lyrics parseLyrics(String raw) {
     if (m != null) offset = Duration(milliseconds: int.parse(m.group(1)!));
   }
 
-  final lines = <LyricLine>[];
+  final lines = <({LyricLine line, int order})>[];
   for (final rawLine in text.split('\n')) {
     final line = rawLine.trim();
     var rest = line;
@@ -61,15 +61,23 @@ Lyrics parseLyrics(String raw) {
         ? words.map((w) => w.text).join().trim()
         : rest.replaceAll(_wordStamp, '').trim();
     for (final t in times) {
-      lines.add(
-        LyricLine(t < Duration.zero ? Duration.zero : t, clean, words: words),
-      );
+      lines.add((
+        line: LyricLine(
+          t < Duration.zero ? Duration.zero : t,
+          clean,
+          words: words,
+        ),
+        order: lines.length,
+      ));
     }
   }
 
   if (lines.isNotEmpty) {
-    lines.sort((a, b) => a.time.compareTo(b.time));
-    return Lyrics(lines: List.unmodifiable(lines));
+    lines.sort((a, b) {
+      final c = a.line.time.compareTo(b.line.time);
+      return c != 0 ? c : a.order.compareTo(b.order);
+    });
+    return Lyrics(lines: List.unmodifiable(_mergeSameTime(lines)));
   }
   final plain = text
       .split('\n')
@@ -77,4 +85,32 @@ Lyrics parseLyrics(String raw) {
       .join('\n')
       .trim();
   return Lyrics(plain: plain);
+}
+
+List<LyricLine> _mergeSameTime(List<({LyricLine line, int order})> sorted) {
+  final merged = <LyricLine>[];
+  var i = 0;
+  while (i < sorted.length) {
+    final time = sorted[i].line.time;
+    final group = <LyricLine>[];
+    while (i < sorted.length && sorted[i].line.time == time) {
+      group.add(sorted[i].line);
+      i++;
+    }
+    final texts = group.where((l) => !l.isGap).toList();
+    if (texts.isEmpty) {
+      merged.add(group.first);
+      continue;
+    }
+    final main = texts.first;
+    merged.add(
+      LyricLine(
+        main.time,
+        main.text,
+        words: main.words,
+        extra: [for (final l in texts.skip(1)) l.text],
+      ),
+    );
+  }
+  return merged;
 }

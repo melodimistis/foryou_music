@@ -9,6 +9,8 @@ on:
 env:
   FLUTTER_VERSION: "3.44.4"
   CERT_SHA256: ba518202a6fc5c4a2d341a27a09b030d873f90ee0d3e4da4b2b2ef833c36eab9
+  APPIMAGETOOL_VERSION: "1.9.1"
+  APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
 
 jobs:
   check:
@@ -145,7 +147,8 @@ jobs:
           EOF
           printf '#!/bin/sh\nHERE="$(dirname "$(readlink -f "$0")")"\nexec "$HERE/foryou_music" "$@"\n' > "$APPDIR/AppRun"
           chmod +x "$APPDIR/AppRun"
-          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          wget -q "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-x86_64.AppImage" -O appimagetool
+          echo "$APPIMAGETOOL_SHA256  appimagetool" | sha256sum -c -
           chmod +x appimagetool
           ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool "$APPDIR" "ForYou-Music-$VERSION-x86_64.AppImage"
 

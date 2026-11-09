@@ -8,6 +8,7 @@ class CollectionsController extends ChangeNotifier {
   CollectionsController._(
     this._playlists,
     this._favourites,
+    this._notes,
     this._newId,
     this._now,
   ) {
@@ -16,6 +17,8 @@ class CollectionsController extends ChangeNotifier {
 
   static const playlistsBoxName = 'playlists';
   static const favouritesBoxName = 'favourites';
+  static const notesBoxName = 'notes';
+  static const noteLimit = 140;
 
   static Future<CollectionsController> open({
     String Function()? newId,
@@ -23,9 +26,11 @@ class CollectionsController extends ChangeNotifier {
   }) async {
     final playlists = await Hive.openBox(playlistsBoxName);
     final favourites = await Hive.openBox(favouritesBoxName);
+    final notes = await Hive.openBox(notesBoxName);
     return CollectionsController._(
       playlists,
       favourites,
+      notes,
       newId ?? () => const Uuid().v4(),
       now ?? DateTime.now,
     );
@@ -33,6 +38,7 @@ class CollectionsController extends ChangeNotifier {
 
   final Box _playlists;
   final Box _favourites;
+  final Box _notes;
   final String Function() _newId;
   final DateTime Function() _now;
 
@@ -43,6 +49,20 @@ class CollectionsController extends ChangeNotifier {
   List<Playlist> get playlists => _playlistList;
   List<String> get favouriteIds => _favouriteIds;
   bool isFavourite(String songId) => _favouriteSet.contains(songId);
+
+  String? noteOf(String songId) => _notes.get(songId) as String?;
+  bool hasNote(String songId) => _notes.containsKey(songId);
+
+  Future<void> setNote(String songId, String text) {
+    final clean = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final note = clean.length > noteLimit
+        ? clean.substring(0, noteLimit)
+        : clean;
+    return _commit(
+      () => note.isEmpty ? _notes.delete(songId) : _notes.put(songId, note),
+    );
+  }
+
   bool allFavourite(Iterable<String> songIds) =>
       songIds.isNotEmpty && songIds.every(_favouriteSet.contains);
 

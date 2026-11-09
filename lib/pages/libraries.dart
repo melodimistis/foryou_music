@@ -504,6 +504,12 @@ class _SongList extends StatelessWidget {
     final currentId = context.select<PlayerController, String?>(
       (p) => p.current?.id,
     );
+    final noted = context.select<CollectionsController, Set<String>>(
+      (c) => {
+        for (final s in songs)
+          if (c.hasNote(s.id)) s.id,
+      },
+    );
     return FastScrollList(
       padding: _listPadding(context),
       itemCount: songs.length,
@@ -522,6 +528,7 @@ class _SongList extends StatelessWidget {
               trailing: formatDuration(s.durationMs),
               active: s.id == currentId,
               enabled: s.available,
+              noted: noted.contains(s.id),
               onTap: () => context.read<PlayerController>().playQueue(
                 songs,
                 startIndex: i,

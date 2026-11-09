@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foryou_music/models/listening_stats.dart';
 import 'package:foryou_music/models/song.dart';
 import 'package:foryou_music/services/home_picks.dart';
 
@@ -70,4 +71,55 @@ void main() {
       expect(yoruPicks(songs, likedGenres: ['Jazz'], now: now), isEmpty);
     },
   );
+
+  group('around this hour', () {
+    ListeningStats at(Map<int, int> plays, {int skips = 0}) => ListeningStats(
+      hours: [for (var h = 0; h < 24; h++) plays[h] ?? 0],
+      skips: skips,
+    );
+
+    test('songs played around now, most first, after enough history', () {
+      final songs = [
+        s('night'),
+        s('morning'),
+        s('once'),
+        s('gone', available: false),
+      ];
+      final stats = {
+        'night': at({1: 2, 2: 2}),
+        'morning': at({8: 9}),
+        'once': at({2: 1}),
+        'gone': at({2: 5}),
+      };
+      expect(aroundThisHour(songs, stats: stats, now: now).map((x) => x.id), [
+        'night',
+      ]);
+      expect(
+        aroundThisHour(songs, stats: stats, now: now, skipped: {'night'}),
+        isEmpty,
+      );
+      expect(
+        aroundThisHour(
+          songs,
+          stats: {
+            'night': at({2: 2}),
+          },
+          now: now,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('skipped songs leave the other picks too', () {
+      final songs = [s('a', plays: 5, lastDaysAgo: 40, genre: 'Pop')];
+      expect(longTimeNoHear(songs, now: now, skipped: {'a'}), isEmpty);
+      expect(
+        yoruPicks(songs, likedGenres: ['Pop'], now: now, skipped: {'a'}),
+        isEmpty,
+      );
+      expect(at({}, skips: 3).skippedMoreThanPlayed(2), isTrue);
+      expect(at({}, skips: 3).skippedMoreThanPlayed(3), isFalse);
+      expect(at({}, skips: 2).skippedMoreThanPlayed(0), isFalse);
+    });
+  });
 }

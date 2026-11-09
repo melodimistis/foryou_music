@@ -20,9 +20,10 @@ class LegalPage extends StatelessWidget {
         const InfoSection(
           'Your data stays with you',
           'ForYou Music has no account, no analytics and no ads. Your library, '
-              'favourites, playlists and play history are stored only on this '
-              'device. Nothing is sent anywhere, and there is no ForYou server '
-              'to send it to.',
+              'favourites, playlists, song notes and play history (including '
+              'the hours you listen and the songs you skip) are stored only on '
+              'this device. Nothing is sent anywhere, and there is no ForYou '
+              'server to send it to.',
         ),
         const InfoSection(
           'Internet connection',

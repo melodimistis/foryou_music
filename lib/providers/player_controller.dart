@@ -11,6 +11,7 @@ class PlayerController extends ChangeNotifier {
   PlayerController(
     this._engine, {
     required this.recordPlay,
+    this.recordSkip,
     Random? random,
     this._store,
   }) : _random = random ?? Random() {
@@ -23,6 +24,7 @@ class PlayerController extends ChangeNotifier {
 
   final AudioEngine _engine;
   final Future<void> Function(String songId) recordPlay;
+  final Future<void> Function(String songId)? recordSkip;
   final Random _random;
   final QueueStore? _store;
   static const _saveEvery = Duration(seconds: 5);
@@ -80,6 +82,14 @@ class PlayerController extends ChangeNotifier {
   }
 
   Future<void> next() async {
+    final song = current;
+    if (song != null && !_counted && hasNext) {
+      recordSkip?.call(song.id).ignore();
+    }
+    await _advance();
+  }
+
+  Future<void> _advance() async {
     if (_queue.isEmpty) return;
     if (_index < _queue.length - 1) {
       _index++;
@@ -118,6 +128,68 @@ class PlayerController extends ChangeNotifier {
     if (index < 0 || index >= _queue.length) return;
     _index = index;
     await _loadCurrent();
+  }
+
+  Future<void> playNext(List<Song> songs) => _enqueue(songs, next: true);
+
+  Future<void> addToQueue(List<Song> songs) => _enqueue(songs, next: false);
+
+  Future<void> _enqueue(List<Song> songs, {required bool next}) async {
+    final playing = current;
+    final added = <Song>[
+      for (final s in {...songs})
+        if (s.available && s != playing) s,
+    ];
+    if (playing == null) {
+      if (added.isNotEmpty) await playQueue(added);
+      return;
+    }
+    if (added.isEmpty) return;
+    final moving = added.toSet();
+    _queue = [
+      for (final s in _queue)
+        if (!moving.contains(s)) s,
+    ];
+    _original = [
+      for (final s in _original)
+        if (!moving.contains(s)) s,
+    ];
+    _index = _queue.indexOf(playing);
+    if (next) {
+      _queue.insertAll(_index + 1, added);
+      final at = _original.indexOf(playing);
+      _original.insertAll(at < 0 ? _original.length : at + 1, added);
+    } else {
+      _queue.addAll(added);
+      _original.addAll(added);
+    }
+    notifyListeners();
+    _persist();
+  }
+
+  void removeAt(int index) {
+    if (index < 0 || index >= _queue.length || index == _index) return;
+    final song = _queue.removeAt(index);
+    _original = [
+      for (final s in _original)
+        if (s != song) s,
+    ];
+    if (index < _index) _index--;
+    notifyListeners();
+    _persist();
+  }
+
+  void moveItem(int from, int to) {
+    if (from < 0 || from >= _queue.length) return;
+    final target = to.clamp(0, _queue.length - 1);
+    if (from == target) return;
+    final playing = current;
+    final song = _queue.removeAt(from);
+    _queue.insert(target, song);
+    _index = playing == null ? _index : _queue.indexOf(playing);
+    if (!_shuffle) _original = List.of(_queue);
+    notifyListeners();
+    _persist();
   }
 
   Future<void> seek(Duration position) async {
@@ -283,7 +355,7 @@ class PlayerController extends ChangeNotifier {
       await seek(Duration.zero);
       return;
     }
-    await next();
+    await _advance();
   }
 
   @override

@@ -86,13 +86,7 @@ final Map<ScreenMotion, MotionSpec> motionSlots = {
   ScreenMotion.player: MotionSpec(
     duration: const Duration(milliseconds: 450),
     reverseDuration: const Duration(milliseconds: 350),
-    enter: (a, child) => SlideTransition(
-      position: Tween(
-        begin: const Offset(0, 1),
-        end: Offset.zero,
-      ).animate(_curve(a)),
-      child: child,
-    ),
+    enter: (a, child) => child,
     covered: (s, child) => _shrink(s, child, 0.94),
   ),
   ScreenMotion.fadeThrough: MotionSpec(

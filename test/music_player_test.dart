@@ -98,9 +98,13 @@ void main() {
     await player.playQueue([song('a'), song('b'), song('c')]);
     await settle(tester);
 
+    await tester.runAsync(
+      () => collections.setNote('a', 'From the trip to Bandung'),
+    );
     await tester.tap(find.text('Lagu a').first);
     await settle(tester);
     expect(find.byType(MusicPlayerPage), findsOneWidget);
+    expect(find.text('From the trip to Bandung'), findsOneWidget);
     expect(find.text('Im listening with you...'), findsOneWidget);
 
     double x(Finder f) => tester.getCenter(f).dx;
@@ -196,11 +200,102 @@ void main() {
     await settle(tester);
     expect(player.current!.id, 'c');
 
+    Finder veil() => find.descendant(
+      of: find.byType(MusicPlayerPage),
+      matching: find.byType(BackdropFilter),
+    );
+    final veilsAtRest = veil().evaluate().length;
+    expect(find.byType(BottomNavbar), findsNothing);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Lagu c').first),
+    );
+    await gesture.moveBy(const Offset(0, 30));
+    await gesture.moveBy(const Offset(0, 60));
+    await tester.pump();
+    expect(find.byType(BottomNavbar), findsOneWidget);
+    expect(veil().evaluate().length, veilsAtRest + 1);
+    await gesture.up();
+    await settle(tester);
+    expect(find.byType(MusicPlayerPage), findsOneWidget);
+    expect(find.byType(BottomNavbar), findsNothing);
+    expect(veil().evaluate().length, veilsAtRest);
+
     await tester.drag(find.text('Lagu c').first, const Offset(0, 400));
     await settle(tester);
     expect(find.byType(MusicPlayerPage), findsNothing);
 
     await tearDownAll(tester);
+  });
+
+  testWidgets('closing the player without dragging it is clean', (
+    tester,
+  ) async {
+    await setUpAll(tester);
+    await tester.pumpWidget(app());
+    await player.playQueue([song('a')]);
+    await settle(tester);
+    await tester.tap(find.text('Lagu a').first);
+    await settle(tester);
+    expect(find.byType(MusicPlayerPage), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await settle(tester);
+    expect(find.byType(MusicPlayerPage), findsNothing);
+    await tearDownAll(tester);
+  });
+
+  testWidgets('queue sheet removes and reorders songs', (tester) async {
+    await setUpAll(tester);
+    await tester.pumpWidget(app());
+    await player.playQueue([song('a'), song('b'), song('c'), song('d')]);
+    await settle(tester);
+    showQueueSheet(tester.element(find.byType(Scaffold).first));
+    await settle(tester);
+    List<String> ids() => player.queue.map((s) => s.id).toList();
+
+    await tester.drag(find.text('Lagu c').last, const Offset(-500, 0));
+    await settle(tester);
+    expect(ids(), ['a', 'b', 'd']);
+
+    await tester.drag(find.text('Lagu a').last, const Offset(-500, 0));
+    await settle(tester);
+    expect(ids(), ['a', 'b', 'd']);
+
+    final handle = find.descendant(
+      of: find.ancestor(
+        of: find.text('Lagu d').last,
+        matching: find.byType(ListTile),
+      ),
+      matching: find.byIcon(Icons.drag_handle_rounded),
+    );
+    await tester.timedDrag(
+      handle,
+      const Offset(0, -90),
+      const Duration(milliseconds: 600),
+    );
+    await settle(tester);
+    expect(ids(), ['a', 'd', 'b']);
+    expect(player.current?.id, 'a');
+
+    await tearDownAll(tester);
+  });
+
+  testWidgets('extra lines show under the lyric, smaller', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LyricLineView(
+            line: const LyricLine(Duration.zero, '사랑해', extra: ['saranghae']),
+            state: LineState.current,
+            clock: ValueNotifier(Duration.zero),
+            end: const Duration(seconds: 2),
+          ),
+        ),
+      ),
+    );
+    final main = tester.getRect(find.text('사랑해'));
+    final extra = tester.getRect(find.text('saranghae'));
+    expect(extra.top, greaterThanOrEqualTo(main.bottom));
+    expect(extra.height, lessThan(main.height));
   });
 
   testWidgets('word-synced line fills word by word', (tester) async {

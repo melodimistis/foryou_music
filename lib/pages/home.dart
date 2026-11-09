@@ -19,6 +19,7 @@ import '../widgets/menu_actions.dart';
 import 'album.dart';
 import 'music_player.dart';
 import 'playlist.dart';
+import '../models/listening_stats.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -556,15 +557,33 @@ class _PicksShelves extends StatelessWidget {
     final genres = context.select<YoruController, List<String>>(
       (y) => y.genres,
     );
+    final stats = context
+        .select<LibraryController, Map<String, ListeningStats>>((l) => l.stats);
+    final skipped = context.select<LibraryController, Set<String>>(
+      (l) => l.skippedIds,
+    );
     final now = DateTime.now();
-    final missed = longTimeNoHear(songs, now: now);
+    final usual = aroundThisHour(
+      songs,
+      stats: stats,
+      now: now,
+      skipped: skipped,
+    );
+    final missed = longTimeNoHear(songs, now: now, skipped: skipped);
     final picks = yoruOn
-        ? yoruPicks(songs, likedGenres: genres, now: now)
+        ? yoruPicks(songs, likedGenres: genres, now: now, skipped: skipped)
         : const <Song>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (usual.isNotEmpty) ...[
+          const _Heading(
+            'Usually at this hour',
+            subtitle: 'what you tend to play around now',
+          ),
+          _SongShelf(songs: usual),
+        ],
         if (missed.isNotEmpty) ...[
           const _Heading(
             'Long time no hear',

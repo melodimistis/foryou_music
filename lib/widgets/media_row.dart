@@ -14,6 +14,7 @@ class MediaRow extends StatelessWidget {
     this.circle = false,
     this.active = false,
     this.enabled = true,
+    this.noted = false,
   });
 
   static const coverSize = 56.0;
@@ -32,6 +33,7 @@ class MediaRow extends StatelessWidget {
   final bool circle;
   final bool active;
   final bool enabled;
+  final bool noted;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +83,14 @@ class MediaRow extends StatelessWidget {
                   ],
                 ),
               ),
+              if (noted) ...[
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.edit_note_rounded,
+                  color: Colors.white38,
+                  size: 16,
+                ),
+              ],
               if (active) ...[
                 const SizedBox(width: 12),
                 const Icon(

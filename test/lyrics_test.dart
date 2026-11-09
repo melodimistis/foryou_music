@@ -49,6 +49,27 @@ void main() {
       expect(l.wordSynced, isTrue);
     });
 
+    test('lines sharing a stamp become one line with extras', () {
+      final l = parseLyrics('''
+[00:10.00]<00:10.00>好き <00:10.50>だよ
+[00:10.00]suki da yo
+[00:10.00]I like you
+[00:14.00]
+[00:14.00]
+[00:16.00]사랑해
+[00:16.00]saranghae
+''');
+      expect(l.lines.length, 3);
+      final first = l.lines[0];
+      expect(first.text, '好き だよ');
+      expect(first.words.length, 2);
+      expect(first.extra, ['suki da yo', 'I like you']);
+      expect(l.lines[1].isGap, isTrue);
+      expect(l.lines[1].extra, isEmpty);
+      expect(l.lines[2].text, '사랑해');
+      expect(l.lines[2].extra, ['saranghae']);
+    });
+
     test('plain lyrics without stamps stay unsynced', () {
       final l = parseLyrics('[ar:X]\nfirst line\nsecond line\n');
       expect(l.synced, isFalse);

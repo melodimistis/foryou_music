@@ -111,6 +111,90 @@ void main() {
     expect(idx.artistById(lany.id), same(lany));
   });
 
+  group('multiple artists', () {
+    List<String> songsOf(LibraryIndex idx, String name) => idx
+        .artistById(LibraryIndex.artistKey(name))!
+        .songs
+        .map((x) => x.id)
+        .toList();
+    List<String> names(LibraryIndex idx) =>
+        idx.artists.map((a) => a.name).toList();
+
+    test('a featured song appears on every artist, not as a new artist', () {
+      final idx = LibraryIndex.build([
+        s('solo', artist: 'Olivia Rodrigo'),
+        s('duet', artist: 'Olivia Rodrigo feat. Billie Eilish'),
+        s('paren', artist: 'Billie Eilish (ft. Khalid & FINNEAS)'),
+      ]);
+      expect(names(idx), [
+        'Billie Eilish',
+        'FINNEAS',
+        'Khalid',
+        'Olivia Rodrigo',
+      ]);
+      expect(songsOf(idx, 'Olivia Rodrigo'), ['duet', 'solo']);
+      expect(songsOf(idx, 'Billie Eilish'), ['duet', 'paren']);
+      expect(songsOf(idx, 'Khalid'), ['paren']);
+    });
+
+    test('featured names in the title count too', () {
+      final idx = LibraryIndex.build([
+        s(
+          'a',
+          title: 'Die With A Smile (feat. Bruno Mars)',
+          artist: 'Lady Gaga',
+        ),
+        s('b', title: 'Stay (With Me)', artist: 'Sam Smith'),
+        s('c', title: 'Lean On (with MO)', artist: 'Major Lazer'),
+        s('d', title: 'Final Song', artist: 'MO'),
+      ]);
+      expect(songsOf(idx, 'Bruno Mars'), ['a']);
+      expect(songsOf(idx, 'MO'), ['d', 'c']);
+      expect(names(idx), isNot(contains('Me')));
+    });
+
+    test('& and , only split when every part is a known artist', () {
+      final idx = LibraryIndex.build([
+        s('sg', artist: 'Simon & Garfunkel'),
+        s('ewf', artist: 'Earth, Wind & Fire'),
+        s('g', artist: 'Lady Gaga'),
+        s('m', artist: 'Bruno Mars'),
+        s('gm', artist: 'Lady Gaga & Bruno Mars'),
+        s('dp', artist: 'Daft Punk'),
+        s('multi', artist: 'IU; SUGA'),
+      ]);
+      expect(names(idx), [
+        'Bruno Mars',
+        'Daft Punk',
+        'Earth, Wind & Fire',
+        'IU',
+        'Lady Gaga',
+        'Simon & Garfunkel',
+        'SUGA',
+      ]);
+      expect(songsOf(idx, 'Lady Gaga'), ['g', 'gm']);
+      expect(songsOf(idx, 'Bruno Mars'), ['gm', 'm']);
+      expect(songsOf(idx, 'SUGA'), ['multi']);
+    });
+
+    test('albums belong to the lead artist, not to guests', () {
+      final idx = LibraryIndex.build([
+        s('1', artist: 'LANY', album: 'gg bb xx', track: 1),
+        s(
+          '2',
+          artist: 'LANY feat. Julia Michaels',
+          album: 'gg bb xx',
+          track: 2,
+        ),
+      ]);
+      expect(idx.albums.single.artist, 'LANY');
+      expect(idx.artistById('lany')!.albums.map((a) => a.title), ['gg bb xx']);
+      final guest = idx.artistById('julia michaels')!;
+      expect(guest.songs.map((x) => x.id), ['2']);
+      expect(guest.albums, isEmpty);
+    });
+  });
+
   test('format helpers', () {
     expect(formatDuration(169000), '2:49');
     expect(formatDuration(3723000), '1:02:03');

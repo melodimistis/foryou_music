@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../services/haptics.dart';
+
 class FastScrollList extends StatefulWidget {
   const FastScrollList({
     super.key,
@@ -49,9 +51,11 @@ class _FastScrollListState extends State<FastScrollList> {
     final max = _controller.position.maxScrollExtent;
     _controller.jumpTo(f * max);
     final index = (f * (widget.itemCount - 1)).round();
+    final letter = FastScrollList.letterOf(widget.labelOf(index));
+    if (letter != _letter) Haptics.tick();
     setState(() {
       _dragY = y.clamp(0.0, height);
-      _letter = FastScrollList.letterOf(widget.labelOf(index));
+      _letter = letter;
     });
   }
 

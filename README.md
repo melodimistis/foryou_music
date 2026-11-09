@@ -22,8 +22,13 @@ It runs on **Android** and **Linux**. Windows builds are possible but not a prio
 - **Plays your folders.** Add one or more music folders and ForYou scans them, including everything inside. MP3, FLAC, WAV, OGG, OPUS, M4A and AAC are supported.
 - **Keeps up with your files.** Rescan picks up new, changed and removed songs. If you move a file somewhere else inside your folders, it keeps its play count, favourite and playlists.
 - **Home built from your listening.** "As always", "Recently", "Long time no hear" and picks based on the genres you play most.
-- **Lyrics that follow along.** Timed `.lrc` files scroll with the song, and the enhanced format lights up word by word.
+- **Lyrics that follow along.** Timed `.lrc` files scroll with the song, and the enhanced format lights up word by word. A second line with the same time, like romanization or a translation, shows smaller underneath.
 - **Library you can browse.** Songs, albums, artists and playlists, with search, favourites and a fast scroller for big collections.
+- **Your queue, your way.** Play next or add to the queue from any song, album, artist or playlist, then reorder or remove songs in the queue.
+- **Notes on songs.** Write a short note on a song, like where it takes you back to, and see it in the player.
+- **Suggestions that know the time.** Home learns which songs you play at which hour, and songs you keep skipping stay out of the suggestions.
+- **No voice notes in your music.** Short clips without an album and folders like WhatsApp Voice Notes or Recordings are hidden. You can hide more folders yourself.
+- **Every artist gets credit.** A song by "A feat. B" shows up on both artists' pages instead of creating a new artist for the pair.
 - **Plays in the background.** Media notification, lock screen and headset controls on Android; MPRIS on Linux, so media keys and desktop widgets work.
 - **Yoru.** A small companion that greets you and listens along. You can turn it off.
 
@@ -75,18 +80,16 @@ For word-by-word highlighting, give each word its own time:
 [00:12.00]<00:12.00>Hello <00:12.40>darkness <00:13.10>my <00:13.40>old <00:13.80>friend
 ```
 
+For romanization or a translation, add a second line with the same time right below the original. It shows smaller, under the lyric:
+
+```
+[00:16.00]사랑해
+[00:16.00]saranghae
+```
+
 ### Covers
 
 ForYou uses the picture embedded in the song first. If there isn't one, it looks for `cover.jpg`, `folder.jpg` or `front.jpg` (or `.png`) in the song's folder.
-
-## Good to know
-
-- **Audio Quality** in Settings says "Soon" on purpose. There are no audio options yet; files are played as they are, with nothing added.
-- **Songs can't be deleted from the app.** ForYou only reads your files and never changes them. Delete with your file manager, then rescan.
-- **"Artist feat. Someone" shows up as its own artist**, because artists are read exactly as tagged.
-- **Music stops when the screen is off?** Some phones put apps to sleep. On Samsung, remove ForYou from *Sleeping apps* in battery settings; elsewhere, set its battery usage to *Unrestricted*.
-
-More answers are in the app under **Settings > Help**.
 
 ## Privacy
 
@@ -113,13 +116,21 @@ Run the tests with `flutter test`.
 
 Release builds for Android are signed with a key that is not part of this repository. Without `android/key.properties`, `flutter build apk --release` falls back to the debug key, which is fine for trying things out but can't update an installed official build.
 
-## Someday
+## Soon Feature
 
-Support for your own music server, so the library you host at home can play here too. It's planned, not promised, and won't hold up other releases.
+Planned for the next updates. These are plans, not promises, and none of them will hold up other releases.
+
+- **Audio Quality options.** The Audio Quality page in Settings says "Soon" for now; files play as they are.
+- **Crossfade and gapless playback**, so songs flow into each other.
+- **Export favourites and playlists** as `.m3u` files.
+- **A better output picker** for headphones and speakers, in ForYou's own style.
+- **More of Yoru**: its own artwork and voice, a home screen widget on Android, and an ambient mode.
+- **Smaller Android downloads**, with a separate file for each type of phone.
+- **Your own music server**, so the library you host at home (Navidrome, Jellyfin and the like) can play here too.
 
 ## Reporting problems
 
-Open an issue on [GitHub Issues](https://github.com/melodimistis/foryou_music/issues). **Settings > Help > Copy app info** copies your app version and system details so you can paste them into the report.
+Many answers are already in the app under **Settings > Help**. If yours isn't, open an issue on [GitHub Issues](https://github.com/melodimistis/foryou_music/issues). **Settings > Help > Copy app info** copies your app version and system details so you can paste them into the report.
 
 For anything else, email the developer at azaralfy01@gmail.com.
 

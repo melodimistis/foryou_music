@@ -51,7 +51,9 @@ Future<void> main() async {
       ),
     },
     pruneCovers: CoverStore.prune,
+    filter: settings.songFilter,
   );
+  settings.addListener(() => library.setFilter(settings.songFilter));
 
   if (Platform.isAndroid) {
     final session = await AudioSession.instance;
@@ -61,6 +63,7 @@ Future<void> main() async {
   final player = PlayerController(
     JustAudioEngine(),
     recordPlay: library.recordPlay,
+    recordSkip: library.recordSkip,
     store: await HiveQueueStore.open(),
   );
   final mediaAdapter = MediaControlsBinding.platformAdapter();

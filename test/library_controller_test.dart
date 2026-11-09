@@ -5,6 +5,7 @@ import 'package:foryou_music/models/music_source.dart';
 import 'package:foryou_music/models/song.dart';
 import 'package:foryou_music/providers/library_controller.dart';
 import 'package:foryou_music/services/library_repository.dart';
+import 'package:foryou_music/services/song_filter.dart';
 import 'package:foryou_music/services/source_scanner/local_folder_scanner.dart';
 
 void main() {
@@ -168,6 +169,29 @@ void main() {
     await pruning.removeSource(src!.id);
     expect(keeps.length, 2);
     pruning.dispose();
+  });
+
+  test('filter hides songs everywhere but keeps their data', () async {
+    touch('Music/a.mp3');
+    touch('Recordings/memo.m4a');
+    touch('Podcasts/ep.mp3');
+    final src = await c.addLocalFolder(musicDir.path);
+    expect(c.songs.length, 3);
+
+    c.setFilter(
+      SongFilter(
+        hideSystemFolders: true,
+        excludedFolders: ['${musicDir.path}/Podcasts'],
+      ),
+    );
+    expect(c.songs.map((s) => s.title), ['a']);
+    expect(c.hiddenCount, 2);
+    expect(c.songCountOf(src!.id), 3);
+    expect(c.songById(c.songs.single.id), isNotNull);
+
+    c.setFilter(SongFilter.none);
+    expect(c.songs.length, 3);
+    expect(c.hiddenCount, 0);
   });
 
   test('reset play history clears counts but keeps the songs', () async {

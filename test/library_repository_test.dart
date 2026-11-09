@@ -43,6 +43,29 @@ void main() {
     rootUri: 'content://tree/sd',
   );
 
+  test(
+    'plays remember the hour, skips are counted, reset clears both',
+    () async {
+      await repo.putSource(srcA);
+      await repo.putSongs([_song('1', 'a')]);
+      await repo.recordPlay('1', at: DateTime(2026, 11, 9, 22, 5));
+      await repo.recordPlay('1', at: DateTime(2026, 11, 10, 22, 40));
+      await repo.recordPlay('1', at: DateTime(2026, 11, 10, 7));
+      await repo.recordSkip('1');
+      await repo.recordSkip('missing');
+      final st = repo.statsOf('1');
+      expect(st.playsAt(22), 2);
+      expect(st.playsAt(7), 1);
+      expect(st.playsAround(23), 2);
+      expect(st.skips, 1);
+      expect(repo.allStats().keys, ['1']);
+
+      await repo.resetPlayHistory();
+      expect(repo.statsOf('1').playsAt(22), 0);
+      expect(repo.statsOf('1').skips, 0);
+    },
+  );
+
   test('source stored and readable', () async {
     await repo.putSource(srcA);
     await repo.putSource(srcB);

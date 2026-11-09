@@ -2,10 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import '../models/album.dart';
+import '../models/listening_stats.dart';
 import '../models/music_source.dart';
 import '../models/song.dart';
 import '../services/library_index.dart';
 import '../services/library_repository.dart';
+import '../services/song_filter.dart';
 import '../services/source_scanner/local_folder_scanner.dart';
 import '../services/source_scanner/source_scanner.dart';
 
@@ -15,6 +17,7 @@ class LibraryController extends ChangeNotifier {
     Map<MusicSourceType, SourceScanner>? scanners,
     String Function()? newId,
     this.pruneCovers,
+    this._filter = SongFilter.none,
   }) : _scanners = scanners ?? {MusicSourceType.local: LocalFolderScanner()},
        _newId = newId ?? (() => const Uuid().v4()) {
     _reload();
@@ -29,7 +32,12 @@ class LibraryController extends ChangeNotifier {
   static const recentLimit = 4;
   static const recentlyAddedLimit = 6;
 
+  SongFilter _filter;
+  List<Song> _all = const [];
   List<Song> _songs = const [];
+  int _hiddenCount = 0;
+  Map<String, ListeningStats> _stats = const {};
+  Set<String> _skipped = const {};
   List<Song> _songsView = const [];
   Map<String, Song> _songById = const {};
   Map<String, int> _countBySource = const {};
@@ -45,6 +53,33 @@ class LibraryController extends ChangeNotifier {
   String? _lastError;
 
   List<Song> get songs => _songsView;
+  SongFilter get filter => _filter;
+  int get hiddenCount => _hiddenCount;
+  Map<String, ListeningStats> get stats => _stats;
+  Set<String> get skippedIds => _skipped;
+
+  Future<void> recordSkip(String songId) async {
+    await _repo.recordSkip(songId);
+    _stats = _repo.allStats();
+    _skipped = _computeSkipped();
+    notifyListeners();
+  }
+
+  Set<String> _computeSkipped() => {
+    for (final s in _songs)
+      if ((_stats[s.id] ?? ListeningStats.none).skippedMoreThanPlayed(
+        s.playCount,
+      ))
+        s.id,
+  };
+
+  void setFilter(SongFilter filter) {
+    if (filter == _filter) return;
+    _filter = filter;
+    _reload();
+    notifyListeners();
+  }
+
   List<MusicSource> get sources => List.unmodifiable(_sources);
   List<Album> get albums => _index.albums;
   List<Artist> get artists => _index.artists;
@@ -93,13 +128,20 @@ class LibraryController extends ChangeNotifier {
 
   void _reload() {
     _sources = _repo.sources();
-    _songs = _repo.songs()
+    _all = _repo.songs()
       ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    _songs = [
+      for (final s in _all)
+        if (!_filter.hides(s)) s,
+    ];
+    _hiddenCount = _all.length - _songs.length;
+    _stats = _repo.allStats();
+    _skipped = _computeSkipped();
     _songsView = List.unmodifiable(_songs);
     _songById = {for (final s in _songs) s.id: s};
     final counts = <String, int>{};
     final reachable = <String, int>{};
-    for (final s in _songs) {
+    for (final s in _all) {
       counts[s.sourceId] = (counts[s.sourceId] ?? 0) + 1;
       if (s.available) reachable[s.sourceId] = (reachable[s.sourceId] ?? 0) + 1;
     }
@@ -192,7 +234,7 @@ class LibraryController extends ChangeNotifier {
     if (prune == null) return;
     try {
       await prune({
-        for (final s in _songs)
+        for (final s in _all)
           if (s.hasCover) s.coverKey,
       });
     } catch (e) {

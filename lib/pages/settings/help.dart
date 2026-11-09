@@ -44,12 +44,40 @@ class HelpPage extends StatelessWidget {
             'music to a folder on your device first, then add that folder.',
       ),
     ],
+    'Playing': [
+      Faq(
+        'How do I play a song next or add it to the queue?',
+        'Long press a song, album, artist or playlist, or tap its three '
+            'dots, and choose Play next or Add to queue. In the player, the '
+            'queue button shows what is coming up: drag the handle to reorder '
+            'and swipe left to remove a song.',
+      ),
+      Faq(
+        'Can I write a note on a song?',
+        'Yes. Choose Add note from the song menu. The note shows under the '
+            'title in the player, and a small note icon marks the song in '
+            'Songs. Tap the note in the player to change or remove it.',
+      ),
+      Faq(
+        'What is "Usually at this hour" on Home?',
+        'Songs you often play around this time of day. It appears after you '
+            'have listened for a while. Songs you keep skipping are left out '
+            'of the suggestions on Home.',
+      ),
+    ],
     'Lyrics & covers': [
       Faq(
         'How do I get lyrics?',
         'Put a .lrc file with the same name next to the song, for example '
             '"Song.mp3" and "Song.lrc", or embed the lyrics in the song tags. '
             'Timed lyrics scroll along with the music.',
+      ),
+      Faq(
+        'Can lyrics show romanization or a translation?',
+        'Yes. In a .lrc file, give the extra line the same time as the '
+            'original line, right below it. ForYou Music shows it smaller, '
+            'under the lyric, for example "[00:16.00]사랑해" followed by '
+            '"[00:16.00]saranghae".',
       ),
       Faq(
         'How do I get word-by-word highlighting?',
@@ -76,6 +104,14 @@ class HelpPage extends StatelessWidget {
             'history are kept and come back when the folder does.',
       ),
       Faq(
+        'Some audio files don\'t show up.',
+        'ForYou Music hides voice notes, recordings and ringtones so they '
+            'don\'t mix with your music: clips under 30 seconds that don\'t '
+            'belong to an album, and folders like WhatsApp Voice Notes or '
+            'Recordings. Change this, or hide more folders, in Settings > '
+            'Storage > Hide from library.',
+      ),
+      Faq(
         'I moved some files. Did I lose my history?',
         'No. When a song is moved to another place inside your added folders, '
             'ForYou Music recognises it on the next scan and keeps its play '
@@ -88,10 +124,13 @@ class HelpPage extends StatelessWidget {
             'in Settings > Storage.',
       ),
       Faq(
-        'Why is "Artist feat. Someone" a separate artist?',
-        'Artists are read exactly as written in the tags, so a song credited '
-            'to "A feat. B" is listed apart from "A". Splitting featured '
-            'artists is not supported yet.',
+        'How are songs with more than one artist listed?',
+        'A song by "A feat. B" shows up on the pages of both A and B, and no '
+            'new artist is made for the pair. Names after feat., ft. or '
+            'featuring, in the artist or in the title, always count. Names '
+            'joined with & or a comma are only split when each of them is '
+            'already an artist in your library, so a band like "Simon & '
+            'Garfunkel" stays together.',
       ),
     ],
     'Updates': [
@@ -107,6 +146,13 @@ class HelpPage extends StatelessWidget {
         'That happens once, the first time you update. Allow ForYou Music in '
             'the screen Android shows, go back, and the installer continues. '
             'You can turn the permission off again at any time.',
+      ),
+      Faq(
+        'It says "Could not reach GitHub".',
+        'Some home Wi-Fi routers sometimes fail to find GitHub. Switch to '
+            'another network, like mobile data, and tap Check now again in '
+            'Settings > General. If it keeps happening on your Wi-Fi, set '
+            'Private DNS on your phone to dns.google.',
       ),
       Faq(
         'The update says "App not installed".',

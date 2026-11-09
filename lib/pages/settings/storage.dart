@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../app/format.dart';
@@ -6,6 +7,7 @@ import '../../app/theme.dart';
 import '../../models/music_source.dart';
 import '../../providers/library_controller.dart';
 import '../../providers/notice_controller.dart';
+import '../../providers/settings_controller.dart';
 import '../../widgets/add_folder_flow.dart';
 import '../../services/covers/cover_store.dart';
 import '../../widgets/settings_scaffold.dart';
@@ -124,6 +126,8 @@ class StoragePage extends StatelessWidget {
         ],
         const SizedBox(height: 12),
         _CloudHint(),
+        const SizedBox(height: 28),
+        _HideSection(hidden: lib.hiddenCount, busy: lib.isScanning),
         const SizedBox(height: 28),
         const Text(
           'Space & history',
@@ -380,8 +384,9 @@ class _ResetHistoryTile extends StatelessWidget {
       context,
       title: 'Reset play history?',
       body:
-          'Play counts and last played times are cleared, so Home starts '
-          'fresh. Favourites and playlists stay.',
+          'Play counts, last played times, listening hours and skips are '
+          'cleared, so Home starts fresh. Favourites, playlists and notes '
+          'stay.',
       action: 'Reset',
     );
     if (!ok) return;
@@ -396,13 +401,153 @@ class _ResetHistoryTile extends StatelessWidget {
       leading: const Icon(Icons.history_rounded, color: Colors.white70),
       title: const Text('Play history', style: _tileTitle),
       subtitle: const Text(
-        'Shapes As always, Recently and Long time no hear on Home.',
+        'Play counts, listening hours and skips that shape Home.',
         style: _tileSubtitle,
       ),
       trailing: TextButton(
         onPressed: busy ? null : () => _reset(context),
         child: const Text('Reset'),
       ),
+    );
+  }
+}
+
+class _HideSection extends StatelessWidget {
+  const _HideSection({required this.hidden, required this.busy});
+
+  final int hidden;
+  final bool busy;
+
+  static String _shortLabel(int seconds) =>
+      seconds == 0 ? 'Off' : 'Under $seconds seconds';
+
+  Future<void> _pickShort(BuildContext context) async {
+    final settings = context.read<SettingsController>();
+    final chosen = await showDialog<int>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Hide short audio'),
+        children: [
+          for (final s in SettingsController.hideShortChoices)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(context).pop(s),
+              child: Row(
+                children: [
+                  Icon(
+                    s == settings.hideShortSeconds
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_off_rounded,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(_shortLabel(s), style: _tileTitle),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (chosen != null) await settings.setHideShortSeconds(chosen);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watch<SettingsController>();
+    final excluded = settings.excludedFolders;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Hide from library',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Inter',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          hidden == 0
+              ? 'Keep voice notes, ringtones and recordings out of your music.'
+              : '$hidden ${hidden == 1 ? 'file is' : 'files are'} hidden. '
+                    'They stay on your device.',
+          style: const TextStyle(color: Colors.white54, fontFamily: 'Inter'),
+        ),
+        const SizedBox(height: 8),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Short audio', style: _tileTitle),
+          subtitle: Text(
+            settings.hideShortSeconds == 0
+                ? 'Off'
+                : '${_shortLabel(settings.hideShortSeconds)}, '
+                      'unless it belongs to an album',
+            style: _tileSubtitle,
+          ),
+          trailing: const Icon(
+            Icons.chevron_right_rounded,
+            color: Colors.white38,
+          ),
+          onTap: () => _pickShort(context),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Voice notes and recordings', style: _tileTitle),
+          subtitle: const Text(
+            'Folders like WhatsApp Voice Notes, Recordings and Ringtones',
+            style: _tileSubtitle,
+          ),
+          value: settings.hideSystemFolders,
+          onChanged: settings.setHideSystemFolders,
+        ),
+        for (final folder in excluded)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(
+              Icons.visibility_off_outlined,
+              color: Colors.white54,
+            ),
+            title: Text(
+              p.basename(folder),
+              style: _tileTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              folder,
+              style: _tileSubtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: IconButton(
+              tooltip: 'Show again',
+              color: Colors.white,
+              icon: const Icon(Icons.close_rounded),
+              onPressed: () => settings.includeFolder(folder),
+            ),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              alignment: Alignment.centerLeft,
+            ),
+            onPressed: busy ? null : () => hideMusicFolder(context),
+            icon: const Icon(Icons.create_new_folder_outlined),
+            label: const Text(
+              'Hide a folder',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

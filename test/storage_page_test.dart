@@ -7,6 +7,7 @@ import 'package:foryou_music/pages/libraries.dart';
 import 'package:foryou_music/pages/settings/storage.dart';
 import 'package:foryou_music/providers/library_controller.dart';
 import 'package:foryou_music/providers/notice_controller.dart';
+import 'package:foryou_music/providers/settings_controller.dart';
 import 'package:foryou_music/providers/yoru_controller.dart';
 import 'package:foryou_music/services/library_repository.dart';
 import 'package:foryou_music/services/source_scanner/local_folder_scanner.dart';
@@ -19,6 +20,7 @@ void main() {
   late Directory music;
   late LibraryController library;
   late YoruController yoru;
+  late SettingsController settings;
 
   Future<void> settle(WidgetTester tester, {bool Function()? until}) async {
     for (
@@ -42,6 +44,7 @@ void main() {
       Hive.init(hiveDir.path);
       final repo = await LibraryRepository.open();
       yoru = await YoruController.create();
+      settings = await SettingsController.open();
       library = LibraryController(
         repo,
         scanners: {
@@ -74,6 +77,7 @@ void main() {
     providers: [
       ChangeNotifierProvider.value(value: library),
       ChangeNotifierProvider.value(value: yoru),
+      ChangeNotifierProvider.value(value: settings),
       ChangeNotifierProvider(create: (_) => NoticeController()),
     ],
     child: MaterialApp(
@@ -114,7 +118,7 @@ void main() {
     await tester.tap(reset);
     await settle(tester);
     expect(
-      find.textContaining('Favourites and playlists stay'),
+      find.textContaining('Favourites, playlists and notes'),
       findsOneWidget,
     );
     await tester.tap(find.text('Reset').last);
@@ -123,7 +127,8 @@ void main() {
       until: () => library.songs.every((s) => s.playCount == 0),
     );
     expect(library.songs.every((s) => s.playCount == 0), isTrue);
-    await tester.scrollUntilVisible(find.byTooltip('Remove'), -200);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 3000));
+    await settle(tester);
 
     await tester.tap(find.byTooltip('Remove'));
     await settle(tester);

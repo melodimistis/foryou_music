@@ -11,6 +11,7 @@ import 'context_menu.dart';
 import 'menu_actions.dart';
 import 'song_swipe.dart';
 import 'cover_art.dart';
+import '../services/haptics.dart';
 
 String coverOf(Iterable<Song> songs) =>
     songs.firstWhere((s) => s.hasCover, orElse: () => _noCover).coverKey;
@@ -145,9 +146,12 @@ class CollectionView extends StatelessWidget {
                                   : Icons.star_outline_rounded,
                               color: Colors.white,
                             ),
-                            onPressed: () => context
-                                .read<CollectionsController>()
-                                .setFavourite(ids, !allFav),
+                            onPressed: () {
+                              Haptics.favourite();
+                              context
+                                  .read<CollectionsController>()
+                                  .setFavourite(ids, !allFav);
+                            },
                           ),
                         IconButton(
                           tooltip: 'Add to playlist',

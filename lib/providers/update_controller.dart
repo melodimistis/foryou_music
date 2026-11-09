@@ -73,7 +73,7 @@ class UpdateController extends ChangeNotifier {
       case UpdateStatus.failed:
         if (!quiet) {
           notices.show(
-            'Could not reach GitHub. Try again later',
+            'Could not reach GitHub. Try again, or switch to another network',
             icon: Icons.cloud_off_rounded,
           );
         }
