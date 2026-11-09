@@ -106,4 +106,45 @@ void main() {
       );
     });
   }
+
+  for (final under in ScreenMotion.values) {
+    testWidgets('${under.name} page stays in place under a dialog', (
+      tester,
+    ) async {
+      final nav = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: nav,
+          home: const Scaffold(body: Text('base')),
+        ),
+      );
+      nav.currentState!.push(
+        MotionRoute<void>(
+          motion: under,
+          builder: (_) => const Scaffold(body: Text('under')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final before = tester.getRect(find.text('under'));
+
+      showGeneralDialog<void>(
+        context: nav.currentContext!,
+        pageBuilder: (_, _, _) => const Text('menu'),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.pumpAndSettle();
+      expect(find.text('menu'), findsOneWidget);
+      expect(tester.getRect(find.text('under')), before);
+      final faded = tester
+          .widgetList<FadeTransition>(
+            find.ancestor(
+              of: find.text('under'),
+              matching: find.byType(FadeTransition),
+            ),
+          )
+          .fold(1.0, (v, f) => v * f.opacity.value);
+      expect(faded, 1.0);
+    });
+  }
 }
