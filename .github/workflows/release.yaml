@@ -169,10 +169,19 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Build release notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          {
+            cat ".github/release-notes/$GITHUB_REF_NAME.md"
+            echo
+            sed "s/{{VERSION}}/$VERSION/g" .github/release-notes/_install.md
+          } > "$RUNNER_TEMP/notes.md"
+
       - uses: softprops/action-gh-release@v3
         with:
           files: dist/*
-          body_path: .github/release-notes/${{ github.ref_name }}.md
+          body_path: ${{ runner.temp }}/notes.md
           draft: false
           prerelease: false
           make_latest: "true"
