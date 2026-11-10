@@ -221,6 +221,26 @@ void main() {
       expect(messenger.cancelled, 2);
     });
 
+    test('a new user is asked during onboarding, not at startup', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      await settings.settleOnboarding(existingUser: false);
+      expect(settings.onboarded, isFalse);
+      await c.refresh();
+      expect(messenger.asked, 0);
+      expect(settings.notificationsAsked, isFalse);
+
+      expect(await c.askPermission(), isTrue);
+      expect(messenger.asked, 1);
+      expect(messenger.inits, 1);
+      expect(settings.notificationsAsked, isTrue);
+
+      await settings.setOnboarded();
+      await c.refresh();
+      expect(messenger.asked, 1);
+      expect(await c.askPermission(), isTrue);
+      expect(messenger.inits, 1);
+    });
+
     test('tapping a message plays what it talks about', () async {
       c.open('song:a');
       await Future<void>.delayed(Duration.zero);
@@ -234,7 +254,15 @@ void main() {
 
 class _FakeMessenger extends YoruMessenger {
   int asked = 0;
+  int inits = 0;
   int cancelled = 0;
+
+  @override
+  Future<String?> init({required void Function(String payload) onOpen}) async {
+    inits++;
+    return null;
+  }
+
   final scheduled = <List<YoruMessage>>[];
 
   @override

@@ -13,6 +13,7 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:foryou_music/pages/licenses.dart';
 import 'package:foryou_music/pages/main_wrapper.dart';
 import 'package:foryou_music/pages/welcome.dart';
+import 'package:foryou_music/pages/onboarding.dart';
 import 'package:foryou_music/app/scroll_behavior.dart';
 import 'package:foryou_music/app/theme.dart';
 import 'package:foryou_music/providers/player_controller.dart';
@@ -59,6 +60,7 @@ Future<void> main() async {
     filter: settings.songFilter,
   );
   settings.addListener(() => library.setFilter(settings.songFilter));
+  await settings.settleOnboarding(existingUser: library.sources.isNotEmpty);
 
   if (Platform.isAndroid) {
     final session = await AudioSession.instance;
@@ -123,22 +125,37 @@ Future<void> main() async {
         Provider.value(value: messages),
         ChangeNotifierProvider.value(value: player),
       ],
-      child: ForYouApp(skipWelcome: settings.skipWelcome),
+      child: ForYouApp(
+        skipWelcome: settings.skipWelcome,
+        onboarded: settings.onboarded,
+      ),
     ),
   );
 
   unawaited(player.restore(library.songById));
   unawaited(library.scanAll());
-  unawaited(
+  void checkSoon() => unawaited(
     Future<void>.delayed(const Duration(seconds: 6), updates.checkIfDue),
   );
+  if (settings.onboarded) {
+    checkSoon();
+  } else {
+    void waitForOnboarding() {
+      if (!settings.onboarded) return;
+      settings.removeListener(waitForOnboarding);
+      checkSoon();
+    }
+
+    settings.addListener(waitForOnboarding);
+  }
   unawaited(Future<void>.delayed(const Duration(seconds: 3), messages.start));
 }
 
 class ForYouApp extends StatelessWidget {
-  const ForYouApp({super.key, this.skipWelcome = false});
+  const ForYouApp({super.key, this.skipWelcome = false, this.onboarded = true});
 
   final bool skipWelcome;
+  final bool onboarded;
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +165,11 @@ class ForYouApp extends StatelessWidget {
       scrollBehavior: const ForYouScrollBehavior(),
       builder: (context, child) => NoticeLayer(child: child!),
       theme: buildAppTheme(),
-      home: skipWelcome ? const MainWrapper() : const WelcomePage(),
+      home: !onboarded
+          ? const OnboardingPage()
+          : skipWelcome
+          ? const MainWrapper()
+          : const WelcomePage(),
     );
   }
 }

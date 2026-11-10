@@ -21,6 +21,8 @@ class SettingsController extends ChangeNotifier {
   static const _excludedKey = 'excludedFolders';
   static const _crossfadeKey = 'crossfadeSeconds';
   static const _normalizationKey = 'normalization';
+  static const _onboardedKey = 'onboarded';
+  static const _tipsKey = 'tipsSeen';
   static const maxCrossfade = 12;
   static const hideShortChoices = [0, 15, 30, 60];
 
@@ -108,6 +110,32 @@ class SettingsController extends ChangeNotifier {
   Future<void> setNormalization(NormalizationMode mode) async {
     await _box.put(_normalizationKey, mode.name);
     notifyListeners();
+  }
+
+  bool get onboarded => _box.get(_onboardedKey, defaultValue: true) as bool;
+
+  Future<void> settleOnboarding({required bool existingUser}) async {
+    if (_box.containsKey(_onboardedKey)) return;
+    await _box.put(_onboardedKey, existingUser || _box.isNotEmpty);
+  }
+
+  Future<void> setOnboarded() async {
+    await _box.put(_onboardedKey, true);
+    notifyListeners();
+  }
+
+  final Set<String> _tipsShown = {};
+
+  bool tipSeen(String id) =>
+      _tipsShown.contains(id) ||
+      (_box.get(_tipsKey, defaultValue: const <String>[]) as List).contains(id);
+
+  Future<void> markTipSeen(String id) async {
+    if (tipSeen(id)) return;
+    _tipsShown.add(id);
+    final seen = (_box.get(_tipsKey, defaultValue: const <String>[]) as List)
+        .cast<String>();
+    await _box.put(_tipsKey, [...seen, id]);
   }
 
   bool get haptics => _box.get(_hapticsKey, defaultValue: true) as bool;

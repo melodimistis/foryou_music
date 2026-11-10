@@ -2,7 +2,7 @@ name: foryou_music
 description: "A Free Music Player App using your Local Music Library. For You, By You and All Yours!. Developed by melodimistis known as xavier."
 publish_to: "none"
 
-version: 1.3.0+7
+version: 1.3.1+8
 
 environment:
   sdk: ^3.12.2

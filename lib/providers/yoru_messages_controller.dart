@@ -43,12 +43,23 @@ class YoruMessagesController with WidgetsBindingObserver {
   String? _state;
   DateTime? _lastRefresh;
   Future<void>? _running;
+  Future<void>? _starting;
 
   bool get active => settings.yoruMessages && yoru.enabled;
 
-  String get _key => '$active|${settings.messagesPerDay}';
+  String get _key => '$active|${settings.messagesPerDay}|${settings.onboarded}';
 
-  Future<void> start() async {
+  Future<void> start() => _starting ??= _start();
+
+  Future<bool> askPermission() async {
+    final messenger = this.messenger;
+    if (messenger == null) return false;
+    await start();
+    await settings.setNotificationsAsked();
+    return messenger.requestPermission();
+  }
+
+  Future<void> _start() async {
     final messenger = this.messenger;
     if (messenger == null) return;
     final launched = await messenger.init(onOpen: open);
@@ -90,7 +101,7 @@ class YoruMessagesController with WidgetsBindingObserver {
         await messenger.cancelAll();
         return;
       }
-      if (!settings.notificationsAsked) {
+      if (!settings.notificationsAsked && settings.onboarded) {
         await settings.setNotificationsAsked();
         await messenger.requestPermission();
       }

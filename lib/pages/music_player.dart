@@ -23,6 +23,7 @@ import '../widgets/context_menu.dart';
 import '../widgets/cover_art.dart';
 import '../widgets/menu_actions.dart';
 import '../widgets/note_sheet.dart';
+import '../widgets/tips.dart';
 
 class MusicPlayerPage extends StatefulWidget {
   const MusicPlayerPage({super.key});
@@ -47,6 +48,14 @@ class _MusicPlayerPageState extends State<MusicPlayerPage>
   double _snapFrom = 0;
   ModalRoute<Object?>? _route;
   Animation<double>? _routeCurve;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Tip.closePlayer.showOnce(context);
+    });
+  }
 
   @override
   void didChangeDependencies() {

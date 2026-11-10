@@ -24,6 +24,7 @@ import 'album.dart';
 import 'artist.dart';
 import 'playlist.dart';
 import 'settings/storage.dart';
+import '../widgets/tips.dart';
 
 enum LibraryView {
   songs('Songs', Icons.music_note_rounded, 'You have a good taste you know?'),
@@ -501,6 +502,9 @@ class _SongList extends StatelessWidget {
             : 'No songs yet',
       );
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) Tip.songMenu.showOnce(context);
+    });
     final currentId = context.select<PlayerController, String?>(
       (p) => p.current?.id,
     );
