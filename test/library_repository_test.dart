@@ -5,6 +5,7 @@ import 'package:foryou_music/models/music_source.dart';
 import 'package:foryou_music/models/song.dart';
 import 'package:foryou_music/services/library_repository.dart';
 import 'package:foryou_music/services/source_scanner/source_scanner.dart';
+import 'fakes/temp_dir.dart';
 
 Song _song(String id, String sourceId, {int playCount = 0}) => Song(
   id: id,
@@ -20,7 +21,7 @@ void main() {
   late LibraryRepository repo;
 
   setUp(() async {
-    dir = Directory.systemTemp.createTempSync('foryou_repo_test');
+    dir = tempDir('foryou_repo_test');
     Hive.init(dir.path);
     repo = await LibraryRepository.open();
   });

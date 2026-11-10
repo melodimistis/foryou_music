@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../app/motion.dart';
 import '../widgets/detail_scaffold.dart';
+import '../widgets/rounded_ink.dart';
 
 class AppLicenses {
   AppLicenses._();
@@ -87,37 +88,39 @@ class _LicensesPageState extends State<LicensesPage> {
             }
             final name = names[i - 1];
             final count = data[name]!.length;
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: Text(
-                name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+            return TileBleed(
+              child: ListTile(
+                contentPadding: TileBleed.padding,
+                dense: true,
+                title: Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Inter',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              subtitle: Text(
-                count == 1 ? '1 license' : '$count licenses',
-                style: const TextStyle(
+                subtitle: Text(
+                  count == 1 ? '1 license' : '$count licenses',
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                  ),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
                   color: Colors.white38,
-                  fontFamily: 'Inter',
-                  fontSize: 12,
                 ),
-              ),
-              trailing: const Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white38,
-              ),
-              onTap: () => pushMotion(
-                context,
-                ScreenMotion.info,
-                (_) => DetailScaffold(
-                  title: name,
-                  showDock: false,
-                  body: _LicenseText(licenses: data[name]!),
+                onTap: () => pushMotion(
+                  context,
+                  ScreenMotion.info,
+                  (_) => DetailScaffold(
+                    title: name,
+                    showDock: false,
+                    body: _LicenseText(licenses: data[name]!),
+                  ),
                 ),
               ),
             );

@@ -22,7 +22,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:foryou_music/providers/settings_controller.dart';
 import 'package:foryou_music/providers/shell_controller.dart';
 import 'package:foryou_music/widgets/notice/notice_layer.dart';
+import 'package:foryou_music/providers/equalizer_controller.dart';
 import 'package:foryou_music/services/audio/audio_engine.dart';
+import 'package:foryou_music/services/audio/audio_fx.dart';
 import 'package:foryou_music/services/media_controls/media_controls_binding.dart';
 import 'package:foryou_music/models/music_source.dart';
 import 'package:foryou_music/services/covers/cover_store.dart';
@@ -63,16 +65,24 @@ Future<void> main() async {
     await session.configure(const AudioSessionConfiguration.music());
   }
 
+  final engine = MixEngine();
+  final equalizer = await EqualizerController.open(AudioFx.platform());
+  engine.sessionsStream.listen(equalizer.setSessions);
+  unawaited(equalizer.setSessions(engine.sessions));
+
   final player = PlayerController(
-    MixEngine(),
+    engine,
     recordPlay: library.recordPlay,
     recordSkip: library.recordSkip,
     store: await HiveQueueStore.open(),
   );
-  void syncCrossfade() =>
-      player.setCrossfade(Duration(seconds: settings.crossfadeSeconds));
-  syncCrossfade();
-  settings.addListener(syncCrossfade);
+  void syncAudio() {
+    player.setCrossfade(Duration(seconds: settings.crossfadeSeconds));
+    player.setNormalization(settings.normalization);
+  }
+
+  syncAudio();
+  settings.addListener(syncAudio);
   final mediaAdapter = MediaControlsBinding.platformAdapter();
   if (mediaAdapter != null) {
     await MediaControlsBinding(player, mediaAdapter).start();
@@ -105,6 +115,7 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: library),
         ChangeNotifierProvider.value(value: collections),
         ChangeNotifierProvider.value(value: settings),
+        ChangeNotifierProvider.value(value: equalizer),
         ChangeNotifierProvider(create: (_) => ShellController()),
         ChangeNotifierProvider.value(value: notices),
         ChangeNotifierProvider.value(value: updates),

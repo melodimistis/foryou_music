@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_ce/hive.dart';
 
+import '../models/normalization.dart';
 import '../services/haptics.dart';
 import '../services/song_filter.dart';
 
@@ -19,6 +20,7 @@ class SettingsController extends ChangeNotifier {
   static const _hideSystemKey = 'hideSystemFolders';
   static const _excludedKey = 'excludedFolders';
   static const _crossfadeKey = 'crossfadeSeconds';
+  static const _normalizationKey = 'normalization';
   static const maxCrossfade = 12;
   static const hideShortChoices = [0, 15, 30, 60];
 
@@ -97,6 +99,14 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setCrossfadeSeconds(int value) async {
     await _box.put(_crossfadeKey, value.clamp(0, maxCrossfade));
+    notifyListeners();
+  }
+
+  NormalizationMode get normalization =>
+      NormalizationMode.named(_box.get(_normalizationKey) as String?);
+
+  Future<void> setNormalization(NormalizationMode mode) async {
+    await _box.put(_normalizationKey, mode.name);
     notifyListeners();
   }
 

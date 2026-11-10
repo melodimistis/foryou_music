@@ -23,6 +23,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:provider/provider.dart';
 
 import 'fakes/fake_engine.dart';
+import 'fakes/temp_dir.dart';
 
 Song track(String id, int n, {String artist = 'LANY'}) => Song(
   id: id,
@@ -60,7 +61,7 @@ void main() {
   Future<void> setUpLibrary(WidgetTester tester) async {
     await closeHive(tester);
     await tester.runAsync(() async {
-      hiveDir = Directory.systemTemp.createTempSync('foryou_pages');
+      hiveDir = tempDir('foryou_pages');
       Hive.init(hiveDir.path);
       final repo = await LibraryRepository.open();
       await repo.putSongs([

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:foryou_music/app/theme.dart';
 import 'package:foryou_music/providers/yoru_controller.dart';
 import 'package:foryou_music/widgets/yoru_avatar.dart';
+import '../widgets/rounded_ink.dart';
 
 class YoruPage extends StatefulWidget {
   const YoruPage({super.key});
@@ -81,14 +82,16 @@ class _YoruPageState extends State<YoruPage> {
             ),
           ),
           const SizedBox(height: 24),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Yoru company me',
-              style: TextStyle(color: Colors.white, fontFamily: 'Inter'),
+          TileBleed(
+            child: SwitchListTile(
+              contentPadding: TileBleed.padding,
+              title: const Text(
+                'Yoru company me',
+                style: TextStyle(color: Colors.white, fontFamily: 'Inter'),
+              ),
+              value: yoru.enabled,
+              onChanged: yoru.setEnabled,
             ),
-            value: yoru.enabled,
-            onChanged: yoru.setEnabled,
           ),
           const SizedBox(height: 24),
           const Text(

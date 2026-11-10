@@ -12,10 +12,11 @@ import 'package:foryou_music/services/update/update_checker.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'fakes/temp_dir.dart';
 
 void main() {
   test('update toggle survives reopening', () async {
-    final dir = Directory.systemTemp.createTempSync('foryou_settings');
+    final dir = tempDir('foryou_settings');
     Hive.init(dir.path);
     final a = await SettingsController.open();
     expect(a.autoUpdate, isTrue);
@@ -41,7 +42,7 @@ void main() {
     late SettingsController settings;
     late YoruController yoru;
     await tester.runAsync(() async {
-      dir = Directory.systemTemp.createTempSync('foryou_settings_ui');
+      dir = tempDir('foryou_settings_ui');
       Hive.init(dir.path);
       settings = await SettingsController.open();
       await settings.setAutoUpdate(false);

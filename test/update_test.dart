@@ -10,6 +10,7 @@ import 'package:foryou_music/providers/update_controller.dart';
 import 'package:foryou_music/services/update/apk_installer.dart';
 import 'package:foryou_music/services/update/update_checker.dart';
 import 'package:hive_ce/hive.dart';
+import 'fakes/temp_dir.dart';
 
 UpdateChecker reply(int status, String body, {List<Uri>? calls}) =>
     UpdateChecker(
@@ -125,7 +126,7 @@ void main() {
 
   group('installer', () {
     late Directory dir;
-    setUp(() => dir = Directory.systemTemp.createTempSync('foryou_apk'));
+    setUp(() => dir = tempDir('foryou_apk'));
     tearDown(() => dir.deleteSync(recursive: true));
 
     UpdateAsset asset({String? sha, int size = 6}) => UpdateAsset(
@@ -182,7 +183,7 @@ void main() {
     var now = DateTime(2026, 11, 9, 12);
 
     setUp(() async {
-      dir = Directory.systemTemp.createTempSync('foryou_update');
+      dir = tempDir('foryou_update');
       Hive.init(dir.path);
       settings = await SettingsController.open();
       notices = NoticeController();

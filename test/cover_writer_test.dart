@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foryou_music/services/covers/cover_store.dart';
 import 'package:foryou_music/services/metadata/metadata_reader.dart';
+import 'fakes/temp_dir.dart';
 
 void main() {
   late Directory tmp;
@@ -11,7 +12,7 @@ void main() {
   late CoverWriter writer;
 
   setUp(() {
-    tmp = Directory.systemTemp.createTempSync('foryou_cover_test');
+    tmp = tempDir('foryou_cover_test');
     covers = Directory('${tmp.path}/covers')..createSync();
     writer = CoverWriter(covers.path);
   });

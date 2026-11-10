@@ -54,6 +54,33 @@ void main() {
     expect(b.tagVersion, Song.currentTagVersion);
   });
 
+  test('Song keeps its volume info and copes with old or odd values', () {
+    const s = Song(
+      id: 'a',
+      title: 'Run',
+      artist: 'LANY',
+      uri: 'file:///a.flac',
+      sourceId: 's',
+      trackGain: -7.25,
+      albumGain: -6.1,
+    );
+    final b = Song.fromMap(s.toMap());
+    expect((b.trackGain, b.albumGain, b.hasGain), (-7.25, -6.1, true));
+    expect(s.copyWith(title: 'x').trackGain, -7.25);
+
+    final old = Song.fromMap({'id': 'x', 'uri': 'file:///x', 'sourceId': 's'});
+    expect((old.trackGain, old.albumGain, old.hasGain), (null, null, false));
+
+    final whole = Song.fromMap({
+      'id': 'x',
+      'uri': 'file:///x',
+      'sourceId': 's',
+      'trackGain': -3,
+    });
+    expect(whole.trackGain, -3.0);
+    expect(whole.hasGain, isTrue);
+  });
+
   test('MusicSource round-trip and an unknown type falls into local', () {
     const src = MusicSource(
       id: 'id',

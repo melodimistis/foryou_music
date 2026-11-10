@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'rounded_ink.dart';
 
 class InfoHeading extends StatelessWidget {
   const InfoHeading(this.text, {super.key});
@@ -78,31 +79,36 @@ class InfoLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-      leading: Icon(icon, color: Colors.white70),
-      title: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontFamily: 'Inter',
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
+    return TileBleed(
+      child: ListTile(
+        contentPadding: TileBleed.padding,
+        dense: true,
+        leading: Icon(icon, color: Colors.white70),
+        title: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontFamily: 'Inter',
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-      ),
-      subtitle: detail == null
-          ? null
-          : Text(
-              detail!,
-              style: const TextStyle(
-                color: Colors.white38,
-                fontFamily: 'Inter',
-                fontSize: 12,
+        subtitle: detail == null
+            ? null
+            : Text(
+                detail!,
+                style: const TextStyle(
+                  color: Colors.white38,
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                ),
               ),
-            ),
-      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
-      onTap: onTap,
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: Colors.white38,
+        ),
+        onTap: onTap,
+      ),
     );
   }
 }

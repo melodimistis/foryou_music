@@ -16,6 +16,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:provider/provider.dart';
 
 import 'fakes/fake_engine.dart';
+import 'fakes/temp_dir.dart';
 
 const lrc = '''
 [00:05.00]Oh, my heart hurts so good
@@ -43,7 +44,7 @@ void main() {
 
   Future<void> setUpAll(WidgetTester tester) async {
     await tester.runAsync(() async {
-      dir = Directory.systemTemp.createTempSync('foryou_player');
+      dir = tempDir('foryou_player');
       Hive.init(dir.path);
       collections = await CollectionsController.open();
       yoru = await YoruController.create();

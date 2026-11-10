@@ -9,6 +9,7 @@ import '../../providers/notice_controller.dart';
 import '../../services/links.dart';
 import '../../widgets/info_blocks.dart';
 import '../../widgets/settings_scaffold.dart';
+import '../../widgets/rounded_ink.dart';
 
 class Faq {
   const Faq(this.question, this.answer);
@@ -77,6 +78,45 @@ class HelpPage extends StatelessWidget {
         'Songs you often play around this time of day. It appears after you '
             'have listened for a while. Songs you keep skipping are left out '
             'of the suggestions on Home.',
+      ),
+    ],
+    'Sound': [
+      Faq(
+        'How do I use the equalizer?',
+        'Go to Settings > Audio Quality > Equalizer and turn it on. Pick a '
+            'preset, or tap Add filter and drag its point on the graph: left '
+            'and right picks the part of the sound, up and down makes it '
+            'louder or quieter. Save as preset keeps your own tuning. The '
+            'equalizer needs Android 9 or newer and is not available on '
+            'Linux yet.',
+      ),
+      Faq(
+        'Can I use a headphone profile from AutoEq?',
+        'Yes. Download the ParametricEQ.txt file for your headphones from '
+            'the AutoEq project, then tap Import AutoEq in the equalizer and '
+            'choose it. Tap Save as preset to keep it.',
+      ),
+      Faq(
+        'Why does the music get quieter when I boost something?',
+        'Raising one part of the sound could push it past the loudest '
+            'level a song can have, which sounds harsh and distorted. To '
+            'prevent that, the whole song is turned down by the size of the '
+            'biggest boost. Turn your device volume up to make up for it.',
+      ),
+      Faq(
+        'What does volume normalization do?',
+        'It keeps loud songs from jumping out, using the volume info '
+            '(ReplayGain) saved inside your songs. Choose Per song or Per '
+            'album in Settings > Audio Quality. Loud songs are turned down; '
+            'nothing is turned up, so the sound never distorts.',
+      ),
+      Faq(
+        'Volume normalization does not change anything.',
+        'Songs without volume info play as they are, and many downloaded '
+            'files do not have it. You can add it on a computer with a '
+            'tagging tool such as foobar2000 or rsgain, then rescan in '
+            'Settings > Storage. It is read from MP3, FLAC, OGG and OPUS '
+            'files; M4A, AAC and WAV are not supported yet.',
       ),
     ],
     'Messages from Yoru': [
@@ -285,23 +325,30 @@ class _FaqTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(bottom: 12),
-        expandedAlignment: Alignment.centerLeft,
-        iconColor: Colors.white70,
-        collapsedIconColor: Colors.white38,
-        title: Text(
-          faq.question,
-          style: const TextStyle(
-            color: Colors.white,
-            fontFamily: 'Inter',
-            fontSize: 15,
+    return TileBleed(
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: TileBleed.padding,
+          childrenPadding: const EdgeInsets.fromLTRB(
+            TileBleed.amount,
+            0,
+            TileBleed.amount,
+            12,
           ),
+          expandedAlignment: Alignment.centerLeft,
+          iconColor: Colors.white70,
+          collapsedIconColor: Colors.white38,
+          title: Text(
+            faq.question,
+            style: const TextStyle(
+              color: Colors.white,
+              fontFamily: 'Inter',
+              fontSize: 15,
+            ),
+          ),
+          children: [InfoText(faq.answer)],
         ),
-        children: [InfoText(faq.answer)],
       ),
     );
   }

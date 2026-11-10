@@ -4,6 +4,7 @@ import 'package:foryou_music/models/music_source.dart';
 import 'package:foryou_music/models/song.dart';
 import 'package:foryou_music/services/source_scanner/local_folder_scanner.dart';
 import 'package:foryou_music/services/metadata/metadata_reader.dart';
+import 'fakes/temp_dir.dart';
 
 void main() {
   late Directory dir;
@@ -16,7 +17,7 @@ void main() {
 
   setUp(() {
     n = 0;
-    dir = Directory.systemTemp.createTempSync('foryou_scan_test');
+    dir = tempDir('foryou_scan_test');
     source = MusicSource(
       id: 's1',
       type: MusicSourceType.local,

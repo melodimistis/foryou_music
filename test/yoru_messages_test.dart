@@ -18,6 +18,7 @@ import 'package:foryou_music/services/yoru_messages/yoru_messenger.dart';
 import 'package:hive_ce/hive.dart';
 
 import 'fakes/fake_engine.dart';
+import 'fakes/temp_dir.dart';
 
 final now = DateTime(2026, 11, 9, 7, 30);
 
@@ -173,7 +174,7 @@ void main() {
     late PlayerController player;
 
     setUp(() async {
-      dir = Directory.systemTemp.createTempSync('foryou_messages');
+      dir = tempDir('foryou_messages');
       Hive.init(dir.path);
       settings = await SettingsController.open();
       yoru = await YoruController.create();

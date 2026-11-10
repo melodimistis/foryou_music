@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foryou_music/models/song.dart';
 import 'package:foryou_music/services/lyrics/lrc_parser.dart';
 import 'package:foryou_music/services/lyrics/lyrics_service.dart';
+import 'fakes/temp_dir.dart';
 
 const sec = Duration(seconds: 1);
 
@@ -87,7 +88,7 @@ void main() {
 
   group('LyricsService', () {
     late Directory dir;
-    setUp(() => dir = Directory.systemTemp.createTempSync('foryou_lyrics'));
+    setUp(() => dir = tempDir('foryou_lyrics'));
     tearDown(() => dir.deleteSync(recursive: true));
 
     Song songAt(String name) {

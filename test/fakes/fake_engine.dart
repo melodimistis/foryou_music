@@ -14,6 +14,9 @@ class FakeEngine implements AudioEngine {
   final seeks = <Duration>[];
   final failing = <String>{};
   final nexts = <({String? uri, Duration crossfade})>[];
+  final loadGains = <double>[];
+  final nextGains = <double>[];
+  final gains = <double>[];
 
   @override
   Stream<bool> get playingStream => _playing.stream;
@@ -33,14 +36,20 @@ class FakeEngine implements AudioEngine {
   Future<void> setNext(
     String? uri, {
     Duration crossfade = Duration.zero,
+    double gain = 1,
   }) async {
     nexts.add((uri: uri, crossfade: crossfade));
+    nextGains.add(gain);
   }
 
   @override
-  Future<void> load(String uri) async {
+  Future<void> setGain(double gain) async => gains.add(gain);
+
+  @override
+  Future<void> load(String uri, {double gain = 1}) async {
     if (failing.contains(uri)) throw Exception('cannot open');
     loaded.add(uri);
+    loadGains.add(gain);
   }
 
   @override
@@ -70,12 +79,16 @@ Song song(
   int durationMs = 100000,
   String album = '',
   int? track,
+  double? trackGain,
+  double? albumGain,
 }) => Song(
   id: id,
   title: 'Lagu $id',
   artist: 'Artis',
   album: album,
   trackNumber: track,
+  trackGain: trackGain,
+  albumGain: albumGain,
   uri: 'file:///m/$id.mp3',
   sourceId: 's',
   durationMs: durationMs,

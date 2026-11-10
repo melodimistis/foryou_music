@@ -1,5 +1,5 @@
 class Song {
-  static const currentTagVersion = 2;
+  static const currentTagVersion = 3;
 
   final String id;
   final String title;
@@ -11,6 +11,8 @@ class Song {
   final int? year;
   final int? trackNumber;
   final int? discNumber;
+  final double? trackGain;
+  final double? albumGain;
   final String coverKey;
   final String uri;
   final String sourceId;
@@ -34,6 +36,8 @@ class Song {
     this.year,
     this.trackNumber,
     this.discNumber,
+    this.trackGain,
+    this.albumGain,
     this.coverKey = '',
     this.modifiedMs = 0,
     this.addedMs = 0,
@@ -45,6 +49,7 @@ class Song {
 
   Duration get duration => Duration(milliseconds: durationMs);
   bool get hasCover => coverKey.isNotEmpty;
+  bool get hasGain => trackGain != null || albumGain != null;
 
   Song copyWith({
     String? title,
@@ -72,6 +77,8 @@ class Song {
     year: year,
     trackNumber: trackNumber,
     discNumber: discNumber,
+    trackGain: trackGain,
+    albumGain: albumGain,
     coverKey: coverKey ?? this.coverKey,
     uri: uri ?? this.uri,
     modifiedMs: modifiedMs ?? this.modifiedMs,
@@ -93,6 +100,8 @@ class Song {
     'year': year,
     'trackNumber': trackNumber,
     'discNumber': discNumber,
+    'trackGain': trackGain,
+    'albumGain': albumGain,
     'coverKey': coverKey,
     'uri': uri,
     'sourceId': sourceId,
@@ -115,6 +124,8 @@ class Song {
     year: m['year'] as int?,
     trackNumber: m['trackNumber'] as int?,
     discNumber: m['discNumber'] as int?,
+    trackGain: (m['trackGain'] as num?)?.toDouble(),
+    albumGain: (m['albumGain'] as num?)?.toDouble(),
     coverKey: m['coverKey'] as String? ?? '',
     uri: m['uri'] as String,
     sourceId: m['sourceId'] as String,

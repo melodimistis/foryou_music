@@ -26,6 +26,8 @@ It runs on **Android** and **Linux**. Windows builds are possible but not a prio
 - **Library you can browse.** Songs, albums, artists and playlists, with search, favourites and a fast scroller for big collections.
 - **Your queue, your way.** Play next or add to the queue from any song, album, artist or playlist, then reorder or remove songs in the queue.
 - **Songs that flow.** Gapless playback, an optional crossfade of up to 12 seconds, and a soft fade when you play or pause. Songs that follow each other on the same album never crossfade.
+- **Sound your way** (Android 9 or newer). A parametric equalizer with up to 10 filters you can drag on a graph, ready-made presets, your own saved presets, and import of [AutoEq](https://github.com/jaakkopasanen/AutoEq) headphone profiles (`ParametricEQ.txt`).
+- **Even volume.** Volume normalization uses the ReplayGain info inside your songs to turn loud songs down, per song or per album. Your files are never changed.
 - **Take your playlists with you.** Export any playlist or your favourites as an `.m3u` file that VLC, Poweramp, foobar2000 and other players can open.
 - **Notes on songs.** Write a short note on a song, like where it takes you back to, and see it in the player.
 - **Suggestions that know the time.** Home learns which songs you play at which hour, and songs you keep skipping stay out of the suggestions.
@@ -123,7 +125,7 @@ Release builds for Android are signed with a key that is not part of this reposi
 
 Planned for the next updates. These are plans, not promises, and none of them will hold up other releases.
 
-- **More audio options** in Settings > Audio Quality.
+- **The equalizer on Linux.**
 - **A better output picker** for headphones and speakers, in ForYou's own style.
 - **More of Yoru**: its own artwork and voice, a home screen widget on Android, and an ambient mode.
 - **Smaller Android downloads**, with a separate file for each type of phone.

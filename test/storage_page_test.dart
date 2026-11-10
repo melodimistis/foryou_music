@@ -14,6 +14,7 @@ import 'package:foryou_music/services/source_scanner/local_folder_scanner.dart';
 import 'package:foryou_music/widgets/notice/notice_layer.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:provider/provider.dart';
+import 'fakes/temp_dir.dart';
 
 void main() {
   late Directory hiveDir;
@@ -39,8 +40,8 @@ void main() {
 
   Future<void> setUpAll(WidgetTester tester) async {
     await tester.runAsync(() async {
-      hiveDir = Directory.systemTemp.createTempSync('foryou_storage_hive');
-      music = Directory.systemTemp.createTempSync('foryou_storage_music');
+      hiveDir = tempDir('foryou_storage_hive');
+      music = tempDir('foryou_storage_music');
       Hive.init(hiveDir.path);
       final repo = await LibraryRepository.open();
       yoru = await YoruController.create();

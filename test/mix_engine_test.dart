@@ -9,6 +9,7 @@ class FakeVoice implements Voice {
   final _duration = StreamController<Duration?>.broadcast(sync: true);
   final _index = StreamController<int?>.broadcast(sync: true);
   final _completed = StreamController<void>.broadcast(sync: true);
+  final _session = StreamController<int?>.broadcast(sync: true);
 
   final sources = <String>[];
   final volumes = <double>[];
@@ -27,6 +28,8 @@ class FakeVoice implements Voice {
   Stream<int?> get indexStream => _index.stream;
   @override
   Stream<void> get completedStream => _completed.stream;
+  @override
+  Stream<int?> get sessionIdStream => _session.stream;
   @override
   bool get playing => _isPlaying;
   @override
@@ -80,6 +83,8 @@ class FakeVoice implements Voice {
   }
 
   void at(Duration p) => _position.add(p);
+
+  void session(int? id) => _session.add(id);
 
   void finish() {
     final i = _current ?? 0;
@@ -291,5 +296,107 @@ void main() {
     await tester.pump(fade * 2);
     expect(first.playing, isFalse);
     expect(active().playing, isFalse);
+  });
+
+  testWidgets('a quieter song plays at its own level, fades included', (
+    tester,
+  ) async {
+    start();
+    await engine.load('a', gain: 0.5);
+    await engine.play();
+    await tester.pump();
+    expect(active().volumes.first, 0);
+    await tester.pump(fade * 2);
+    expect(active().volume, 0.5);
+    expect(engine.gainOf(active()), 0.5);
+
+    await engine.setGain(0.25);
+    expect(active().volume, 0.25);
+    await engine.setGain(7);
+    expect(active().volume, 1);
+    await engine.setGain(double.nan);
+    expect(active().volume, 1);
+
+    unawaited(engine.pause());
+    await tester.pump(fade * 2);
+    expect(active().volume, 0);
+  });
+
+  testWidgets('gapless: the next song gets its own level when it starts', (
+    tester,
+  ) async {
+    start();
+    await engine.load('a', gain: 0.5);
+    await engine.play();
+    await tester.pump(fade * 2);
+    await engine.setNext('b', gain: 0.8);
+    expect(active().volume, 0.5);
+    active().finish();
+    await tester.pump();
+    expect(advanced, 1);
+    expect(active().volume, 0.8);
+    await engine.setNext('c');
+    active().finish();
+    await tester.pump();
+    expect(active().volume, 1);
+    await tester.pump(fade * 2);
+  });
+
+  testWidgets('crossfade: each side keeps its own level', (tester) async {
+    start();
+    const length = Duration(seconds: 6);
+    await engine.load('a', gain: 0.5);
+    await engine.play();
+    await tester.pump(fade * 2);
+    await engine.setNext('b', crossfade: length, gain: 0.25);
+    final first = active();
+    first.at(const Duration(minutes: 2, seconds: 55));
+    await tester.pump();
+    final second = active();
+    expect(identical(first, second), isFalse);
+    await tester.pump(length ~/ 2);
+    expect(first.volume, inExclusiveRange(0, 0.5));
+    expect(second.volume, inExclusiveRange(0, 0.25));
+    await tester.pump(length);
+    expect(second.volume, 0.25);
+    expect(engine.gainOf(second), 0.25);
+  });
+
+  testWidgets('reports the audio sessions of every player in use', (
+    tester,
+  ) async {
+    start();
+    final seen = <Set<int>>[];
+    engine.sessionsStream.listen(seen.add);
+    expect(engine.sessions, isEmpty);
+
+    await engine.load('a');
+    active().session(11);
+    await tester.pump();
+    expect(engine.sessions, {11});
+    active().session(11);
+    await tester.pump();
+    expect(seen, [
+      {11},
+    ]);
+
+    await engine.play();
+    await tester.pump(fade * 2);
+    await engine.setNext('b', crossfade: const Duration(seconds: 6));
+    final first = active();
+    first.at(const Duration(minutes: 2, seconds: 55));
+    await tester.pump();
+    active().session(12);
+    await tester.pump();
+    expect(engine.sessions, {11, 12});
+
+    first.session(null);
+    await tester.pump();
+    expect(engine.sessions, {12});
+    active().session(0);
+    await tester.pump();
+    expect(engine.sessions, isEmpty);
+    expect(seen.last, isEmpty);
+    await tester.pump(const Duration(seconds: 8));
   });
 }

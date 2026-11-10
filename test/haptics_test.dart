@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foryou_music/providers/settings_controller.dart';
 import 'package:foryou_music/services/haptics.dart';
 import 'package:hive_ce/hive.dart';
+import 'fakes/temp_dir.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +17,7 @@ void main() {
           }
           return null;
         });
-    final dir = Directory.systemTemp.createTempSync('foryou_haptics');
+    final dir = tempDir('foryou_haptics');
     Hive.init(dir.path);
 
     final settings = await SettingsController.open();

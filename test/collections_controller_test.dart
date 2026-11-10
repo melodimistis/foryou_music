@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foryou_music/models/playlist.dart';
 import 'package:foryou_music/providers/collections_controller.dart';
 import 'package:hive_ce/hive.dart';
+import 'fakes/temp_dir.dart';
 
 void main() {
   late Directory dir;
@@ -14,7 +15,7 @@ void main() {
   setUp(() async {
     n = 0;
     clock = DateTime(2026, 11, 8);
-    dir = Directory.systemTemp.createTempSync('foryou_collections');
+    dir = tempDir('foryou_collections');
     Hive.init(dir.path);
     c = await CollectionsController.open(
       newId: () => 'p${n++}',

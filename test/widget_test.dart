@@ -8,6 +8,7 @@ import 'package:foryou_music/providers/yoru_controller.dart';
 import 'package:foryou_music/services/greetings.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:provider/provider.dart';
+import 'fakes/temp_dir.dart';
 
 void main() {
   testWidgets('App starts on the welcome screen with a time-based greeting', (
@@ -16,7 +17,7 @@ void main() {
     late Directory dir;
     late YoruController yoru;
     await tester.runAsync(() async {
-      dir = Directory.systemTemp.createTempSync('foryou_welcome');
+      dir = tempDir('foryou_welcome');
       Hive.init(dir.path);
       yoru = await YoruController.create();
     });

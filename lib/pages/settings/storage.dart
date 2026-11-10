@@ -13,6 +13,7 @@ import '../../services/covers/cover_store.dart';
 import '../../widgets/settings_scaffold.dart';
 import '../../app/motion.dart';
 import 'help.dart';
+import '../../widgets/rounded_ink.dart';
 
 Future<bool> confirmAction(
   BuildContext context, {
@@ -353,20 +354,22 @@ class _CoverCacheTileState extends State<_CoverCacheTile> {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.image_outlined, color: Colors.white70),
-      title: const Text('Cover cache', style: _tileTitle),
-      subtitle: FutureBuilder<int>(
-        future: _size,
-        builder: (context, snap) => Text(
-          snap.hasData ? '${formatBytes(snap.data!)} used' : 'Measuring...',
-          style: _tileSubtitle,
+    return TileBleed(
+      child: ListTile(
+        contentPadding: TileBleed.padding,
+        leading: const Icon(Icons.image_outlined, color: Colors.white70),
+        title: const Text('Cover cache', style: _tileTitle),
+        subtitle: FutureBuilder<int>(
+          future: _size,
+          builder: (context, snap) => Text(
+            snap.hasData ? '${formatBytes(snap.data!)} used' : 'Measuring...',
+            style: _tileSubtitle,
+          ),
         ),
-      ),
-      trailing: TextButton(
-        onPressed: widget.busy ? null : _clear,
-        child: const Text('Clear'),
+        trailing: TextButton(
+          onPressed: widget.busy ? null : _clear,
+          child: const Text('Clear'),
+        ),
       ),
     );
   }
@@ -396,17 +399,19 @@ class _ResetHistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.history_rounded, color: Colors.white70),
-      title: const Text('Play history', style: _tileTitle),
-      subtitle: const Text(
-        'Play counts, listening hours and skips that shape Home.',
-        style: _tileSubtitle,
-      ),
-      trailing: TextButton(
-        onPressed: busy ? null : () => _reset(context),
-        child: const Text('Reset'),
+    return TileBleed(
+      child: ListTile(
+        contentPadding: TileBleed.padding,
+        leading: const Icon(Icons.history_rounded, color: Colors.white70),
+        title: const Text('Play history', style: _tileTitle),
+        subtitle: const Text(
+          'Play counts, listening hours and skips that shape Home.',
+          style: _tileSubtitle,
+        ),
+        trailing: TextButton(
+          onPressed: busy ? null : () => _reset(context),
+          child: const Text('Reset'),
+        ),
       ),
     );
   }
@@ -430,7 +435,7 @@ class _HideSection extends StatelessWidget {
         title: const Text('Hide short audio'),
         children: [
           for (final s in SettingsController.hideShortChoices)
-            SimpleDialogOption(
+            DialogChoice(
               onPressed: () => Navigator.of(context).pop(s),
               child: Row(
                 children: [
@@ -477,56 +482,62 @@ class _HideSection extends StatelessWidget {
           style: const TextStyle(color: Colors.white54, fontFamily: 'Inter'),
         ),
         const SizedBox(height: 8),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Short audio', style: _tileTitle),
-          subtitle: Text(
-            settings.hideShortSeconds == 0
-                ? 'Off'
-                : '${_shortLabel(settings.hideShortSeconds)}, '
-                      'unless it belongs to an album',
-            style: _tileSubtitle,
+        TileBleed(
+          child: ListTile(
+            contentPadding: TileBleed.padding,
+            title: const Text('Short audio', style: _tileTitle),
+            subtitle: Text(
+              settings.hideShortSeconds == 0
+                  ? 'Off'
+                  : '${_shortLabel(settings.hideShortSeconds)}, '
+                        'unless it belongs to an album',
+              style: _tileSubtitle,
+            ),
+            trailing: const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white38,
+            ),
+            onTap: () => _pickShort(context),
           ),
-          trailing: const Icon(
-            Icons.chevron_right_rounded,
-            color: Colors.white38,
-          ),
-          onTap: () => _pickShort(context),
         ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Voice notes and recordings', style: _tileTitle),
-          subtitle: const Text(
-            'Folders like WhatsApp Voice Notes, Recordings and Ringtones',
-            style: _tileSubtitle,
+        TileBleed(
+          child: SwitchListTile(
+            contentPadding: TileBleed.padding,
+            title: const Text('Voice notes and recordings', style: _tileTitle),
+            subtitle: const Text(
+              'Folders like WhatsApp Voice Notes, Recordings and Ringtones',
+              style: _tileSubtitle,
+            ),
+            value: settings.hideSystemFolders,
+            onChanged: settings.setHideSystemFolders,
           ),
-          value: settings.hideSystemFolders,
-          onChanged: settings.setHideSystemFolders,
         ),
         for (final folder in excluded)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(
-              Icons.visibility_off_outlined,
-              color: Colors.white54,
-            ),
-            title: Text(
-              p.basename(folder),
-              style: _tileTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text(
-              folder,
-              style: _tileSubtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: IconButton(
-              tooltip: 'Show again',
-              color: Colors.white,
-              icon: const Icon(Icons.close_rounded),
-              onPressed: () => settings.includeFolder(folder),
+          TileBleed(
+            child: ListTile(
+              contentPadding: TileBleed.padding,
+              leading: const Icon(
+                Icons.visibility_off_outlined,
+                color: Colors.white54,
+              ),
+              title: Text(
+                p.basename(folder),
+                style: _tileTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                folder,
+                style: _tileSubtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: IconButton(
+                tooltip: 'Show again',
+                color: Colors.white,
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => settings.includeFolder(folder),
+              ),
             ),
           ),
         Align(

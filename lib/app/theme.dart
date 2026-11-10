@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/rounded_ink.dart';
 
 class AppColors {
   static const background = Color(0xFF141414);
@@ -27,6 +28,11 @@ ThemeData buildAppTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.background,
     canvasColor: AppColors.background,
+    listTileTheme: const ListTileThemeData(shape: TileBleed.shape),
+    expansionTileTheme: const ExpansionTileThemeData(
+      shape: TileBleed.shape,
+      collapsedShape: TileBleed.shape,
+    ),
     textSelectionTheme: const TextSelectionThemeData(
       cursorColor: Colors.white,
       selectionColor: Color(0x55FFFFFF),

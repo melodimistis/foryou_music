@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foryou_music/models/normalization.dart';
 import 'package:foryou_music/providers/player_controller.dart';
 import 'package:foryou_music/services/queue_store.dart';
 
@@ -312,6 +313,69 @@ void main() {
       player.setCrossfade(Duration.zero);
       await flush();
       expect(engine.lastNext?.crossfade, Duration.zero);
+    });
+  });
+
+  group('volume normalization', () {
+    test('off by default: every song plays as it is', () async {
+      await player.playQueue([song('1', trackGain: -6), song('2')]);
+      await flush();
+      expect(player.normalization, NormalizationMode.off);
+      expect(engine.loadGains, [1]);
+      expect(engine.nextGains.last, 1);
+    });
+
+    test('per song turns loud songs down, now and for the next one', () async {
+      player.setNormalization(NormalizationMode.track);
+      await player.playQueue([
+        song('1', trackGain: -6.0206),
+        song('2', trackGain: -12.0412),
+        song('3', trackGain: 3),
+        song('4'),
+      ]);
+      await flush();
+      expect(engine.loadGains.single, closeTo(0.5, 0.0001));
+      expect(engine.nextGains.last, closeTo(0.25, 0.0001));
+
+      engine.advance();
+      await flush();
+      expect(player.current?.id, '2');
+      expect(engine.nextGains.last, 1);
+
+      await player.next();
+      await flush();
+      expect(engine.loadGains.last, 1);
+      expect(engine.nextGains.last, 1);
+    });
+
+    test('changing the mode applies to the song that is playing', () async {
+      await player.playQueue([
+        song('1', trackGain: -6.0206, albumGain: -12.0412),
+        song('2', trackGain: -6.0206, albumGain: -12.0412),
+      ]);
+      await flush();
+      expect(engine.gains, isEmpty);
+
+      player.setNormalization(NormalizationMode.album);
+      await flush();
+      expect(engine.gains.single, closeTo(0.25, 0.0001));
+      expect(engine.nextGains.last, closeTo(0.25, 0.0001));
+
+      player.setNormalization(NormalizationMode.album);
+      await flush();
+      expect(engine.gains, hasLength(1));
+
+      player.setNormalization(NormalizationMode.off);
+      await flush();
+      expect(engine.gains.last, 1);
+      expect(engine.nextGains.last, 1);
+    });
+
+    test('with nothing playing it only remembers the choice', () async {
+      player.setNormalization(NormalizationMode.track);
+      await flush();
+      expect(engine.gains, isEmpty);
+      expect(player.normalization, NormalizationMode.track);
     });
   });
 

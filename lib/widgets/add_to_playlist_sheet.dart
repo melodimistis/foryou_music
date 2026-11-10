@@ -95,20 +95,26 @@ Future<void> showAddToPlaylist(
               ),
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.add_rounded, color: Colors.white),
-            title: const Text('New playlist'),
-            onTap: () => Navigator.of(context).pop(''),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: ListTile(
+              leading: const Icon(Icons.add_rounded, color: Colors.white),
+              title: const Text('New playlist'),
+              onTap: () => Navigator.of(context).pop(''),
+            ),
           ),
           for (final p in collections.playlists)
-            ListTile(
-              leading: const Icon(
-                Icons.queue_music_rounded,
-                color: Colors.white70,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: ListTile(
+                leading: const Icon(
+                  Icons.queue_music_rounded,
+                  color: Colors.white70,
+                ),
+                title: Text(p.name),
+                subtitle: Text('${p.songIds.length} songs'),
+                onTap: () => Navigator.of(context).pop(p.id),
               ),
-              title: Text(p.name),
-              subtitle: Text('${p.songIds.length} songs'),
-              onTap: () => Navigator.of(context).pop(p.id),
             ),
         ],
       ),

@@ -10,8 +10,13 @@ abstract class AudioEngine {
   Stream<Duration?> get durationStream;
   Stream<void> get completedStream;
   Stream<void> get advancedStream;
-  Future<void> load(String uri);
-  Future<void> setNext(String? uri, {Duration crossfade = Duration.zero});
+  Future<void> load(String uri, {double gain = 1});
+  Future<void> setNext(
+    String? uri, {
+    Duration crossfade = Duration.zero,
+    double gain = 1,
+  });
+  Future<void> setGain(double gain);
   Future<void> play();
   Future<void> pause();
   Future<void> seek(Duration position);
@@ -24,6 +29,7 @@ abstract class Voice {
   Stream<Duration?> get durationStream;
   Stream<int?> get indexStream;
   Stream<void> get completedStream;
+  Stream<int?> get sessionIdStream;
   bool get playing;
   Duration? get duration;
   int get sourceCount;
@@ -53,6 +59,8 @@ class JustAudioVoice implements Voice {
   Stream<void> get completedStream => _player.processingStateStream
       .where((s) => s == ProcessingState.completed)
       .map((_) {});
+  @override
+  Stream<int?> get sessionIdStream => _player.androidAudioSessionIdStream;
   @override
   bool get playing => _player.playing;
   @override
@@ -113,6 +121,7 @@ class MixEngine implements AudioEngine {
         v.completedStream.listen((_) {
           if (identical(v, _active)) _completed.add(null);
         }),
+        v.sessionIdStream.listen((id) => _onVoiceSession(v, id)),
       ]);
     }
   }
@@ -124,6 +133,8 @@ class MixEngine implements AudioEngine {
   final Voice _b;
   late Voice _active;
   final _volumes = <Voice, double>{};
+  final _gains = <Voice, double>{};
+  final _sessionIds = <Voice, int>{};
   final _tokens = <Voice, int>{};
   final _subs = <StreamSubscription<dynamic>>[];
 
@@ -132,12 +143,14 @@ class MixEngine implements AudioEngine {
   final _duration = StreamController<Duration?>.broadcast();
   final _completed = StreamController<void>.broadcast();
   final _advanced = StreamController<void>.broadcast();
+  final _sessions = StreamController<Set<int>>.broadcast();
 
   bool _want = false;
   bool? _emitted;
   bool _disposed = false;
   int? _lastIndex;
   String? _nextUri;
+  double _nextGain = 1;
   Duration _crossfade = Duration.zero;
   String? _appended;
   bool _crossing = false;
@@ -156,8 +169,38 @@ class MixEngine implements AudioEngine {
   @override
   Stream<void> get advancedStream => _advanced.stream;
 
+  Stream<Set<int>> get sessionsStream => _sessions.stream;
+
+  Set<int> get sessions => Set.unmodifiable(_sessionIds.values);
+
   @visibleForTesting
   double volumeOf(Voice v) => _volumes[v] ?? 1;
+
+  @visibleForTesting
+  double gainOf(Voice v) => _gains[v] ?? 1;
+
+  static double _safeGain(double gain) =>
+      gain.isFinite ? gain.clamp(0.0, 1.0).toDouble() : 1;
+
+  void _onVoiceSession(Voice v, int? id) {
+    if (_disposed) return;
+    final before = sessions;
+    if (id == null || id <= 0) {
+      _sessionIds.remove(v);
+    } else {
+      _sessionIds[v] = id;
+    }
+    final after = sessions;
+    if (before.length == after.length && before.containsAll(after)) return;
+    _sessions.add(after);
+  }
+
+  Future<void> _applyGain(Voice v, double gain) async {
+    final safe = _safeGain(gain);
+    if (gainOf(v) == safe) return;
+    _gains[v] = safe;
+    await v.setVolume(volumeOf(v) * safe);
+  }
 
   @visibleForTesting
   Voice get active => _active;
@@ -193,7 +236,7 @@ class MixEngine implements AudioEngine {
         length - p > _crossfade) {
       return;
     }
-    unawaited(_startCrossfade(uri, _crossfade));
+    unawaited(_startCrossfade(uri, _crossfade, _nextGain));
   }
 
   void _onVoiceIndex(Voice v, int? index) {
@@ -203,13 +246,14 @@ class MixEngine implements AudioEngine {
     if (last != null && index > last) {
       _appended = null;
       _nextUri = null;
+      unawaited(_applyGain(v, _nextGain));
       _advanced.add(null);
     }
   }
 
   Future<void> _setVolume(Voice v, double volume) async {
     _volumes[v] = volume;
-    await v.setVolume(volume);
+    await v.setVolume(volume * gainOf(v));
   }
 
   int _cancel(Voice v) => _tokens[v] = (_tokens[v] ?? 0) + 1;
@@ -252,20 +296,21 @@ class MixEngine implements AudioEngine {
   }
 
   @override
-  Future<void> load(String uri) {
-    final next = _load(uri);
+  Future<void> load(String uri, {double gain = 1}) {
+    final next = _load(uri, gain);
     _loading = next;
     return next.whenComplete(() {
       if (identical(_loading, next)) _loading = null;
     });
   }
 
-  Future<void> _load(String uri) async {
+  Future<void> _load(String uri, double gain) async {
     _nextUri = null;
     _appended = null;
     final old = _active;
     final target = _idle;
     await _prepare(target);
+    _gains[target] = _safeGain(gain);
     _active = target;
     _lastIndex = 0;
     unawaited(_retire(old, fade));
@@ -278,6 +323,7 @@ class MixEngine implements AudioEngine {
   Future<void> setNext(
     String? uri, {
     Duration crossfade = Duration.zero,
+    double gain = 1,
   }) async {
     final loading = _loading;
     if (loading != null) {
@@ -286,6 +332,7 @@ class MixEngine implements AudioEngine {
       } catch (_) {}
     }
     _nextUri = uri;
+    _nextGain = _safeGain(gain);
     _crossfade = crossfade;
     final gapless = uri != null && crossfade <= Duration.zero ? uri : null;
     if (gapless == _appended) return;
@@ -299,13 +346,17 @@ class MixEngine implements AudioEngine {
     }
   }
 
-  Future<void> _startCrossfade(String uri, Duration length) async {
+  @override
+  Future<void> setGain(double gain) => _applyGain(_active, gain);
+
+  Future<void> _startCrossfade(String uri, Duration length, double gain) async {
     _crossing = true;
     try {
       final old = _active;
       final target = _idle;
       _nextUri = null;
       await _prepare(target);
+      _gains[target] = _safeGain(gain);
       await target.setSource(uri);
       if (!identical(old, _active) || !_want || _disposed) return;
       _active = target;
@@ -368,5 +419,6 @@ class MixEngine implements AudioEngine {
     await _duration.close();
     await _completed.close();
     await _advanced.close();
+    await _sessions.close();
   }
 }

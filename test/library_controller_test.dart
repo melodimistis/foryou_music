@@ -7,6 +7,7 @@ import 'package:foryou_music/providers/library_controller.dart';
 import 'package:foryou_music/services/library_repository.dart';
 import 'package:foryou_music/services/song_filter.dart';
 import 'package:foryou_music/services/source_scanner/local_folder_scanner.dart';
+import 'fakes/temp_dir.dart';
 
 void main() {
   late Directory hiveDir;
@@ -20,8 +21,8 @@ void main() {
 
   setUp(() async {
     n = 0;
-    hiveDir = Directory.systemTemp.createTempSync('foryou_hive');
-    musicDir = Directory.systemTemp.createTempSync('foryou_music');
+    hiveDir = tempDir('foryou_hive');
+    musicDir = tempDir('foryou_music');
     Hive.init(hiveDir.path);
     repo = await LibraryRepository.open();
     c = LibraryController(

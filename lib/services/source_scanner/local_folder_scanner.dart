@@ -138,6 +138,8 @@ class LocalFolderScanner implements SourceScanner {
         year: t?.year,
         trackNumber: t?.trackNumber,
         discNumber: t?.discNumber,
+        trackGain: t?.trackGain,
+        albumGain: t?.albumGain,
         coverKey: t?.coverKey ?? '',
         modifiedMs: c.modifiedMs,
         addedMs: old == null

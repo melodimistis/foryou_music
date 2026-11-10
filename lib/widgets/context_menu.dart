@@ -98,35 +98,39 @@ class _MenuOverlay extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         for (final a in actions)
-                          InkWell(
-                            onTap: () => Navigator.of(context).pop(a),
-                            child: SizedBox(
-                              height: itemHeight,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        a.label,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontFamily: 'Inter',
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: InkWell(
+                              onTap: () => Navigator.of(context).pop(a),
+                              borderRadius: BorderRadius.circular(12),
+                              child: SizedBox(
+                                height: itemHeight,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          a.label,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontFamily: 'Inter',
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    Icon(
-                                      a.icon,
-                                      color: Colors.white70,
-                                      size: 18,
-                                    ),
-                                  ],
+                                      Icon(
+                                        a.icon,
+                                        color: Colors.white70,
+                                        size: 18,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),

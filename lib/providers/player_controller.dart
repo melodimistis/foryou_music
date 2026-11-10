@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import '../models/normalization.dart';
 import '../models/song.dart';
 import '../services/audio/audio_engine.dart';
 import '../services/queue_store.dart';
@@ -43,6 +44,7 @@ class PlayerController extends ChangeNotifier {
   bool _counted = false;
   int _loadToken = 0;
   Duration _crossfade = Duration.zero;
+  NormalizationMode _normalization = NormalizationMode.off;
   Future<void> _nextSync = Future.value();
   String? _lastError;
   Song? get current =>
@@ -66,6 +68,19 @@ class PlayerController extends ChangeNotifier {
   void setCrossfade(Duration value) {
     if (value == _crossfade) return;
     _crossfade = value;
+    _syncNext();
+  }
+
+  NormalizationMode get normalization => _normalization;
+
+  void setNormalization(NormalizationMode mode) {
+    if (mode == _normalization) return;
+    _normalization = mode;
+    final song = current;
+    if (song == null) return;
+    _engine
+        .setGain(_normalization.factorFor(song))
+        .catchError((Object e) => debugPrint('Could not set gain: $e'));
     _syncNext();
   }
 
@@ -99,8 +114,9 @@ class PlayerController extends ChangeNotifier {
     final fade = playing == null || next == null
         ? Duration.zero
         : crossfadeBetween(playing, next);
+    final gain = next == null ? 1.0 : _normalization.factorFor(next);
     _nextSync = _nextSync
-        .then((_) => _engine.setNext(next?.uri, crossfade: fade))
+        .then((_) => _engine.setNext(next?.uri, crossfade: fade, gain: gain))
         .catchError((Object e) => debugPrint('Could not queue next: $e'));
   }
 
@@ -317,7 +333,7 @@ class PlayerController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _engine.load(current.uri);
+      await _engine.load(current.uri, gain: _normalization.factorFor(current));
       if (token != _loadToken) return true;
       if (_position > Duration.zero) await _engine.seek(_position);
       _syncNext();
@@ -371,7 +387,7 @@ class PlayerController extends ChangeNotifier {
 
     _persist();
     try {
-      await _engine.load(song.uri);
+      await _engine.load(song.uri, gain: _normalization.factorFor(song));
       if (token != _loadToken) return;
       await _engine.play();
       _syncNext();
