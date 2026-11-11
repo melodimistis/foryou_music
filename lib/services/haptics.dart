@@ -16,4 +16,8 @@ class Haptics {
   static void tick() {
     if (enabled) HapticFeedback.selectionClick();
   }
+
+  static void grab() {
+    if (enabled) HapticFeedback.lightImpact();
+  }
 }

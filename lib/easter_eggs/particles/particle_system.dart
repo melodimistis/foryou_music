@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import '../shapes.dart';
 import 'particle_preset.dart';
 
 class Particle {
@@ -111,8 +112,12 @@ class ParticleSystem {
     final p = Particle()
       ..size = _between(preset.minSize, preset.maxSize) * scale
       ..color = _random.nextInt(colors.length)
-      ..spin = (_random.nextDouble() * 2 - 1) * preset.spin
-      ..angle = _random.nextDouble() * math.pi * 2
+      ..spin = ShapeBook.upright(shape)
+          ? 0
+          : (_random.nextDouble() * 2 - 1) * preset.spin
+      ..angle = ShapeBook.upright(shape)
+          ? (_random.nextDouble() * 2 - 1) * ShapeBook.uprightTilt
+          : _random.nextDouble() * math.pi * 2
       ..phase = _random.nextDouble() * math.pi * 2
       ..phaseSpeed = _between(0.6, 1.4);
     final v = _between(preset.minSpeed, preset.maxSpeed) * speed;

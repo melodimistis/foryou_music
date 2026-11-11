@@ -104,7 +104,11 @@ class ParticlePainter extends CustomPainter {
             ParticleShape.bow ||
             ParticleShape.drop ||
             ParticleShape.skull ||
-            ParticleShape.cross:
+            ParticleShape.cross ||
+            ParticleShape.bolt ||
+            ParticleShape.flame ||
+            ParticleShape.chat ||
+            ParticleShape.dot:
           canvas
             ..save()
             ..translate(p.x, p.y)

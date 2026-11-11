@@ -7,6 +7,36 @@ class ShapeBook {
   ShapeBook._();
 
   static final Map<ParticleShape, Path> _paths = {
+    ParticleShape.bolt: Path()
+      ..moveTo(0.2, -1)
+      ..lineTo(-0.5, 0.15)
+      ..lineTo(-0.05, 0.15)
+      ..lineTo(-0.25, 1)
+      ..lineTo(0.5, -0.25)
+      ..lineTo(0.05, -0.25)
+      ..lineTo(0.35, -1)
+      ..close(),
+    ParticleShape.flame: Path()
+      ..moveTo(0, -1)
+      ..cubicTo(0.18, -0.62, 0.72, -0.3, 0.68, 0.3)
+      ..cubicTo(0.65, 0.75, 0.32, 1, 0, 1)
+      ..cubicTo(-0.32, 1, -0.65, 0.75, -0.68, 0.3)
+      ..cubicTo(-0.7, -0.05, -0.42, -0.28, -0.3, -0.5)
+      ..cubicTo(-0.18, -0.25, -0.05, -0.18, 0.02, -0.28)
+      ..cubicTo(0.08, -0.5, -0.02, -0.78, 0, -1)
+      ..close(),
+    ParticleShape.chat: _union([
+      Path()..addRRect(
+        RRect.fromLTRBR(-1, -0.72, 1, 0.5, const Radius.circular(0.5)),
+      ),
+      Path()
+        ..moveTo(-0.62, 0.3)
+        ..lineTo(-0.9, 0.92)
+        ..lineTo(-0.12, 0.42)
+        ..close(),
+    ]),
+    ParticleShape.dot: Path()
+      ..addOval(Rect.fromCircle(center: Offset.zero, radius: 0.62)),
     ParticleShape.petal: Path()
       ..moveTo(0, 1)
       ..cubicTo(-0.9, 0.5, -0.8, -0.7, -0.25, -1)
@@ -184,6 +214,11 @@ class ShapeBook {
     ..addOval(Rect.fromCircle(center: Offset.zero, radius: 1));
 
   static Path outlineOf(ParticleShape shape) => _paths[shape] ?? circle;
+
+  static const uprightTilt = 0.25;
+
+  static bool upright(ParticleShape shape) =>
+      shape == ParticleShape.chat || shape == ParticleShape.flame;
 
   static bool tumbles(ParticleShape shape) =>
       shape == ParticleShape.petal ||

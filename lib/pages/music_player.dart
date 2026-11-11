@@ -145,48 +145,51 @@ class _MusicPlayerPageState extends State<MusicPlayerPage>
             color: AppColors.background,
             child: _NothingPlaying(),
           )
-        : Stack(
-            children: [
-              Positioned.fill(child: _Backdrop(coverKey: song.coverKey)),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 28),
-                  child: Column(
-                    children: [
-                      const _Grabber(),
-                      Expanded(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 320),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeInCubic,
-                          child: _lyrics
-                              ? _LyricsPanel(
-                                  key: const ValueKey('lyrics'),
-                                  song: song,
-                                )
-                              : _CoverPanel(
-                                  key: const ValueKey('cover'),
-                                  song: song,
-                                ),
+        : EggStickerStage(
+            coverShown: !_lyrics,
+            child: Stack(
+              children: [
+                Positioned.fill(child: _Backdrop(coverKey: song.coverKey)),
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    child: Column(
+                      children: [
+                        const _Grabber(),
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 320),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            child: _lyrics
+                                ? _LyricsPanel(
+                                    key: const ValueKey('lyrics'),
+                                    song: song,
+                                  )
+                                : _CoverPanel(
+                                    key: const ValueKey('cover'),
+                                    song: song,
+                                  ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      const _SeekBar(),
-                      const SizedBox(height: 8),
-                      const _Controls(),
-                      const SizedBox(height: 16),
-                      _BottomRow(
-                        song: song,
-                        lyricsOn: _lyrics,
-                        onLyrics: () => setState(() => _lyrics = !_lyrics),
-                      ),
-                      _YoruCaption(lyricsOn: _lyrics),
-                      const SizedBox(height: 12),
-                    ],
+                        const SizedBox(height: 12),
+                        const _SeekBar(),
+                        const SizedBox(height: 8),
+                        const _Controls(),
+                        const SizedBox(height: 16),
+                        _BottomRow(
+                          song: song,
+                          lyricsOn: _lyrics,
+                          onLyrics: () => setState(() => _lyrics = !_lyrics),
+                        ),
+                        _YoruCaption(lyricsOn: _lyrics),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
 
     final routeCurve = _routeCurve ?? kAlwaysCompleteAnimation;
@@ -407,6 +410,7 @@ class _CoverPanel extends StatelessWidget {
               final size = math.min(c.maxWidth, c.maxHeight - 16);
               return Center(
                 child: EggCoverStickers(
+                  size: size,
                   child: DecoratedBox(
                     position: DecorationPosition.foreground,
                     decoration: BoxDecoration(
@@ -1228,6 +1232,7 @@ class LyricLineView extends StatelessWidget {
 
   static const currentScale = 1.0;
   static const restScale = 0.92;
+  static const chatWidth = 0.82;
 
   final LyricLine line;
   final LineState state;
@@ -1301,6 +1306,26 @@ class LyricLineView extends StatelessWidget {
             ],
           );
 
+    final side = EggLyricFx.chatSide(look, line);
+    final chat = look?.chat;
+    final Widget shown = side == null || chat == null
+        ? body
+        : LayoutBuilder(
+            builder: (context, c) => Align(
+              alignment: side == ChatSide.right
+                  ? Alignment.centerRight
+                  : Alignment.centerLeft,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: c.maxWidth * chatWidth),
+                child: EggChatBubble(
+                  side: side,
+                  color: side == ChatSide.right ? chat.right : chat.left,
+                  child: body,
+                ),
+              ),
+            ),
+          );
+
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeOutCubic,
@@ -1312,9 +1337,11 @@ class LyricLineView extends StatelessWidget {
       child: AnimatedScale(
         duration: const Duration(milliseconds: 450),
         curve: Curves.easeOutCubic,
-        alignment: Alignment.centerLeft,
+        alignment: side == ChatSide.right
+            ? Alignment.centerRight
+            : Alignment.centerLeft,
         scale: current ? currentScale : restScale,
-        child: body,
+        child: shown,
       ),
     );
   }
@@ -1365,6 +1392,7 @@ class LyricLineView extends StatelessWidget {
     required LineMood mood,
   }) {
     final w = line.words[i];
+    final hype = EggLyricFx.hypeOf(look, line.text);
     return LyricWordView(
       text: w.text,
       index: i,
@@ -1375,10 +1403,14 @@ class LyricLineView extends StatelessWidget {
       mood: mood,
       word: EggLyricFx.keyOf(line.words, i),
       hot: EggLyricFx.isHot(look, line.words, i),
+      spin: EggLyricFx.spins(look, line.words, i),
+      drop: EggLyricFx.dropOf(look, line.words, i),
+      hype: hype,
+      neon: EggLyricFx.isNeon(look, line.words, i),
       since: (pos - w.time).inMicroseconds / Duration.microsecondsPerSecond,
       sparks: layer == WordLayer.outline || layer == WordLayer.ghost
           ? SparkKind.none
-          : EggLyricFx.sparkKind(look, line.words, i),
+          : EggLyricFx.sparkKind(look, line.words, i, hype: hype),
       seed: line.time.inMilliseconds + i,
       progress: _progress(
         pos,
@@ -1411,6 +1443,10 @@ class LyricWordView extends StatelessWidget {
     this.ghost = 0,
     this.mood = LineMood.normal,
     this.word,
+    this.spin = false,
+    this.drop = 0,
+    this.hype = false,
+    this.neon = false,
   });
 
   static const lift = 3.0;
@@ -1429,18 +1465,27 @@ class LyricWordView extends StatelessWidget {
   final int ghost;
   final LineMood mood;
   final String? word;
+  final bool spin;
+  final int drop;
+  final bool hype;
+  final bool neon;
 
   Widget _glowing(TextStyle base, double p) {
     final glow = math.sin(math.pi * p);
     final look = this.look;
-    final litColor = hot && look?.hotColor != null
-        ? look!.hotColor!
-        : EggLyrics.lit(look, Colors.white);
+    final neonColor = neon ? look?.neonColor : null;
+    final litColor =
+        neonColor ??
+        (hot && look?.hotColor != null
+            ? look!.hotColor!
+            : EggLyrics.lit(look, Colors.white));
     return Text(
       text,
       style: base.copyWith(
         color: litColor,
-        shadows: glow > 0.02
+        shadows: neonColor != null
+            ? EggLyricFx.neonGlow(neonColor)
+            : glow > 0.02
             ? [
                 Shadow(
                   color: litColor.withValues(alpha: 0.55 * glow),
@@ -1469,6 +1514,8 @@ class LyricWordView extends StatelessWidget {
           lift: lift,
           since: since,
           hot: hot,
+          drop: drop,
+          hype: hype,
         ),
         child: Transform(
           transform: EggLyrics.wordTransform(
@@ -1476,6 +1523,9 @@ class LyricWordView extends StatelessWidget {
             progress: p,
             since: since,
             index: index,
+            clock: clock,
+            spin: spin,
+            hype: hype,
           ),
           alignment: Alignment.bottomCenter,
           child: Text(
@@ -1492,6 +1542,8 @@ class LyricWordView extends StatelessWidget {
       style: base.copyWith(
         color: layer == WordLayer.outline
             ? Colors.transparent
+            : neon && look?.neonColor != null
+            ? look!.neonColor!.withValues(alpha: 0.3)
             : EggLyrics.dim(look, Colors.white38),
       ),
     );
@@ -1502,7 +1554,9 @@ class LyricWordView extends StatelessWidget {
       ),
       WordLayer.fill when look != null => Text(
         text,
-        style: hot && look.hotColor != null
+        style: neon && look.neonColor != null
+            ? EggLyricFx.neonStyle(base, look)
+            : hot && look.hotColor != null
             ? EggLyricFx.hotStyle(base, look)
             : EggLyricFx.fillStyle(base, look, mood: mood),
       ),
@@ -1546,6 +1600,8 @@ class LyricWordView extends StatelessWidget {
         lift: lift,
         since: since,
         hot: hot,
+        drop: drop,
+        hype: hype,
       ),
       child: Transform(
         transform: EggLyrics.wordTransform(
@@ -1553,9 +1609,12 @@ class LyricWordView extends StatelessWidget {
           progress: p,
           since: since,
           index: index,
+          clock: clock,
+          spin: spin,
+          hype: hype,
         ),
         alignment: Alignment.bottomCenter,
-        child: look?.motion == LyricMotion.flicker
+        child: look?.motion == LyricMotion.flicker || neon
             ? Opacity(opacity: EggLyricFx.flicker(since), child: body)
             : body,
       ),

@@ -324,7 +324,7 @@ void main() {
         .color;
     expect(seekColor(), Colors.white);
     expect(playColor(), Colors.white);
-    expect(find.byType(StickersView), findsNothing);
+    expect(find.byType(CoverStickerView), findsNothing);
 
     Future<void> settleMoving() async {
       for (var i = 0; i < 10; i++) {
@@ -355,8 +355,8 @@ void main() {
       EggSamples.rose.top.withValues(alpha: EggSamples.rose.strength),
     );
     expect(
-      find.descendant(of: inPlayer, matching: find.byType(StickersView)),
-      findsOneWidget,
+      find.descendant(of: inPlayer, matching: find.byType(CoverStickerView)),
+      findsNWidgets(4),
     );
 
     await tester.tap(find.byTooltip('Lyrics'));
@@ -478,6 +478,134 @@ void main() {
     expect(player.current?.id, 'a');
 
     await tearDownAll(tester);
+  });
+
+  testWidgets("Mean It spins 'round and steps down, down, down", (
+    tester,
+  ) async {
+    final look = eggRegistry
+        .firstWhere((e) => e.title == 'Mean It')
+        .pieces
+        .whereType<LyricStylePiece>()
+        .single;
+    const line = LyricLine(
+      Duration.zero,
+      "'round and down, down, down",
+      words: [
+        LyricWord(Duration.zero, "'round "),
+        LyricWord(Duration(milliseconds: 300), 'and '),
+        LyricWord(Duration(milliseconds: 600), 'down, '),
+        LyricWord(Duration(milliseconds: 900), 'down, '),
+        LyricWord(Duration(milliseconds: 1200), 'down'),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LyricLineView(
+            line: line,
+            state: LineState.current,
+            clock: ValueNotifier(const Duration(seconds: 3)),
+            end: const Duration(seconds: 2),
+            look: look,
+          ),
+        ),
+      ),
+    );
+    final views = tester.widgetList<LyricWordView>(find.byType(LyricWordView));
+    expect(
+      {for (final w in views) w.index: w.drop},
+      {0: 0, 1: 0, 2: 1, 3: 2, 4: 3},
+    );
+    expect(
+      {for (final w in views) w.index: w.spin},
+      {0: true, 1: false, 2: false, 3: false, 4: false},
+    );
+  });
+
+  testWidgets('Mean It answers in chat bubbles and you! lights you in neon', (
+    tester,
+  ) async {
+    LyricStylePiece lookOf(String title) => eggRegistry
+        .firstWhere((e) => e.title == title)
+        .pieces
+        .whereType<LyricStylePiece>()
+        .single;
+    Future<void> show(LyricLine line, LyricStylePiece look) =>
+        tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ListView(
+                children: [
+                  LyricLineView(
+                    line: line,
+                    state: LineState.current,
+                    clock: ValueNotifier(
+                      line.time + const Duration(seconds: 2),
+                    ),
+                    end: line.time + const Duration(seconds: 3),
+                    look: look,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+    const reply = LyricLine(
+      Duration(milliseconds: 168335),
+      "But you don't mean it",
+      words: [
+        LyricWord(Duration(milliseconds: 168335), 'But '),
+        LyricWord(Duration(milliseconds: 168600), 'you '),
+        LyricWord(Duration(milliseconds: 168900), "don't "),
+        LyricWord(Duration(milliseconds: 169200), 'mean '),
+        LyricWord(Duration(milliseconds: 169500), 'it'),
+      ],
+    );
+    await show(reply, lookOf('Mean It'));
+    final screen = tester.getRect(find.byType(Scaffold));
+    final bubble = tester.getRect(find.byType(EggChatBubble));
+    expect(bubble.right, closeTo(screen.right, 1));
+    expect(bubble.width, lessThan(screen.width * 0.85));
+    final painted = tester.getRect(
+      find
+          .descendant(
+            of: find.byType(EggChatBubble),
+            matching: find.byType(CustomPaint),
+          )
+          .first,
+    );
+    expect(painted.right, closeTo(screen.right - EggChatBubble.tailRoom, 1));
+
+    const ask = LyricLine(
+      Duration(milliseconds: 165015),
+      'Hurry home',
+      words: [
+        LyricWord(Duration(milliseconds: 165015), 'Hurry '),
+        LyricWord(Duration(milliseconds: 165400), 'home'),
+      ],
+    );
+    await show(ask, lookOf('Mean It'));
+    expect(tester.getRect(find.byType(EggChatBubble)).left, screen.left);
+
+    const you = LyricLine(
+      Duration(milliseconds: 92070),
+      "You, I'm nothing without you",
+      words: [
+        LyricWord(Duration(milliseconds: 92070), 'You, '),
+        LyricWord(Duration(milliseconds: 92500), "I'm "),
+        LyricWord(Duration(milliseconds: 92900), 'nothing '),
+        LyricWord(Duration(milliseconds: 93400), 'without '),
+        LyricWord(Duration(milliseconds: 94000), 'you'),
+      ],
+    );
+    await show(you, lookOf('you!'));
+    expect(find.byType(EggChatBubble), findsNothing);
+    final views = tester.widgetList<LyricWordView>(find.byType(LyricWordView));
+    expect(
+      {for (final w in views) w.index: w.neon},
+      {0: true, 1: false, 2: false, 3: false, 4: true},
+    );
   });
 
   testWidgets('translation and romanization show under the line when on', (

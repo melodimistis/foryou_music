@@ -9,7 +9,9 @@ import 'egg_entry.dart';
 import 'particles/particle_preset.dart';
 import 'shapes.dart';
 
-enum SparkKind { none, word, burst, tear }
+enum SparkKind { none, word, burst, tear, hype }
+
+enum ChatSide { left, right }
 
 enum LineMood { normal, calm, bright }
 
@@ -44,6 +46,10 @@ class EggLyricFx {
   static const tearLife = 1.8;
   static const tearFall = 70.0;
   static const slamTime = 0.35;
+  static const gustPushSize = 5.0;
+  static const spinTime = 0.7;
+  static const dropStep = 7.0;
+  static const dropTime = 0.55;
   static const slamSize = 0.35;
   static const jitterSize = 1.6;
   static const flickerTime = 0.26;
@@ -108,6 +114,80 @@ class EggLyricFx {
 
   static String _plain(String text) =>
       text.toLowerCase().replaceAll(_notLetter, '');
+
+  static double gustAt(double t) {
+    final g = math.max(0.0, math.sin(t * 0.42 + 0.6));
+    return 0.18 + 0.82 * g * g * g;
+  }
+
+  static double gustPush(double t, int index) =>
+      gustAt(t) * gustPushSize * (1 + 0.35 * math.sin(t * 8.3 + index * 1.7));
+
+  static double gustTilt(double t, int index) =>
+      gustAt(t) * (0.06 + 0.025 * math.sin(t * 7.1 + index * 2.3));
+
+  static double swingAt(double t, int index) =>
+      math.sin(t * 2 * math.pi * 0.42 - index * 0.35);
+
+  static double spinTurn(double since) {
+    if (since <= 0 || since >= spinTime) return 0;
+    return Curves.easeInOutCubic.transform(since / spinTime);
+  }
+
+  static double dropDepth(double since, int step) {
+    if (since < 0 || step <= 0) return 0;
+    final f = Curves.bounceOut.transform((since / dropTime).clamp(0.0, 1.0));
+    return dropStep * step * f;
+  }
+
+  static bool _listed(Set<String>? words, List<LyricWord> line, int i) {
+    if (words == null || words.isEmpty) return false;
+    final key = keyOf(line, i);
+    return key.isNotEmpty && words.any((w) => _plain(w) == key);
+  }
+
+  static bool hypeOf(LyricStylePiece? look, String text) {
+    final hype = look?.hype;
+    if (hype == null || hype.isEmpty) return false;
+    final plain = _plain(text);
+    return hype.any((h) => plain.contains(_plain(h)));
+  }
+
+  static bool isNeon(LyricStylePiece? look, List<LyricWord> words, int i) =>
+      look?.neonColor != null && _listed(look?.neon, words, i);
+
+  static ChatSide? chatSide(LyricStylePiece? look, LyricLine line) {
+    final chat = look?.chat;
+    if (chat == null || line.time < chat.from || line.time > chat.to) {
+      return null;
+    }
+    final plain = _plain(line.text);
+    return chat.replies.any((r) => _plain(r) == plain)
+        ? ChatSide.right
+        : ChatSide.left;
+  }
+
+  static List<Shadow> neonGlow(Color color) => [
+    Shadow(color: color.withValues(alpha: 0.85), blurRadius: 14),
+    Shadow(color: color.withValues(alpha: 0.6), blurRadius: 4),
+  ];
+
+  static TextStyle neonStyle(TextStyle base, LyricStylePiece look) {
+    final color = look.neonColor ?? look.lit ?? base.color!;
+    return _bare(base).copyWith(color: color, shadows: neonGlow(color));
+  }
+
+  static bool spins(LyricStylePiece? look, List<LyricWord> words, int i) =>
+      _listed(look?.spin, words, i);
+
+  static int dropOf(LyricStylePiece? look, List<LyricWord> words, int i) {
+    if (!_listed(look?.drop, words, i)) return 0;
+    var step = 0;
+    for (var j = 0; j <= i; j++) {
+      if (_listed(look?.drop, words, j)) step++;
+    }
+    return step;
+  }
 
   static bool isHot(LyricStylePiece? look, List<LyricWord> words, int i) {
     final hot = look?.hot;
@@ -241,8 +321,9 @@ class EggLyricFx {
   static SparkKind sparkKind(
     LyricStylePiece? look,
     List<LyricWord> words,
-    int i,
-  ) {
+    int i, {
+    bool hype = false,
+  }) {
     if (look == null || i < 0 || i >= words.length) return SparkKind.none;
     if (i > 0 && !_endsWord.hasMatch(words[i - 1].text)) {
       return SparkKind.none;
@@ -255,6 +336,7 @@ class EggLyricFx {
         sparks.keywordShapes.keys.any((k) => _plain(k) == word)) {
       return SparkKind.burst;
     }
+    if (hype && sparks.perHype > 0) return SparkKind.hype;
     return sparks.perWord > 0 ? SparkKind.word : SparkKind.none;
   }
 
@@ -283,6 +365,7 @@ class EggLyricFx {
       SparkKind.word => sparkLife + stagger * (s.perWord - 1),
       SparkKind.burst => burstLife + stagger * (s.perKeyword - 1),
       SparkKind.tear => tearLife,
+      SparkKind.hype => sparkLife + stagger * (s.perHype - 1),
     };
   }
 
@@ -322,7 +405,11 @@ class EggLyricFx {
       ];
     }
     final burst = kind == SparkKind.burst;
-    final count = burst ? sparks.perKeyword : sparks.perWord;
+    final count = burst
+        ? sparks.perKeyword
+        : kind == SparkKind.hype
+        ? sparks.perHype
+        : sparks.perWord;
     final life = lifeOf(kind);
     final out = <EggSpark>[];
     for (var k = 0; k < count; k++) {
@@ -460,8 +547,11 @@ class EggGapDots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = active ? 24.0 : 18.0;
+    final box = look.gapBubble == null
+        ? const Size(3.3, 1)
+        : EggGapPainter.bubbleBox;
     Widget hearts(double time) => CustomPaint(
-      size: Size(size * 3.3, size),
+      size: box * size,
       painter: EggGapPainter(look: look, active: active, time: time),
     );
     final clock = this.clock;
@@ -478,6 +568,8 @@ class EggGapPainter extends CustomPainter {
   EggGapPainter({required this.look, required this.active, required this.time});
 
   static const beat = 1.2;
+  static const bubbleBox = Size(4.2, 1.55);
+  static const bubbleInset = Offset(0.45, 0.15);
 
   final LyricStylePiece look;
   final bool active;
@@ -499,17 +591,39 @@ class EggGapPainter extends CustomPainter {
     final colors = look.gapColors.isEmpty
         ? [look.lit ?? const Color(0xFFFFFFFF)]
         : look.gapColors;
-    final unit = size.height * 0.4;
+    final bubble = look.gapBubble;
+    final h = bubble == null ? size.height : size.height / bubbleBox.height;
+    final unit = h * 0.4;
+    canvas.save();
+    if (bubble != null) {
+      canvas.translate(bubbleInset.dx * h, bubbleInset.dy * h);
+      _fill.color = bubble.withValues(alpha: bubble.a * (active ? 1 : 0.45));
+      canvas
+        ..drawRRect(
+          RRect.fromLTRBR(
+            -0.25 * h,
+            -0.15 * h,
+            3.55 * h,
+            1.15 * h,
+            Radius.circular(0.65 * h),
+          ),
+          _fill,
+        )
+        ..drawCircle(Offset(-0.1 * h, 1.05 * h), 0.17 * h, _fill)
+        ..drawCircle(Offset(-0.32 * h, 1.25 * h), 0.08 * h, _fill);
+    }
+    final sparks = look.sparks;
+    final edge = sparks == null ? const Color(0xFFFFFFFF) : sparks.edge;
     for (var k = 0; k < 3; k++) {
       final grow = active ? 1 + 0.22 * pulse(time, k) : 1.0;
       canvas
         ..save()
-        ..translate(size.height * (0.5 + k * 1.15), size.height * 0.5)
+        ..translate(h * (0.5 + k * 1.15), h * 0.5)
         ..scale(unit * grow);
-      _edge.color = const Color(
-        0xFFFFFFFF,
-      ).withValues(alpha: active ? 0.9 : 0.3);
-      canvas.drawPath(path, _edge);
+      if (edge != null) {
+        _edge.color = edge.withValues(alpha: edge.a * (active ? 0.9 : 0.3));
+        canvas.drawPath(path, _edge);
+      }
       _fill.color = colors[k % colors.length].withValues(
         alpha: active ? 1 : 0.4,
       );
@@ -517,6 +631,7 @@ class EggGapPainter extends CustomPainter {
         ..drawPath(path, _fill)
         ..restore();
     }
+    canvas.restore();
   }
 
   @override
@@ -524,4 +639,72 @@ class EggGapPainter extends CustomPainter {
       oldDelegate.time != time ||
       oldDelegate.active != active ||
       oldDelegate.look != look;
+}
+
+class EggChatBubble extends StatelessWidget {
+  const EggChatBubble({
+    super.key,
+    required this.side,
+    required this.color,
+    required this.child,
+  });
+
+  static const padding = EdgeInsets.fromLTRB(16, 8, 16, 10);
+  static const tailRoom = 9.0;
+
+  final ChatSide side;
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(
+      left: side == ChatSide.left ? tailRoom : 0,
+      right: side == ChatSide.right ? tailRoom : 0,
+      bottom: 2,
+    ),
+    child: CustomPaint(
+      painter: EggBubblePainter(side: side, color: color),
+      child: Padding(padding: padding, child: child),
+    ),
+  );
+}
+
+class EggBubblePainter extends CustomPainter {
+  EggBubblePainter({required this.side, required this.color});
+
+  static const radius = 20.0;
+
+  final ChatSide side;
+  final Color color;
+  final Paint _paint = Paint()..isAntiAlias = true;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _paint.color = color;
+    final w = size.width;
+    final h = size.height;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Offset.zero & size,
+        Radius.circular(math.min(radius, h / 2)),
+      ),
+      _paint,
+    );
+    final left = side == ChatSide.left;
+    final x = left ? 0.0 : w;
+    final d = left ? 1.0 : -1.0;
+    canvas.drawPath(
+      Path()
+        ..moveTo(x + d * 4, h - 16)
+        ..quadraticBezierTo(x + d * 2, h - 2, x - d * 7, h)
+        ..quadraticBezierTo(x + d * 8, h + 1, x + d * 18, h - 6)
+        ..close(),
+      _paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(EggBubblePainter oldDelegate) =>
+      oldDelegate.side != side || oldDelegate.color != color;
 }

@@ -246,6 +246,67 @@ void main() {
       }
     });
 
+    test('Hericane, stupid song and Mean It match their own files', () {
+      EggEntry named(String title) =>
+          eggRegistry.firstWhere((e) => e.title == title);
+      expect(
+        EggMatcher.find(
+          tune(
+            title: 'Hericane',
+            artist: 'LANY',
+            album: 'LANY',
+            year: 2017,
+            track: 9,
+            durationMs: 346803,
+          ),
+          eggRegistry,
+        ),
+        same(named('Hericane')),
+      );
+      expect(
+        EggMatcher.find(
+          tune(
+            title: 'stupid song',
+            artist: 'Olivia Rodrigo',
+            album: 'you seem pretty sad for a girl so in love [Explicit]',
+            year: 2026,
+            track: 1,
+            durationMs: 209680,
+          ),
+          eggRegistry,
+        ),
+        same(named('stupid song')),
+      );
+      expect(
+        EggMatcher.find(
+          tune(
+            title: 'Mean It',
+            artist: 'LAUV & LANY',
+            album: "~How I'm Feeling~",
+            year: 2020,
+            track: 10,
+            durationMs: 232859,
+          ),
+          eggRegistry,
+        ),
+        same(named('Mean It')),
+      );
+      expect(
+        EggMatcher.find(
+          tune(
+            title: 'Hericane (Live)',
+            artist: 'LANY',
+            album: 'LANY',
+            year: 2017,
+            track: 9,
+            durationMs: 346803,
+          ),
+          eggRegistry,
+        ),
+        isNull,
+      );
+    });
+
     test('Vivarium also matches its Japanese title', () {
       final vivarium = eggRegistry.firstWhere((e) => e.title == 'Vivarium');
       final song = tune(

@@ -5,11 +5,21 @@ import 'package:flutter/widgets.dart';
 import 'egg_entry.dart';
 
 class EggMomentState {
-  const EggMomentState({this.shake = Offset.zero, this.flash, this.tint});
+  const EggMomentState({
+    this.shake = Offset.zero,
+    this.flash,
+    this.tint,
+    this.levels = const {},
+  });
 
   final Offset shake;
   final Color? flash;
   final AppTintPiece? tint;
+  final Map<int, double> levels;
+
+  double levelOf(int group) => levels[group] ?? 1;
+
+  double get ambient => levelOf(0);
 }
 
 class EggMoments {
@@ -27,11 +37,14 @@ class EggMoments {
     Color? flash;
     AppTintPiece? tint;
     Duration? tintAt;
+    final groups = <int, List<EggMoment>>{};
     final t = position.inMicroseconds / Duration.microsecondsPerSecond;
     for (final m in piece.moments) {
       final dt = position - m.at;
       if (dt.isNegative) continue;
       switch (m.kind) {
+        case MomentKind.ambient:
+          (groups[m.group] ??= []).add(m);
         case MomentKind.tint:
           if (tintAt == null || m.at >= tintAt) {
             tint = m.tint;
@@ -52,7 +65,36 @@ class EggMoments {
           }
       }
     }
-    return EggMomentState(shake: shake, flash: flash, tint: tint);
+    return EggMomentState(
+      shake: shake,
+      flash: flash,
+      tint: tint,
+      levels: {
+        for (final e in groups.entries)
+          e.key: ambientOf(e.value, position, still: still),
+      },
+    );
+  }
+
+  static double ambientOf(
+    List<EggMoment> levels,
+    Duration position, {
+    bool still = false,
+  }) {
+    levels.sort((a, b) => a.at.compareTo(b.at));
+    var level = 1.0;
+    for (final m in levels) {
+      final dt = position - m.at;
+      if (still || m.length <= Duration.zero || dt >= m.length) {
+        level = m.strength;
+        continue;
+      }
+      final f = Curves.easeInOut.transform(
+        dt.inMicroseconds / m.length.inMicroseconds,
+      );
+      level += (m.strength - level) * f;
+    }
+    return level.clamp(0.0, 1.0);
   }
 }
 

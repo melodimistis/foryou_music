@@ -19,6 +19,10 @@ enum ParticleShape {
   drop,
   skull,
   cross,
+  bolt,
+  flame,
+  chat,
+  dot,
 }
 
 enum ParticleMotion { fall, rise, wander, burst }

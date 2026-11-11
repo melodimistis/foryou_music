@@ -77,6 +77,9 @@ class EggLyrics {
   static const waveHeight = 2.5;
   static const floatDepth = 7.0;
   static const bounce = 0.08;
+  static const swingWidth = 2.6;
+  static const swingTilt = 0.045;
+  static const spinDepth = 0.0015;
 
   static TextStyle style(TextStyle base, LyricStylePiece? look) {
     if (look == null) return base;
@@ -101,6 +104,8 @@ class EggLyrics {
     required double lift,
     double since = 0,
     bool hot = false,
+    int drop = 0,
+    bool hype = false,
   }) {
     final eased = Curves.easeOutCubic.transform(progress.clamp(0.0, 1.0));
     final rise = Offset(0, -lift * eased);
@@ -108,8 +113,12 @@ class EggLyrics {
     final shake = hot && progress > 0
         ? EggLyricFx.jitter(t, index)
         : Offset.zero;
+    final fall = progress > 0
+        ? Offset(0, EggLyricFx.dropDepth(since, drop))
+        : Offset.zero;
     return shake +
-        switch (look?.motion ?? LyricMotion.lift) {
+        fall +
+        switch (hype ? LyricMotion.jelly : look?.motion ?? LyricMotion.lift) {
           LyricMotion.lift || LyricMotion.bounce || LyricMotion.flicker => rise,
           LyricMotion.slam => rise + EggLyricFx.slamShake(since, index),
           LyricMotion.jelly => rise + Offset(0, EggLyricFx.hop(since)),
@@ -123,6 +132,9 @@ class EggLyrics {
             math.sin(t * 1.6 + index) * 1.2,
             (1 - eased) * floatDepth - lift * eased,
           ),
+          LyricMotion.gust => rise + Offset(EggLyricFx.gustPush(t, index), 0),
+          LyricMotion.swing =>
+            rise + Offset(EggLyricFx.swingAt(t, index) * swingWidth, 0),
         };
   }
 
@@ -136,15 +148,34 @@ class EggLyrics {
     required double progress,
     required double since,
     required int index,
+    Duration clock = Duration.zero,
+    bool spin = false,
+    bool hype = false,
   }) {
-    if (look?.motion == LyricMotion.jelly) {
-      return EggLyricFx.jellyTransform(since, index);
+    final t = clock.inMicroseconds / Duration.microsecondsPerSecond;
+    final Matrix4 m;
+    switch (hype ? LyricMotion.jelly : look?.motion) {
+      case LyricMotion.jelly:
+        m = EggLyricFx.jellyTransform(since, index);
+      case LyricMotion.slam:
+        final s = EggLyricFx.slam(since);
+        m = Matrix4.diagonal3Values(s, s, 1);
+      case LyricMotion.gust:
+        m = Matrix4.rotationZ(EggLyricFx.gustTilt(t, index));
+      case LyricMotion.swing:
+        m = Matrix4.rotationZ(EggLyricFx.swingAt(t, index) * swingTilt);
+      default:
+        final s = wordScale(look, progress);
+        m = Matrix4.diagonal3Values(s, s, 1);
     }
-    if (look?.motion == LyricMotion.slam) {
-      final s = EggLyricFx.slam(since);
-      return Matrix4.diagonal3Values(s, s, 1);
+    final turn = spin && progress > 0 ? EggLyricFx.spinTurn(since) : 0.0;
+    if (turn > 0) {
+      m.multiply(
+        Matrix4.identity()
+          ..setEntry(3, 2, spinDepth)
+          ..rotateY(turn * 2 * math.pi),
+      );
     }
-    final s = wordScale(look, progress);
-    return Matrix4.diagonal3Values(s, s, 1);
+    return m;
   }
 }

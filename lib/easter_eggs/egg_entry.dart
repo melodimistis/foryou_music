@@ -6,11 +6,21 @@ enum EggNeed { syncedLyrics }
 
 enum StickerPlace { cover, edges }
 
-enum LyricMotion { lift, wave, bounce, float, jelly, slam, flicker }
+enum LyricMotion {
+  lift,
+  wave,
+  bounce,
+  float,
+  jelly,
+  slam,
+  flicker,
+  gust,
+  swing,
+}
 
 enum LightShape { spotlight, screen }
 
-enum MomentKind { shake, flash, tint }
+enum MomentKind { shake, flash, tint, ambient }
 
 sealed class EggPiece {
   const EggPiece();
@@ -26,6 +36,7 @@ class ParticlePiece extends EggPiece {
     this.speed = 1,
     this.size = 1,
     this.shape,
+    this.group = 0,
   });
 
   final ParticlePreset preset;
@@ -34,6 +45,7 @@ class ParticlePiece extends EggPiece {
   final double speed;
   final double size;
   final ParticleShape? shape;
+  final int group;
 }
 
 class WavesPiece extends EggPiece {
@@ -180,21 +192,36 @@ class EggMoment {
   const EggMoment.shake(this.at, {this.strength = 1, this.length = shakeTime})
     : kind = MomentKind.shake,
       color = null,
-      tint = null;
+      tint = null,
+      group = 0;
 
   const EggMoment.flash(this.at, Color this.color, {this.length = flashTime})
     : kind = MomentKind.flash,
       strength = 1,
-      tint = null;
+      tint = null,
+      group = 0;
 
   const EggMoment.tint(this.at, AppTintPiece this.tint)
     : kind = MomentKind.tint,
       strength = 1,
       color = null,
-      length = Duration.zero;
+      length = Duration.zero,
+      group = 0;
+
+  const EggMoment.ambient(
+    this.at,
+    double level, {
+    Duration fade = ambientFade,
+    this.group = 0,
+  }) : kind = MomentKind.ambient,
+       strength = level,
+       length = fade,
+       color = null,
+       tint = null;
 
   static const shakeTime = Duration(milliseconds: 450);
   static const flashTime = Duration(milliseconds: 600);
+  static const ambientFade = Duration(seconds: 3);
 
   final Duration at;
   final MomentKind kind;
@@ -202,6 +229,31 @@ class EggMoment {
   final Duration length;
   final Color? color;
   final AppTintPiece? tint;
+  final int group;
+}
+
+class RosePiece extends EggPiece {
+  const RosePiece({
+    required this.snap,
+    this.count = 1,
+    this.bloom = const Duration(seconds: 6),
+    this.fall = const Duration(seconds: 6),
+    this.petal = const Color(0xFFC8161D),
+    this.heart = const Color(0xFFE3241B),
+    this.edge = const Color(0xFF7A0A10),
+    this.stem = const Color(0xFF2E6B3A),
+    this.withered = const Color(0xFF5B2A22),
+  });
+
+  final Duration snap;
+  final int count;
+  final Duration bloom;
+  final Duration fall;
+  final Color petal;
+  final Color heart;
+  final Color edge;
+  final Color stem;
+  final Color withered;
 }
 
 class MomentsPiece extends EggPiece {
@@ -226,6 +278,22 @@ class LyricGhost {
   final Color? calmColor;
 }
 
+class LyricChat {
+  const LyricChat({
+    required this.from,
+    required this.to,
+    this.replies = const {},
+    this.left = const Color(0xFF3A3A3C),
+    this.right = const Color(0xFF3D6BE0),
+  });
+
+  final Duration from;
+  final Duration to;
+  final Set<String> replies;
+  final Color left;
+  final Color right;
+}
+
 class LyricSparks {
   const LyricSparks({
     this.shapes = const [ParticleShape.heart, ParticleShape.sparkle],
@@ -237,6 +305,7 @@ class LyricSparks {
     this.perWord = 2,
     this.keywords = const {},
     this.perKeyword = 7,
+    this.perHype = 0,
     this.keywordShapes = const {},
     this.shapeColors = const {},
     this.edge = const Color(0xFFFFFFFF),
@@ -248,6 +317,7 @@ class LyricSparks {
   final int perWord;
   final Set<String> keywords;
   final int perKeyword;
+  final int perHype;
   final Map<String, ParticleShape> keywordShapes;
   final Map<ParticleShape, List<Color>> shapeColors;
   final Color? edge;
@@ -268,12 +338,19 @@ class LyricStylePiece extends EggPiece {
     this.sparks,
     this.gapShape,
     this.gapColors = const [],
+    this.gapBubble,
     this.hot = const {},
     this.hotColor,
     this.ghost,
     this.tears = const {},
     this.tearColor,
     this.bright = const {},
+    this.spin = const {},
+    this.drop = const {},
+    this.hype = const {},
+    this.chat,
+    this.neon = const {},
+    this.neonColor,
   });
 
   final LyricMotion motion;
@@ -288,12 +365,19 @@ class LyricStylePiece extends EggPiece {
   final LyricSparks? sparks;
   final ParticleShape? gapShape;
   final List<Color> gapColors;
+  final Color? gapBubble;
   final Set<String> hot;
   final Color? hotColor;
   final LyricGhost? ghost;
   final Set<String> tears;
   final Color? tearColor;
   final Set<String> bright;
+  final Set<String> spin;
+  final Set<String> drop;
+  final Set<String> hype;
+  final LyricChat? chat;
+  final Set<String> neon;
+  final Color? neonColor;
 
   @override
   Set<EggNeed> get needs => const {EggNeed.syncedLyrics};
