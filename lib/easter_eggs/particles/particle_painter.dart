@@ -101,7 +101,10 @@ class ParticlePainter extends CustomPainter {
             ParticleShape.moon ||
             ParticleShape.cloud ||
             ParticleShape.flower ||
-            ParticleShape.bow:
+            ParticleShape.bow ||
+            ParticleShape.drop ||
+            ParticleShape.skull ||
+            ParticleShape.cross:
           canvas
             ..save()
             ..translate(p.x, p.y)

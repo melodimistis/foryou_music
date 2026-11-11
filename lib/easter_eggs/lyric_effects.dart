@@ -9,7 +9,9 @@ import 'egg_entry.dart';
 import 'particles/particle_preset.dart';
 import 'shapes.dart';
 
-enum SparkKind { none, word, burst }
+enum SparkKind { none, word, burst, tear }
+
+enum LineMood { normal, calm, bright }
 
 class EggSpark {
   const EggSpark({
@@ -39,11 +41,20 @@ class EggLyricFx {
   static const burstLife = 1.4;
   static const stagger = 0.05;
   static const rise = 34.0;
+  static const tearLife = 1.8;
+  static const tearFall = 70.0;
+  static const slamTime = 0.35;
+  static const slamSize = 0.35;
+  static const jitterSize = 1.6;
+  static const flickerTime = 0.26;
+  static const ghostSlot = 0.11;
+  static const minSpread = 70.0;
 
   static final _endsWord = RegExp(r'\s$');
   static final _notLetter = RegExp(r'[^\p{L}\p{N}]', unicode: true);
-  static final _outlines = <(LyricStylePiece, TextStyle), TextStyle>{};
-  static final _fills = <(LyricStylePiece, TextStyle), TextStyle>{};
+  static final _outlines =
+      <(LyricStylePiece, TextStyle, LineMood), TextStyle>{};
+  static final _fills = <(LyricStylePiece, TextStyle, LineMood), TextStyle>{};
 
   static (double, double) jelly(double since) {
     if (since <= 0 || since >= jellyTime) return (1, 1);
@@ -69,6 +80,88 @@ class EggLyricFx {
       ..multiply(Matrix4.diagonal3Values(sx, sy, 1));
   }
 
+  static double slam(double since) {
+    if (since < 0 || since >= slamTime) return 1;
+    final t = since / slamTime;
+    return 1 + slamSize * math.exp(-t * 5) * math.cos(t * math.pi * 2.2);
+  }
+
+  static Offset slamShake(double since, int index) {
+    if (since < 0.04 || since >= 0.25) return Offset.zero;
+    final a = 2.5 * (1 - since / 0.25);
+    return Offset(math.sin(since * 90 + index) * a, math.cos(since * 70) * a);
+  }
+
+  static Offset jitter(double seconds, int index) => Offset(
+    math.sin(seconds * 61 + index * 1.7) * jitterSize,
+    math.cos(seconds * 53 + index * 2.3) * jitterSize * 0.7,
+  );
+
+  static double flicker(double since) {
+    if (since < 0 || since >= flickerTime) return 1;
+    if (since < 0.05) return 0.35;
+    if (since < 0.09) return 1;
+    if (since < 0.14) return 0.5;
+    if (since < 0.2) return 1;
+    return 0.75;
+  }
+
+  static String _plain(String text) =>
+      text.toLowerCase().replaceAll(_notLetter, '');
+
+  static bool isHot(LyricStylePiece? look, List<LyricWord> words, int i) {
+    final hot = look?.hot;
+    if (hot == null || hot.isEmpty || i < 0 || i >= words.length) {
+      return false;
+    }
+    final word = _plain(words[i].text);
+    return word.isNotEmpty && hot.any((h) => _plain(h) == word);
+  }
+
+  static final _hots = <(LyricStylePiece, TextStyle), TextStyle>{};
+
+  static TextStyle hotStyle(TextStyle base, LyricStylePiece look) =>
+      _hots.putIfAbsent(
+        (look, base),
+        () => _bare(
+          base,
+        ).copyWith(color: look.hotColor ?? look.lit ?? base.color),
+      );
+
+  static int ghostLevel(LyricStylePiece? look, String text) {
+    final ghost = look?.ghost;
+    if (ghost == null || !ghost.marks.any(text.contains)) return 0;
+    if (ghost.calm.any(text.contains)) return 0;
+    return ghost.harsh.any(text.contains) ? 2 : 1;
+  }
+
+  static bool ghostOf(LyricStylePiece? look, String text) =>
+      ghostLevel(look, text) > 0;
+
+  static LineMood moodOf(LyricStylePiece? look, String text) {
+    if (look == null) return LineMood.normal;
+    if (look.bright.any(text.contains)) return LineMood.bright;
+    final ghost = look.ghost;
+    if (ghost != null &&
+        ghost.calmColor != null &&
+        ghost.marks.any(text.contains) &&
+        ghost.calm.any(text.contains)) {
+      return LineMood.calm;
+    }
+    return LineMood.normal;
+  }
+
+  static Offset ghostOffset(Duration clock, int k, {bool strong = false}) {
+    final slot = (clock.inMilliseconds / 1000 / ghostSlot).floor();
+    final jump = _unit(slot, 0, 11) > (strong ? 0.7 : 0.88) ? 7.0 : 0.0;
+    final side = k.isEven ? -1.0 : 1.0;
+    final size = strong ? 2.0 : 1.0;
+    return Offset(
+      side * (2.5 + 2.5 * _unit(slot, k, 7) + jump) * size,
+      (_unit(slot, k, 9) - 0.5) * 3 * size,
+    );
+  }
+
   static bool layered(LyricStylePiece? look) => look?.outline != null;
 
   static TextStyle _bare(TextStyle s) => TextStyle(
@@ -81,46 +174,60 @@ class EggLyricFx {
     height: s.height,
   );
 
-  static TextStyle outlineStyle(TextStyle base, LyricStylePiece look) =>
-      _outlines.putIfAbsent((look, base), () {
-        final size = base.fontSize ?? 14;
-        final shadow = look.shadow;
-        return _bare(base).copyWith(
-          foreground: Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = size * 0.18
-            ..strokeJoin = StrokeJoin.round
-            ..color = look.outline ?? const Color(0xFFFFFFFF),
-          shadows: shadow == null
-              ? null
-              : [
-                  Shadow(
-                    color: shadow,
-                    blurRadius: size * 0.35,
-                    offset: Offset(0, size * 0.08),
-                  ),
-                ],
-        );
-      });
+  static TextStyle outlineStyle(
+    TextStyle base,
+    LyricStylePiece look, {
+    LineMood mood = LineMood.normal,
+  }) => _outlines.putIfAbsent((look, base, mood), () {
+    final size = base.fontSize ?? 14;
+    final warm = mood == LineMood.calm ? look.ghost?.calmColor : null;
+    final shadow = warm?.withValues(alpha: 0.8) ?? look.shadow;
+    return _bare(base).copyWith(
+      foreground: Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size * 0.18
+        ..strokeJoin = StrokeJoin.round
+        ..color =
+            warm?.withValues(alpha: 0.27) ??
+            look.outline ??
+            const Color(0xFFFFFFFF),
+      shadows: [
+        if (mood == LineMood.bright)
+          Shadow(color: const Color(0xF2FFFFFF), blurRadius: size * 0.5),
+        if (shadow != null)
+          Shadow(
+            color: shadow,
+            blurRadius: size * (mood == LineMood.bright ? 1.3 : 0.35),
+            offset: Offset(0, size * 0.08),
+          ),
+      ],
+    );
+  });
 
-  static TextStyle fillStyle(TextStyle base, LyricStylePiece look) =>
-      _fills.putIfAbsent((look, base), () {
-        final fill = look.fill;
-        if (fill == null || fill.length < 2) {
-          return base.copyWith(
-            color: fill?.firstOrNull ?? look.lit ?? base.color,
-          );
-        }
-        final line = (base.fontSize ?? 14) * (base.height ?? 1.2);
-        return _bare(base).copyWith(
-          foreground: Paint()
-            ..shader = ui.Gradient.linear(
-              Offset(0, line * 0.2),
-              Offset(0, line * 0.85),
-              fill,
-            ),
-        );
-      });
+  static TextStyle fillStyle(
+    TextStyle base,
+    LyricStylePiece look, {
+    LineMood mood = LineMood.normal,
+  }) => _fills.putIfAbsent((look, base, mood), () {
+    final warm = look.ghost?.calmColor;
+    final fill = switch (mood) {
+      LineMood.calm when warm != null => [const Color(0xFFFFFFFF), warm],
+      LineMood.bright => const [Color(0xFFFFFFFF), Color(0xFFFFFFFF)],
+      _ => look.fill,
+    };
+    if (fill == null || fill.length < 2) {
+      return base.copyWith(color: fill?.firstOrNull ?? look.lit ?? base.color);
+    }
+    final line = (base.fontSize ?? 14) * (base.height ?? 1.2);
+    return _bare(base).copyWith(
+      foreground: Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(0, line * 0.2),
+          Offset(0, line * 0.85),
+          fill,
+        ),
+    );
+  });
 
   static String wordFrom(List<LyricWord> words, int i) {
     final out = StringBuffer();
@@ -136,24 +243,48 @@ class EggLyricFx {
     List<LyricWord> words,
     int i,
   ) {
-    final sparks = look?.sparks;
-    if (sparks == null || i < 0 || i >= words.length) return SparkKind.none;
+    if (look == null || i < 0 || i >= words.length) return SparkKind.none;
     if (i > 0 && !_endsWord.hasMatch(words[i - 1].text)) {
       return SparkKind.none;
     }
-    final word = wordFrom(words, i).toLowerCase().replaceAll(_notLetter, '');
-    final burst = sparks.keywords.any((k) => k.toLowerCase() == word);
-    return burst ? SparkKind.burst : SparkKind.word;
+    final word = _plain(wordFrom(words, i));
+    if (look.tears.any((t) => _plain(t) == word)) return SparkKind.tear;
+    final sparks = look.sparks;
+    if (sparks == null) return SparkKind.none;
+    if (sparks.keywords.any((k) => _plain(k) == word) ||
+        sparks.keywordShapes.keys.any((k) => _plain(k) == word)) {
+      return SparkKind.burst;
+    }
+    return sparks.perWord > 0 ? SparkKind.word : SparkKind.none;
   }
 
-  static double lifeOf(SparkKind kind) =>
-      kind == SparkKind.burst ? burstLife : sparkLife;
+  static String keyOf(List<LyricWord> words, int i) =>
+      i < 0 || i >= words.length ? '' : _plain(wordFrom(words, i));
 
-  static double spanOf(LyricSparks sparks, SparkKind kind) => switch (kind) {
-    SparkKind.none => 0,
-    SparkKind.word => sparkLife + stagger * (sparks.perWord - 1),
-    SparkKind.burst => burstLife + stagger * (sparks.perKeyword - 1),
+  static ParticleShape? burstShapeFor(LyricStylePiece? look, String? word) {
+    final shapes = look?.sparks?.keywordShapes;
+    if (shapes == null || word == null || word.isEmpty) return null;
+    for (final e in shapes.entries) {
+      if (_plain(e.key) == word) return e.value;
+    }
+    return null;
+  }
+
+  static double lifeOf(SparkKind kind) => switch (kind) {
+    SparkKind.burst => burstLife,
+    SparkKind.tear => tearLife,
+    _ => sparkLife,
   };
+
+  static double spanOf(LyricSparks? sparks, SparkKind kind) {
+    final s = sparks ?? const LyricSparks();
+    return switch (kind) {
+      SparkKind.none => 0,
+      SparkKind.word => sparkLife + stagger * (s.perWord - 1),
+      SparkKind.burst => burstLife + stagger * (s.perKeyword - 1),
+      SparkKind.tear => tearLife,
+    };
+  }
 
   static double _unit(int seed, int k, int salt) {
     var h = (seed * 73856093) ^ (k * 19349663) ^ (salt * 83492791);
@@ -168,8 +299,28 @@ class EggLyricFx {
     required Size word,
     required double since,
     required int seed,
+    Color? tearColor,
+    ParticleShape? shape,
   }) {
     if (kind == SparkKind.none || since < 0) return const [];
+    if (kind == SparkKind.tear) {
+      if (since > tearLife) return const [];
+      final f = since / tearLife;
+      final alpha = f < 0.1 ? f / 0.1 : (f > 0.7 ? (1 - f) / 0.3 : 1.0);
+      return [
+        EggSpark(
+          at: Offset(
+            word.width * 0.5,
+            word.height * 0.55 + tearFall * Curves.easeIn.transform(f),
+          ),
+          size: 5.5,
+          angle: 0,
+          alpha: alpha.clamp(0.0, 1.0),
+          shape: ParticleShape.drop,
+          color: tearColor ?? const Color(0xFFBFE0FF),
+        ),
+      ];
+    }
     final burst = kind == SparkKind.burst;
     final count = burst ? sparks.perKeyword : sparks.perWord;
     final life = lifeOf(kind);
@@ -182,12 +333,23 @@ class EggLyricFx {
       final b = _unit(seed, k, 2);
       final c = _unit(seed, k, 3);
       final d = _unit(seed, k, 4);
+      final pick =
+          (burst ? shape : null) ??
+          sparks.shapes[(seed + k) % sparks.shapes.length];
+      final spread = math.max(word.width, minSpread);
+      final left = (word.width - spread) / 2;
       final Offset at;
-      if (burst) {
+      if (burst && pick == ParticleShape.drop) {
+        at = Offset(
+          left + spread * (0.1 + 0.8 * a),
+          word.height * (0.85 + 0.1 * c) +
+              (tearFall * 0.8 + 20 * b) * Curves.easeIn.transform(f),
+        );
+      } else if (burst) {
         final angle = -math.pi / 2 + (a - 0.5) * math.pi * 0.95;
         final reach = (rise + 30 * b) * Curves.easeOutCubic.transform(f);
         at =
-            Offset(word.width * (0.25 + 0.5 * c), word.height * 0.1) +
+            Offset(left + spread * (0.25 + 0.5 * c), word.height * 0.1) +
             Offset(math.cos(angle), math.sin(angle)) * reach;
       } else {
         at = Offset(
@@ -201,11 +363,19 @@ class EggLyricFx {
       out.add(
         EggSpark(
           at: at,
-          size: (burst ? 6.5 : 5.0) * (0.8 + 0.4 * d) * (0.55 + 0.45 * grow),
-          angle: (b - 0.5) * 0.7,
+          size:
+              (burst ? 6.5 : 5.0) *
+              (pick == ParticleShape.drop ? 0.8 : 1) *
+              sparks.size *
+              (0.8 + 0.4 * d) *
+              (0.55 + 0.45 * grow),
+          angle: pick == ParticleShape.drop ? 0 : (b - 0.5) * 0.7,
           alpha: alpha.clamp(0.0, 1.0),
-          shape: sparks.shapes[(seed + k) % sparks.shapes.length],
-          color: sparks.colors[(seed * 3 + k) % sparks.colors.length],
+          shape: pick,
+          color: () {
+            final palette = sparks.shapeColors[pick] ?? sparks.colors;
+            return palette[(seed * 3 + k) % palette.length];
+          }(),
         ),
       );
     }
@@ -215,16 +385,18 @@ class EggLyricFx {
 
 class EggSparksPainter extends CustomPainter {
   EggSparksPainter({
-    required this.sparks,
+    required this.look,
     required this.kind,
     required this.since,
     required this.seed,
+    this.word,
   });
 
-  final LyricSparks sparks;
+  final LyricStylePiece look;
   final SparkKind kind;
   final double since;
   final int seed;
+  final String? word;
 
   final Paint _fill = Paint()..isAntiAlias = true;
   final Paint _edge = Paint()
@@ -236,11 +408,13 @@ class EggSparksPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (final s in EggLyricFx.sparksAt(
-      sparks,
+      look.sparks ?? const LyricSparks(),
       kind: kind,
       word: size,
       since: since,
       seed: seed,
+      tearColor: look.tearColor,
+      shape: EggLyricFx.burstShapeFor(look, word),
     )) {
       final path = ShapeBook.outlineOf(s.shape);
       canvas
@@ -248,8 +422,13 @@ class EggSparksPainter extends CustomPainter {
         ..translate(s.at.dx, s.at.dy)
         ..rotate(s.angle)
         ..scale(s.size);
-      _edge.color = const Color(0xFFFFFFFF).withValues(alpha: s.alpha * 0.9);
-      canvas.drawPath(path, _edge);
+      final edge = kind == SparkKind.tear
+          ? const Color(0xFFFFFFFF)
+          : look.sparks?.edge ?? const Color(0xFFFFFFFF);
+      _edge.color = edge.withValues(alpha: edge.a * s.alpha * 0.9);
+      if (kind == SparkKind.tear || look.sparks?.edge != null) {
+        canvas.drawPath(path, _edge);
+      }
       _fill.color = s.color.withValues(alpha: s.alpha);
       canvas
         ..drawPath(path, _fill)
@@ -262,7 +441,8 @@ class EggSparksPainter extends CustomPainter {
       oldDelegate.since != since ||
       oldDelegate.kind != kind ||
       oldDelegate.seed != seed ||
-      oldDelegate.sparks != sparks;
+      oldDelegate.word != word ||
+      oldDelegate.look != look;
 }
 
 class EggGapDots extends StatelessWidget {

@@ -100,24 +100,30 @@ class EggLyrics {
     required Duration clock,
     required double lift,
     double since = 0,
+    bool hot = false,
   }) {
     final eased = Curves.easeOutCubic.transform(progress.clamp(0.0, 1.0));
     final rise = Offset(0, -lift * eased);
     final t = clock.inMicroseconds / Duration.microsecondsPerSecond;
-    return switch (look?.motion ?? LyricMotion.lift) {
-      LyricMotion.lift || LyricMotion.bounce => rise,
-      LyricMotion.jelly => rise + Offset(0, EggLyricFx.hop(since)),
-      LyricMotion.wave =>
-        rise +
-            Offset(
-              0,
-              math.sin(t * 2 * math.pi * 0.7 + index * 0.7) * waveHeight,
-            ),
-      LyricMotion.float => Offset(
-        math.sin(t * 1.6 + index) * 1.2,
-        (1 - eased) * floatDepth - lift * eased,
-      ),
-    };
+    final shake = hot && progress > 0
+        ? EggLyricFx.jitter(t, index)
+        : Offset.zero;
+    return shake +
+        switch (look?.motion ?? LyricMotion.lift) {
+          LyricMotion.lift || LyricMotion.bounce || LyricMotion.flicker => rise,
+          LyricMotion.slam => rise + EggLyricFx.slamShake(since, index),
+          LyricMotion.jelly => rise + Offset(0, EggLyricFx.hop(since)),
+          LyricMotion.wave =>
+            rise +
+                Offset(
+                  0,
+                  math.sin(t * 2 * math.pi * 0.7 + index * 0.7) * waveHeight,
+                ),
+          LyricMotion.float => Offset(
+            math.sin(t * 1.6 + index) * 1.2,
+            (1 - eased) * floatDepth - lift * eased,
+          ),
+        };
   }
 
   static double wordScale(LyricStylePiece? look, double progress) =>
@@ -133,6 +139,10 @@ class EggLyrics {
   }) {
     if (look?.motion == LyricMotion.jelly) {
       return EggLyricFx.jellyTransform(since, index);
+    }
+    if (look?.motion == LyricMotion.slam) {
+      final s = EggLyricFx.slam(since);
+      return Matrix4.diagonal3Values(s, s, 1);
     }
     final s = wordScale(look, progress);
     return Matrix4.diagonal3Values(s, s, 1);

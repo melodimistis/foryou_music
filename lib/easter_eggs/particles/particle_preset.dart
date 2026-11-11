@@ -16,6 +16,9 @@ enum ParticleShape {
   cloud,
   flower,
   bow,
+  drop,
+  skull,
+  cross,
 }
 
 enum ParticleMotion { fall, rise, wander, burst }

@@ -28,6 +28,12 @@ class EggShow {
 
   AppTintPiece? get appTint => _first<AppTintPiece>();
 
+  MomentsPiece? get moments => _first<MomentsPiece>();
+
+  LightPiece? get light => _first<LightPiece>();
+
+  CoverGlowPiece? get coverGlow => _first<CoverGlowPiece>();
+
   LyricStylePiece? get lyricStyle => _first<LyricStylePiece>();
 
   StickerPiece? stickerAt(StickerPlace place) {
@@ -72,6 +78,21 @@ class EasterEggController extends ChangeNotifier {
   List<EggEntry> get registry => _registry;
 
   EggShow? get show => _preview ?? _active;
+
+  AppTintPiece? _momentTint;
+
+  AppTintPiece? get tint {
+    final current = show;
+    if (current == null) return null;
+    return _momentTint ?? current.appTint;
+  }
+
+  void momentTint(AppTintPiece? tint, {required MomentsPiece from}) {
+    if (!identical(show?.moments, from)) return;
+    if (identical(tint, _momentTint)) return;
+    _momentTint = tint;
+    notifyListeners();
+  }
 
   bool get previewing => _preview != null;
 
@@ -125,6 +146,7 @@ class EasterEggController extends ChangeNotifier {
         coolingDown) {
       return;
     }
+    _momentTint = null;
     _active = EggShow(
       key: 'song-${song.id}-${_shows++}',
       pieces: pieces,
@@ -135,6 +157,7 @@ class EasterEggController extends ChangeNotifier {
 
   void _end() {
     _active = null;
+    _momentTint = null;
     _endedAt = _now();
     notifyListeners();
   }
@@ -145,6 +168,7 @@ class EasterEggController extends ChangeNotifier {
   }
 
   void preview(List<EggPiece> pieces) {
+    _momentTint = null;
     _preview = EggShow(key: 'preview-${_shows++}', pieces: pieces);
     notifyListeners();
   }
@@ -152,6 +176,7 @@ class EasterEggController extends ChangeNotifier {
   void stopPreview() {
     if (_preview == null) return;
     _preview = null;
+    _momentTint = null;
     notifyListeners();
   }
 

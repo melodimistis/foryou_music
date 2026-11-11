@@ -246,6 +246,19 @@ void main() {
       }
     });
 
+    test('Vivarium also matches its Japanese title', () {
+      final vivarium = eggRegistry.firstWhere((e) => e.title == 'Vivarium');
+      final song = tune(
+        title: 'ビバリウム',
+        artist: 'Ado',
+        album: 'ビバリウム',
+        year: 2026,
+        track: 1,
+        durationMs: vivarium.durationsMs.first,
+      );
+      expect(EggMatcher.find(song, eggRegistry), same(vivarium));
+    });
+
     test('every entry has a length and something to show', () {
       for (final e in eggRegistry) {
         expect(e.durationsMs, isNotEmpty, reason: e.title);

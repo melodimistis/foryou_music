@@ -487,6 +487,35 @@ void main() {
     expect(extra.height, lessThan(main.height));
   });
 
+  test('split Latin words stay together, other scripts can break', () {
+    List<List<int>> groups(List<String> t) => LyricLineView.wordGroups([
+      for (final w in t) LyricWord(Duration.zero, w),
+    ]);
+    expect(groups(['Sa', 'ccharine, ', 'always ', 'sa', 'ccharine']), [
+      [0, 1],
+      [2],
+      [3, 4],
+    ]);
+    expect(groups(['Su', 'per, ', 'in ', 'love']), [
+      [0, 1],
+      [2],
+      [3],
+    ]);
+    expect(groups(['솔', '직', '히 ', '말']), [
+      [0],
+      [1],
+      [2],
+      [3],
+    ]);
+    expect(groups(['Crush-', 'flation ']), [
+      [0],
+      [1],
+    ]);
+    expect(groups(["don'", 't ']), [
+      [0, 1],
+    ]);
+  });
+
   testWidgets('word-synced line fills word by word', (tester) async {
     final clock = ValueNotifier(const Duration(milliseconds: 10600));
     const line = LyricLine(

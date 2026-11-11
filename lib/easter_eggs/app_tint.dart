@@ -55,12 +55,12 @@ class EggAppTint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final piece = context.select<EasterEggController?, AppTintPiece?>(
-      (c) => c?.show?.appTint,
+      (c) => c?.tint,
     );
     final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     return AnimatedTint(
       matrix: AppTint.matrixOf(piece),
-      duration: still ? Duration.zero : AppTint.fade,
+      duration: still ? Duration.zero : (piece?.fade ?? AppTint.fade),
       curve: AppTint.curve,
       child: child,
     );

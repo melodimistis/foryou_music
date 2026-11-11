@@ -1103,7 +1103,7 @@ class _SyncedLyricsState extends State<SyncedLyrics>
 
 enum LineState { past, current, future }
 
-enum WordLayer { all, outline, fill }
+enum WordLayer { all, outline, fill, ghost }
 
 const _lyricStyle = TextStyle(
   fontFamily: 'Inter',
@@ -1146,14 +1146,28 @@ class LyricLineView extends StatelessWidget {
     final Widget content = current && line.words.isNotEmpty
         ? ValueListenableBuilder<Duration>(
             valueListenable: clock,
-            builder: (context, pos, _) => EggLyricFx.layered(look)
-                ? Stack(
-                    children: [
-                      _words(pos, WordLayer.outline),
-                      _words(pos, WordLayer.fill),
-                    ],
-                  )
-                : _words(pos, WordLayer.all),
+            builder: (context, pos, _) {
+              final layered = EggLyricFx.layered(look);
+              final ghost = EggLyricFx.ghostLevel(look, line.text);
+              final mood = EggLyricFx.moodOf(look, line.text);
+              final layers = [
+                if (ghost > 0)
+                  for (var k = 0; k < 2; k++)
+                    Transform.translate(
+                      offset: EggLyricFx.ghostOffset(pos, k, strong: ghost > 1),
+                      child: _words(pos, WordLayer.ghost, ghost: k),
+                    ),
+                if (layered) _words(pos, WordLayer.outline, mood: mood),
+                _words(
+                  pos,
+                  layered ? WordLayer.fill : WordLayer.all,
+                  mood: mood,
+                ),
+              ];
+              return layers.length == 1
+                  ? layers.single
+                  : Stack(children: layers);
+            },
           )
         : Text(
             line.text,
@@ -1195,28 +1209,74 @@ class LyricLineView extends StatelessWidget {
     );
   }
 
-  Widget _words(Duration pos, WordLayer layer) => Wrap(
+  Widget _words(
+    Duration pos,
+    WordLayer layer, {
+    int ghost = 0,
+    LineMood mood = LineMood.normal,
+  }) => Wrap(
     children: [
-      for (final (i, w) in line.words.indexed)
-        LyricWordView(
-          text: w.text,
-          index: i,
-          clock: pos,
-          look: look,
-          layer: layer,
-          since: (pos - w.time).inMicroseconds / Duration.microsecondsPerSecond,
-          sparks: layer == WordLayer.outline
-              ? SparkKind.none
-              : EggLyricFx.sparkKind(look, line.words, i),
-          seed: line.time.inMilliseconds + i,
-          progress: _progress(
-            pos,
-            w.time,
-            i + 1 < line.words.length ? line.words[i + 1].time : end,
-          ),
+      for (final group in wordGroups(line.words))
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final i in group)
+              _word(pos, layer, i, ghost: ghost, mood: mood),
+          ],
         ),
     ],
   );
+
+  static final _latinEnd = RegExp(r"[A-Za-z0-9'\u2019]$");
+  static final _latinStart = RegExp(r"^[A-Za-z0-9'\u2019]");
+
+  static List<List<int>> wordGroups(List<LyricWord> words) {
+    final groups = <List<int>>[];
+    for (var i = 0; i < words.length; i++) {
+      final joins =
+          i > 0 &&
+          _latinEnd.hasMatch(words[i - 1].text) &&
+          _latinStart.hasMatch(words[i].text);
+      if (joins) {
+        groups.last.add(i);
+      } else {
+        groups.add([i]);
+      }
+    }
+    return groups;
+  }
+
+  Widget _word(
+    Duration pos,
+    WordLayer layer,
+    int i, {
+    required int ghost,
+    required LineMood mood,
+  }) {
+    final w = line.words[i];
+    return LyricWordView(
+      text: w.text,
+      index: i,
+      clock: pos,
+      look: look,
+      layer: layer,
+      ghost: ghost,
+      mood: mood,
+      word: EggLyricFx.keyOf(line.words, i),
+      hot: EggLyricFx.isHot(look, line.words, i),
+      since: (pos - w.time).inMicroseconds / Duration.microsecondsPerSecond,
+      sparks: layer == WordLayer.outline || layer == WordLayer.ghost
+          ? SparkKind.none
+          : EggLyricFx.sparkKind(look, line.words, i),
+      seed: line.time.inMilliseconds + i,
+      progress: _progress(
+        pos,
+        w.time,
+        i + 1 < line.words.length ? line.words[i + 1].time : end,
+      ),
+    );
+  }
 
   static double _progress(Duration pos, Duration start, Duration end) {
     final span = (end - start).inMicroseconds;
@@ -1237,6 +1297,10 @@ class LyricWordView extends StatelessWidget {
     this.since = 0,
     this.sparks = SparkKind.none,
     this.seed = 0,
+    this.hot = false,
+    this.ghost = 0,
+    this.mood = LineMood.normal,
+    this.word,
   });
 
   static const lift = 3.0;
@@ -1251,10 +1315,17 @@ class LyricWordView extends StatelessWidget {
   final double since;
   final SparkKind sparks;
   final int seed;
+  final bool hot;
+  final int ghost;
+  final LineMood mood;
+  final String? word;
 
   Widget _glowing(TextStyle base, double p) {
     final glow = math.sin(math.pi * p);
-    final litColor = EggLyrics.lit(look, Colors.white);
+    final look = this.look;
+    final litColor = hot && look?.hotColor != null
+        ? look!.hotColor!
+        : EggLyrics.lit(look, Colors.white);
     return Text(
       text,
       style: base.copyWith(
@@ -1276,6 +1347,36 @@ class LyricWordView extends StatelessWidget {
     final p = progress;
     final look = this.look;
     final base = EggLyrics.style(_lyricStyle, look);
+    final ghostColors = look?.ghost?.colors ?? const [];
+    if (layer == WordLayer.ghost && ghostColors.isNotEmpty) {
+      final color = ghostColors[ghost % ghostColors.length];
+      return Transform.translate(
+        offset: EggLyrics.wordOffset(
+          look,
+          index: index,
+          progress: p,
+          clock: clock,
+          lift: lift,
+          since: since,
+          hot: hot,
+        ),
+        child: Transform(
+          transform: EggLyrics.wordTransform(
+            look,
+            progress: p,
+            since: since,
+            index: index,
+          ),
+          alignment: Alignment.bottomCenter,
+          child: Text(
+            text,
+            style: base.copyWith(
+              color: color.withValues(alpha: p > 0 ? 0.55 : 0.16),
+            ),
+          ),
+        ),
+      );
+    }
     final dimmed = Text(
       text,
       style: base.copyWith(
@@ -1287,11 +1388,13 @@ class LyricWordView extends StatelessWidget {
     final lit = switch (layer) {
       WordLayer.outline when look != null => Text(
         text,
-        style: EggLyricFx.outlineStyle(base, look),
+        style: EggLyricFx.outlineStyle(base, look, mood: mood),
       ),
       WordLayer.fill when look != null => Text(
         text,
-        style: EggLyricFx.fillStyle(base, look),
+        style: hot && look.hotColor != null
+            ? EggLyricFx.hotStyle(base, look)
+            : EggLyricFx.fillStyle(base, look, mood: mood),
       ),
       _ => _glowing(base, p),
     };
@@ -1332,6 +1435,7 @@ class LyricWordView extends StatelessWidget {
         clock: clock,
         lift: lift,
         since: since,
+        hot: hot,
       ),
       child: Transform(
         transform: EggLyrics.wordTransform(
@@ -1341,24 +1445,26 @@ class LyricWordView extends StatelessWidget {
           index: index,
         ),
         alignment: Alignment.bottomCenter,
-        child: body,
+        child: look?.motion == LyricMotion.flicker
+            ? Opacity(opacity: EggLyricFx.flicker(since), child: body)
+            : body,
       ),
     );
-    final config = look?.sparks;
-    if (config == null || sparks == SparkKind.none) return moved;
+    if (look == null || sparks == SparkKind.none) return moved;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         moved,
-        if (since >= 0 && since <= EggLyricFx.spanOf(config, sparks))
+        if (since >= 0 && since <= EggLyricFx.spanOf(look.sparks, sparks))
           Positioned.fill(
             child: IgnorePointer(
               child: CustomPaint(
                 painter: EggSparksPainter(
-                  sparks: config,
+                  look: look,
                   kind: sparks,
                   since: since,
                   seed: seed,
+                  word: word,
                 ),
               ),
             ),

@@ -1,10 +1,16 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/player_controller.dart';
 import 'easter_egg_controller.dart';
 import 'egg_entry.dart';
+import 'moments.dart';
+import 'ambient/drips.dart';
+import 'ambient/glass.dart';
 import 'ambient/grain.dart';
+import 'ambient/light.dart';
 import 'ambient/night_sky.dart';
 import 'ambient/waves.dart';
 import 'particles/particle_overlay.dart';
@@ -21,7 +27,14 @@ class EasterEggLayer extends StatefulWidget {
   State<EasterEggLayer> createState() => _EasterEggLayerState();
 }
 
-class _EasterEggLayerState extends State<EasterEggLayer> {
+class _EasterEggLayerState extends State<EasterEggLayer>
+    with SingleTickerProviderStateMixin {
+  Ticker? _ticker;
+  final _shake = ValueNotifier<Offset>(Offset.zero);
+  final _flash = ValueNotifier<Color?>(null);
+  final _clock = EggClock();
+  MomentsPiece? _moments;
+  bool _still = false;
   int? _pointer;
   bool _multi = false;
   Offset _downAt = Offset.zero;
@@ -75,10 +88,47 @@ class _EasterEggLayerState extends State<EasterEggLayer> {
     _tapTime = null;
   }
 
+  void _tick(Duration elapsed) {
+    final moments = _moments;
+    final player = context.read<PlayerController?>();
+    if (moments == null || player == null) return;
+    final now = EggMoments.at(
+      moments,
+      _clock.estimate(player.position, elapsed, playing: player.isPlaying),
+      still: _still,
+    );
+    _shake.value = now.shake;
+    _flash.value = now.flash;
+    context.read<EasterEggController?>()?.momentTint(now.tint, from: moments);
+  }
+
+  void _follow(MomentsPiece? moments) {
+    if (identical(moments, _moments)) return;
+    _moments = moments;
+    if (moments == null) {
+      _ticker?.stop();
+      _shake.value = Offset.zero;
+      _flash.value = null;
+      return;
+    }
+    final ticker = _ticker ??= createTicker(_tick);
+    if (!ticker.isActive) ticker.start();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.dispose();
+    _shake.dispose();
+    _flash.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final show = context.select<EasterEggController?, EggShow?>((c) => c?.show);
     final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _still = still;
+    _follow(show?.moments);
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: _down,
@@ -86,7 +136,12 @@ class _EasterEggLayerState extends State<EasterEggLayer> {
       onPointerCancel: _cancel,
       child: Stack(
         children: [
-          widget.child,
+          ValueListenableBuilder<Offset>(
+            valueListenable: _shake,
+            builder: (context, offset, child) =>
+                Transform.translate(offset: offset, child: child),
+            child: widget.child,
+          ),
           Positioned.fill(
             child: IgnorePointer(
               child: AnimatedSwitcher(
@@ -98,6 +153,16 @@ class _EasterEggLayerState extends State<EasterEggLayer> {
                         show: show,
                         still: still,
                       ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ValueListenableBuilder<Color?>(
+                valueListenable: _flash,
+                builder: (context, color, _) => color == null
+                    ? const SizedBox.expand()
+                    : ColoredBox(color: color),
               ),
             ),
           ),
@@ -124,6 +189,9 @@ class EggView extends StatelessWidget {
             WavesPiece() => WavesOverlay(piece: piece, still: still),
             NightSkyPiece() => NightSkyOverlay(piece: piece, still: still),
             GrainPiece() => GrainOverlay(piece: piece, still: still),
+            LightPiece() => LightOverlay(piece: piece, still: still),
+            DripsPiece() => DripsOverlay(piece: piece, still: still),
+            GlassPiece() => GlassOverlay(piece: piece, still: still),
             StickerPiece(place: StickerPlace.edges) => StickersView(
               piece: piece,
               still: still,
@@ -131,6 +199,8 @@ class EggView extends StatelessWidget {
             StickerPiece() ||
             ThemePiece() ||
             AppTintPiece() ||
+            MomentsPiece() ||
+            CoverGlowPiece() ||
             LyricStylePiece() => const SizedBox.shrink(),
           },
       ],

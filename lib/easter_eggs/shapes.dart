@@ -27,6 +27,57 @@ class ShapeBook {
     ParticleShape.confetti: Path()
       ..addRect(const Rect.fromLTRB(-0.55, -1, 0.55, 1)),
     ParticleShape.star: _star(),
+    ParticleShape.skull: Path.combine(
+      PathOperation.difference,
+      _union([
+        Path()..addOval(
+          Rect.fromCircle(center: const Offset(0, -0.2), radius: 0.8),
+        ),
+        Path()..addRRect(
+          RRect.fromLTRBR(-0.45, 0.25, 0.45, 0.95, const Radius.circular(0.16)),
+        ),
+      ]),
+      Path()
+        ..addOval(
+          Rect.fromCenter(
+            center: const Offset(-0.31, -0.12),
+            width: 0.42,
+            height: 0.5,
+          ),
+        )
+        ..addOval(
+          Rect.fromCenter(
+            center: const Offset(0.31, -0.12),
+            width: 0.42,
+            height: 0.5,
+          ),
+        )
+        ..addPolygon(const [
+          Offset(-0.1, 0.36),
+          Offset(0.1, 0.36),
+          Offset(0, 0.16),
+        ], true)
+        ..addRect(const Rect.fromLTRB(-0.19, 0.64, -0.12, 0.96))
+        ..addRect(const Rect.fromLTRB(-0.035, 0.64, 0.035, 0.96))
+        ..addRect(const Rect.fromLTRB(0.12, 0.64, 0.19, 0.96)),
+    ),
+    ParticleShape.cross: _union([
+      Path()..addRRect(
+        RRect.fromLTRBR(-0.17, -1, 0.17, 1, const Radius.circular(0.06)),
+      ),
+      Path()..addRRect(
+        RRect.fromLTRBR(-0.62, -0.52, 0.62, -0.18, const Radius.circular(0.06)),
+      ),
+    ]),
+    ParticleShape.drop: Path()
+      ..moveTo(0, -1)
+      ..cubicTo(0.3, -0.5, 0.75, 0.0, 0.75, 0.4)
+      ..arcToPoint(
+        const Offset(-0.75, 0.4),
+        radius: const Radius.circular(0.75),
+      )
+      ..cubicTo(-0.75, 0.0, -0.3, -0.5, 0, -1)
+      ..close(),
     ParticleShape.sparkle: Path()
       ..moveTo(0, -1)
       ..quadraticBezierTo(0.12, -0.12, 1, 0)

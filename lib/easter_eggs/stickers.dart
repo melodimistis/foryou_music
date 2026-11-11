@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
+import 'ambient/light.dart';
+import 'app_tint.dart';
 import 'easter_egg_controller.dart';
 import 'egg_entry.dart';
 import 'egg_ticker.dart';
@@ -173,6 +175,66 @@ class StickerPainter extends CustomPainter {
   bool shouldRepaint(StickerPainter oldDelegate) => oldDelegate.piece != piece;
 }
 
+class EggCoverGlow extends StatefulWidget {
+  const EggCoverGlow({
+    super.key,
+    required this.piece,
+    this.radius = 18,
+    this.still = false,
+  });
+
+  static const blur = 46.0;
+
+  final CoverGlowPiece piece;
+  final double radius;
+  final bool still;
+
+  @override
+  State<EggCoverGlow> createState() => EggCoverGlowState();
+}
+
+class EggCoverGlowState extends EggAnimatedState<EggCoverGlow> {
+  double time = 0;
+
+  @override
+  bool get still => widget.still;
+
+  @override
+  void advance(double seconds) => time += seconds;
+
+  @override
+  void didUpdateWidget(EggCoverGlow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.still != widget.still) sync();
+  }
+
+  double get level {
+    final p = widget.piece;
+    final flicker = widget.still ? 0.0 : LightPainter.flickerAt(time);
+    return (p.strength * (1 - p.flicker * flicker)).clamp(0.0, 1.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: frames,
+      builder: (context, _, _) => DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.radius),
+          boxShadow: [
+            BoxShadow(
+              color: widget.piece.color.withValues(alpha: level),
+              blurRadius: EggCoverGlow.blur,
+              spreadRadius: 4,
+            ),
+          ],
+        ),
+        child: const SizedBox.expand(),
+      ),
+    );
+  }
+}
+
 class EggCoverStickers extends StatelessWidget {
   const EggCoverStickers({super.key, required this.child});
 
@@ -183,10 +245,27 @@ class EggCoverStickers extends StatelessWidget {
     final piece = context.select<EasterEggController?, StickerPiece?>(
       (c) => c?.show?.stickerAt(StickerPlace.cover),
     );
+    final glow = context.select<EasterEggController?, CoverGlowPiece?>(
+      (c) => c?.show?.coverGlow,
+    );
     final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     return Stack(
       clipBehavior: Clip.none,
       children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedSwitcher(
+              duration: still ? Duration.zero : AppTint.fade,
+              child: glow == null
+                  ? const SizedBox.expand(key: ValueKey('no-glow'))
+                  : EggCoverGlow(
+                      key: ValueKey(glow),
+                      piece: glow,
+                      still: still,
+                    ),
+            ),
+          ),
+        ),
         child,
         Positioned(
           left: -StickerLayout.coverPad,

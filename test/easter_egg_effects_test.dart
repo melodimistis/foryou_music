@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foryou_music/easter_eggs/ambient/drips.dart';
+import 'package:foryou_music/easter_eggs/ambient/glass.dart';
 import 'package:foryou_music/easter_eggs/ambient/grain.dart';
+import 'package:foryou_music/easter_eggs/ambient/light.dart';
 import 'package:foryou_music/easter_eggs/ambient/night_sky.dart';
 import 'package:foryou_music/easter_eggs/ambient/waves.dart';
 import 'package:foryou_music/easter_eggs/app_tint.dart';
@@ -13,9 +17,11 @@ import 'package:foryou_music/easter_eggs/easter_egg_layer.dart';
 import 'package:foryou_music/easter_eggs/egg_entry.dart';
 import 'package:foryou_music/easter_eggs/egg_lab_page.dart';
 import 'package:foryou_music/easter_eggs/lyric_effects.dart';
+import 'package:foryou_music/easter_eggs/moments.dart';
 import 'package:foryou_music/easter_eggs/particles/particle_preset.dart';
 import 'package:foryou_music/easter_eggs/player_effects.dart';
 import 'package:foryou_music/easter_eggs/registry.dart';
+import 'package:foryou_music/easter_eggs/shapes.dart';
 import 'package:foryou_music/easter_eggs/samples.dart';
 import 'package:foryou_music/easter_eggs/stickers.dart';
 import 'package:foryou_music/models/lyrics.dart';
@@ -626,6 +632,349 @@ void main() {
         greaterThan(EggGapPainter.pulse(0.3, 2)),
       );
       expect(tester.getSize(find.byType(EggGapDots)).height, 24);
+    });
+  });
+
+  group('dark eggs', () {
+    const dawn = AppTintPiece(
+      dark: Color(0xFF2A1426),
+      light: Color(0xFFFFE9DC),
+      fade: Duration(seconds: 10),
+    );
+    const moments = MomentsPiece([
+      EggMoment.shake(Duration(seconds: 1)),
+      EggMoment.flash(Duration(seconds: 1), Color(0x99E0102E)),
+      EggMoment.tint(Duration(seconds: 2), dawn),
+    ]);
+
+    test('moments shake, flash and change the colors at their time', () {
+      EggMomentState at(int ms, {bool still = false}) =>
+          EggMoments.at(moments, Duration(milliseconds: ms), still: still);
+      expect(at(900).shake, Offset.zero);
+      expect(at(900).flash, isNull);
+      expect(at(900).tint, isNull);
+      expect(at(1050).shake, isNot(Offset.zero));
+      expect(at(1050).flash!.a, greaterThan(at(1400).flash!.a));
+      expect(at(1050, still: true).shake, Offset.zero);
+      expect(at(1700).shake, Offset.zero);
+      expect(at(1700).flash, isNull);
+      expect(at(2500).tint, same(dawn));
+    });
+
+    test('the moment clock runs ahead while playing, up to a second', () {
+      final clock = EggClock();
+      const raw = Duration(seconds: 10);
+      expect(clock.estimate(raw, Duration.zero, playing: true), raw);
+      expect(
+        clock.estimate(raw, const Duration(milliseconds: 300), playing: true),
+        const Duration(milliseconds: 10300),
+      );
+      expect(
+        clock.estimate(raw, const Duration(seconds: 5), playing: true),
+        raw + EggMoments.maxAhead,
+      );
+      expect(
+        clock.estimate(raw, const Duration(seconds: 5), playing: false),
+        raw,
+      );
+    });
+
+    test('drips grow, drop and stay in the top half', () {
+      final drips = Drips(const DripsPiece(count: 30), random: math.Random(3))
+        ..layout(const Size(400, 800));
+      expect(drips.drips, hasLength(Drips.maxDrips));
+      final before = drips.drips.first.length;
+      drips.step(0.05);
+      expect(drips.drips.first.length, greaterThan(before));
+      for (var i = 0; i < 400; i++) {
+        drips.step(0.05);
+      }
+      expect(drips.droplets.every((d) => d.y <= 400), isTrue);
+      expect(drips.drips.every((d) => d.length <= d.reach), isTrue);
+    });
+
+    test('lights sway and flicker within range', () {
+      for (var t = 0.0; t < 60; t += 0.37) {
+        expect(LightPainter.flickerAt(t), inInclusiveRange(0, 1));
+        expect(LightPainter.swayAt(t).abs(), lessThanOrEqualTo(0.07));
+      }
+    });
+
+    test('slam, flicker, hot words, ghosts and tears', () {
+      expect(EggLyricFx.slam(0), closeTo(1 + EggLyricFx.slamSize, 1e-9));
+      expect(EggLyricFx.slam(EggLyricFx.slamTime), 1);
+      expect(EggLyricFx.flicker(0.02), lessThan(1));
+      expect(EggLyricFx.flicker(1), 1);
+      const look = LyricStylePiece(
+        hot: {'war', 'die'},
+        hotColor: Color(0xFFFF2D4B),
+        ghost: LyricGhost(marks: {'「'}, calm: {'大丈夫'}),
+        tears: {'泣いてる'},
+        sparks: LyricSparks(perWord: 0, keywords: {'saccharine'}),
+      );
+      List<LyricWord> words(List<String> t) => [
+        for (final w in t) LyricWord(Duration.zero, w),
+      ];
+      final war = words(["There's ", 'a ', 'war']);
+      expect(
+        [for (var i = 0; i < 3; i++) EggLyricFx.isHot(look, war, i)],
+        [false, false, true],
+      );
+      expect(EggLyricFx.isHot(look, words(['Die']), 0), isTrue);
+      expect(EggLyricFx.ghostOf(look, '「わからない」'), isTrue);
+      expect(EggLyricFx.ghostOf(look, '「大丈夫の一言だったね」'), isFalse);
+      expect(EggLyricFx.ghostOf(look, '仄暗い 箱庭で'), isFalse);
+      expect(
+        EggLyricFx.ghostOffset(Duration.zero, 0).dx,
+        lessThan(EggLyricFx.ghostOffset(Duration.zero, 1).dx),
+      );
+      expect(
+        EggLyricFx.sparkKind(look, words(['泣い', 'てる']), 0),
+        SparkKind.tear,
+      );
+      expect(
+        EggLyricFx.sparkKind(look, words(['Saccharine, ', 'always']), 0),
+        SparkKind.burst,
+      );
+      expect(
+        EggLyricFx.sparkKind(look, words(['Saccharine, ', 'always']), 1),
+        SparkKind.none,
+      );
+      final tear = EggLyricFx.sparksAt(
+        const LyricSparks(),
+        kind: SparkKind.tear,
+        word: const Size(60, 32),
+        since: 1,
+        seed: 1,
+      ).single;
+      expect(tear.shape, ParticleShape.drop);
+      expect(tear.at.dy, greaterThan(32 * 0.55));
+    });
+
+    test('dark keyword shapes: skulls rise, drops fall below the word', () {
+      const sparks = LyricSparks(
+        perWord: 0,
+        keywordShapes: {
+          'die': ParticleShape.skull,
+          'saccharine': ParticleShape.drop,
+        },
+        shapeColors: {
+          ParticleShape.skull: [Color(0xFFE9E2CF)],
+        },
+        edge: null,
+      );
+      const look = LyricStylePiece(sparks: sparks);
+      List<LyricWord> words(List<String> t) => [
+        for (final w in t) LyricWord(Duration.zero, w),
+      ];
+      final line = words(['Sa', 'ccharine, ', 'always ', 'Die']);
+      expect(EggLyricFx.sparkKind(look, line, 0), SparkKind.burst);
+      expect(EggLyricFx.sparkKind(look, line, 2), SparkKind.none);
+      expect(EggLyricFx.sparkKind(look, line, 3), SparkKind.burst);
+      expect(
+        EggLyricFx.burstShapeFor(look, EggLyricFx.keyOf(line, 0)),
+        ParticleShape.drop,
+      );
+      expect(
+        EggLyricFx.burstShapeFor(look, EggLyricFx.keyOf(line, 3)),
+        ParticleShape.skull,
+      );
+      expect(EggLyricFx.burstShapeFor(look, 'always'), isNull);
+      expect(ShapeBook.pathOf(ParticleShape.skull), isNotNull);
+      expect(ShapeBook.pathOf(ParticleShape.cross), isNotNull);
+
+      const word = Size(24, 32);
+      List<EggSpark> at(ParticleShape shape, double since) =>
+          EggLyricFx.sparksAt(
+            sparks,
+            kind: SparkKind.burst,
+            word: word,
+            since: since,
+            seed: 5,
+            shape: shape,
+          );
+      final drops = at(ParticleShape.drop, 0.6);
+      expect(drops.every((s) => s.shape == ParticleShape.drop), isTrue);
+      expect(drops.every((s) => s.at.dy > word.height * 0.8), isTrue);
+      final xs = drops.map((s) => s.at.dx);
+      expect(
+        xs.reduce(math.max) - xs.reduce(math.min),
+        greaterThan(word.width),
+      );
+      expect(
+        at(ParticleShape.drop, 1.0).first.at.dy,
+        greaterThan(at(ParticleShape.drop, 0.3).first.at.dy),
+      );
+      final skulls = at(ParticleShape.skull, 0.8);
+      expect(skulls.every((s) => s.at.dy < word.height * 0.2), isTrue);
+      expect(skulls.first.color, const Color(0xFFE9E2CF));
+    });
+
+    test('line moods: harsh lines glitch harder, calm warm, bright white', () {
+      const look = LyricStylePiece(
+        fill: [Color(0xFFFFFFFF), Color(0xFFA9C8FF)],
+        outline: Color(0x445C8DFF),
+        shadow: Color(0xCC5C8DFF),
+        ghost: LyricGhost(
+          marks: {'「'},
+          calm: {'大丈夫'},
+          harsh: {'わからない'},
+          calmColor: Color(0xFFFFD2B0),
+        ),
+        bright: {'歌わなくちゃ'},
+      );
+      expect(EggLyricFx.ghostLevel(look, '「わからない」'), 2);
+      expect(EggLyricFx.ghostLevel(look, '「誰も信じられなかった」'), 1);
+      expect(EggLyricFx.ghostLevel(look, '「大丈夫の一言だったね」'), 0);
+      expect(EggLyricFx.moodOf(look, '「大丈夫の一言だったね」'), LineMood.calm);
+      expect(EggLyricFx.moodOf(look, '歌わなくちゃ'), LineMood.bright);
+      expect(EggLyricFx.moodOf(look, '仄暗い 箱庭で'), LineMood.normal);
+      double reach(bool strong) => [
+        for (var ms = 0; ms < 3000; ms += 110)
+          EggLyricFx.ghostOffset(
+            Duration(milliseconds: ms),
+            0,
+            strong: strong,
+          ).dx.abs(),
+      ].reduce((a, b) => a + b);
+      expect(reach(true), greaterThan(reach(false) * 1.5));
+
+      const base = TextStyle(fontSize: 26, height: 1.25);
+      final calm = EggLyricFx.outlineStyle(base, look, mood: LineMood.calm);
+      expect(
+        calm.foreground!.color.toARGB32(),
+        const Color(0xFFFFD2B0).withValues(alpha: 0.27).toARGB32(),
+      );
+      final bright = EggLyricFx.outlineStyle(base, look, mood: LineMood.bright);
+      expect(bright.shadows, hasLength(2));
+      expect(EggLyricFx.outlineStyle(base, look).shadows, hasLength(1));
+    });
+
+    test('motes stay in the spotlight beam and drift into the screen glow', () {
+      const size = Size(400, 800);
+      const spot = LightPiece(motes: 30);
+      for (var t = 0.0; t < 40; t += 1.7) {
+        for (final m in LightPainter.motesAt(spot, size, t)) {
+          final f = m.at.dy / (size.height * LightPainter.beamEnd);
+          expect(f, inInclusiveRange(0, 1));
+          final half = size.width * (0.06 + 0.36 * f);
+          final center =
+              size.width * 0.5 +
+              size.width * LightPainter.swayAt(t) * spot.sway * f;
+          expect((m.at.dx - center).abs(), lessThanOrEqualTo(half + 0.5));
+        }
+      }
+      const screen = LightPiece(shape: LightShape.screen, motes: 10);
+      final target = const Offset(200, 784);
+      final early = LightPainter.motesAt(screen, size, 0);
+      final later = LightPainter.motesAt(screen, size, 3);
+      var closer = 0;
+      for (var i = 0; i < early.length; i++) {
+        if ((later[i].at - target).distance < (early[i].at - target).distance) {
+          closer++;
+        }
+      }
+      expect(closer, greaterThan(early.length ~/ 2));
+      expect(LightPainter.motesAt(const LightPiece(), size, 1), isEmpty);
+    });
+
+    test('glass paints its edges and streaks', () {
+      final recorder = ui.PictureRecorder();
+      GlassPainter(
+        piece: const GlassPiece(),
+        time: () => 3,
+        repaint: ValueNotifier(0),
+      ).paint(Canvas(recorder), const Size(400, 800));
+      expect(recorder.endRecording(), isNotNull);
+      expect(GlassPainter.driftAt(1).abs(), lessThanOrEqualTo(0.04));
+    });
+
+    testWidgets('a cover glow fills the cover and fades in behind it', (
+      tester,
+    ) async {
+      final player = PlayerController(FakeEngine(), recordPlay: (_) async {});
+      final eggs = EasterEggController(player: player, registry: const []);
+      addTearDown(() {
+        eggs.dispose();
+        player.dispose();
+      });
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: eggs,
+          child: const Directionality(
+            textDirection: TextDirection.ltr,
+            child: Center(
+              child: EggCoverStickers(child: SizedBox(width: 200, height: 200)),
+            ),
+          ),
+        ),
+      );
+      expect(find.byType(EggCoverGlow), findsNothing);
+      eggs.preview(const [CoverGlowPiece()]);
+      await tester.pump();
+      await tester.pump(AppTint.fade);
+      expect(tester.getSize(find.byType(EggCoverGlow)), const Size(200, 200));
+      final box = tester.widget<DecoratedBox>(
+        find.descendant(
+          of: find.byType(EggCoverGlow),
+          matching: find.byType(DecoratedBox),
+        ),
+      );
+      expect(
+        (box.decoration as BoxDecoration).boxShadow!.single.blurRadius,
+        EggCoverGlow.blur,
+      );
+    });
+
+    testWidgets('the layer shakes, flashes and fades to dawn on time', (
+      tester,
+    ) async {
+      final engine = FakeEngine();
+      final player = PlayerController(engine, recordPlay: (_) async {});
+      final eggs = EasterEggController(player: player, registry: const []);
+      addTearDown(() {
+        eggs.dispose();
+        player.dispose();
+      });
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: player),
+            ChangeNotifierProvider.value(value: eggs),
+          ],
+          child: const Directionality(
+            textDirection: TextDirection.ltr,
+            child: EggAppTint(child: EasterEggLayer(child: SizedBox.expand())),
+          ),
+        ),
+      );
+      await player.playQueue([song('plain')]);
+      eggs.preview(const [moments]);
+      await tester.pump();
+      Iterable<ColoredBox> flashes() =>
+          tester.widgetList<ColoredBox>(find.byType(ColoredBox));
+      engine.emitPosition(const Duration(milliseconds: 1050));
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(flashes().map((b) => b.color.r).any((r) => r > 0.8), isTrue);
+      expect(eggs.tint, isNull);
+
+      engine.emitPosition(const Duration(milliseconds: 2500));
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(flashes(), isEmpty);
+      expect(eggs.tint, same(dawn));
+      await tester.pump(const Duration(seconds: 5));
+      final filter = tester.renderObject<RenderTintFilter>(
+        find.byType(TintFilter),
+      );
+      expect(filter.matrix, isNot(AppTint.matrixOf(dawn)));
+      await tester.pump(const Duration(seconds: 6));
+      expect(filter.matrix, AppTint.matrixOf(dawn));
+
+      eggs.stopPreview();
+      await tester.pump();
+      expect(eggs.tint, isNull);
     });
   });
 
