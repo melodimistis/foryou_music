@@ -265,4 +265,45 @@ void main() {
     expect(second.added, 1);
     expect(second.removedIds, [first.upserts.single.id]);
   });
+
+  test(
+    'marks titles guessed from the file name and keeps audio info',
+    () async {
+      final tagged = touch('tagged.flac');
+      touch('Artist - Untagged.mp3');
+      final tagging = LocalFolderScanner(
+        newId: () => 'id${n++}',
+        readTags: (paths) async => {
+          for (final p in paths)
+            p: p == tagged.path
+                ? const TrackTags(
+                    title: 'Real title',
+                    format: 'FLAC',
+                    sampleRate: 96000,
+                    bitrate: 2400000,
+                    bitDepth: 24,
+                  )
+                : null,
+        },
+      );
+      final r = await tagging.scan(source, const []);
+      final byTitle = {for (final s in r.upserts) s.title: s};
+      expect(byTitle['Real title']!.titleFromFile, isFalse);
+      expect(byTitle['Artist - Untagged']!.titleFromFile, isTrue);
+      final real = byTitle['Real title']!;
+      expect(
+        (real.format, real.sampleRate, real.bitrate, real.bitDepth),
+        ('FLAC', 96000, 2400000, 24),
+      );
+      expect(Song.fromMap(real.toMap()).titleFromFile, isFalse);
+      expect(
+        Song.fromMap({
+          'id': 'x',
+          'uri': 'file:///x',
+          'sourceId': 's',
+        }).titleFromFile,
+        isNull,
+      );
+    },
+  );
 }

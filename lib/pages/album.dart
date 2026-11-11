@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../app/format.dart';
 import '../app/motion.dart';
 import '../models/album.dart';
+import '../models/cover_owner.dart';
 import '../providers/library_controller.dart';
 import '../widgets/collection_view.dart';
 import '../widgets/detail_scaffold.dart';
@@ -42,7 +43,12 @@ class AlbumPage extends StatelessWidget {
     final ids = [for (final s in album.songs) s.id];
     return DetailScaffold(
       title: 'Albums',
-      trailing: MenuButton(actions: (context) => songsActions(context, ids)),
+      trailing: MenuButton(
+        actions: (context) => [
+          ...songsActions(context, ids),
+          ...coverActions(context, CoverOwner.album, album.id),
+        ],
+      ),
       body: CollectionView(
         title: album.title,
         subtitle: artistOrUnknown(album.artist),
@@ -54,6 +60,8 @@ class AlbumPage extends StatelessWidget {
         songs: album.songs,
         numberOf: (song, i) => song.trackNumber ?? i + 1,
         subtitleOf: (song) => album.artist == song.artist ? '' : song.artist,
+        playOptions: (context) => albumPlayOptions(context, album),
+        shuffleOptions: (context) => albumShuffleOptions(context, album),
       ),
     );
   }

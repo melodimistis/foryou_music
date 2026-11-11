@@ -18,6 +18,11 @@ import '../providers/player_controller.dart';
 import '../providers/yoru_controller.dart';
 import '../services/audio_output.dart';
 import '../services/covers/blurred_cover.dart';
+import '../easter_eggs/egg_entry.dart';
+import '../easter_eggs/lyric_effects.dart';
+import '../easter_eggs/player_effects.dart';
+import '../easter_eggs/stickers.dart';
+import '../services/metadata/audio_quality.dart';
 import '../services/lyrics/lyrics_service.dart';
 import '../widgets/context_menu.dart';
 import '../widgets/cover_art.dart';
@@ -129,7 +134,9 @@ class _MusicPlayerPageState extends State<MusicPlayerPage>
 
   @override
   Widget build(BuildContext context) {
-    final song = context.select<PlayerController, Song?>((p) => p.current);
+    final song = context
+        .select<PlayerController, (Song?, int)>((p) => (p.current, p.revision))
+        .$1;
     final height = MediaQuery.sizeOf(context).height;
 
     final Widget content = song == null
@@ -271,6 +278,7 @@ class _Backdrop extends StatelessWidget {
                 ),
               ),
             ),
+            const EggTint(),
           ],
         );
       },
@@ -307,6 +315,13 @@ class _TitleRow extends StatelessWidget {
     final fav = context.select<CollectionsController, bool>(
       (c) => c.isFavourite(song.id),
     );
+    final quality = AudioQuality.label(
+      uri: song.uri,
+      format: song.format,
+      sampleRate: song.sampleRate,
+      bitrate: song.bitrate,
+      bitDepth: song.bitDepth,
+    );
     return Row(
       children: [
         Expanded(
@@ -334,6 +349,21 @@ class _TitleRow extends StatelessWidget {
                   fontSize: 15,
                 ),
               ),
+              if (quality.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    quality,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -374,16 +404,18 @@ class _CoverPanel extends StatelessWidget {
             builder: (context, c) {
               final size = math.min(c.maxWidth, c.maxHeight - 16);
               return Center(
-                child: DecoratedBox(
-                  position: DecorationPosition.foreground,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: CoverArt(
-                    coverKey: song.coverKey,
-                    size: size,
-                    radius: 18,
+                child: EggCoverStickers(
+                  child: DecoratedBox(
+                    position: DecorationPosition.foreground,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: CoverArt(
+                      coverKey: song.coverKey,
+                      size: size,
+                      radius: 18,
+                    ),
                   ),
                 ),
               );
@@ -473,58 +505,66 @@ class _SeekBarState extends State<_SeekBar> {
       fontSize: 11,
     );
 
-    return StreamBuilder<Duration>(
-      stream: player.positionStream,
-      initialData: player.position,
-      builder: (context, snap) {
-        final pos = snap.data ?? Duration.zero;
-        final value =
-            _dragValue ??
-            (total <= 0 ? 0.0 : pos.inMilliseconds.clamp(0, total).toDouble());
-        final shown = Duration(milliseconds: value.round());
-        return Row(
-          children: [
-            SizedBox(width: 40, child: Text(formatClock(shown), style: style)),
-            Expanded(
-              child: SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  trackHeight: 4,
-                  activeTrackColor: Colors.white,
-                  inactiveTrackColor: Colors.white24,
-                  thumbColor: Colors.white,
-                  overlayColor: Colors.white12,
-                  thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 6,
+    return EggAccent(
+      fallback: Colors.white,
+      builder: (context, accent) => StreamBuilder<Duration>(
+        stream: player.positionStream,
+        initialData: player.position,
+        builder: (context, snap) {
+          final pos = snap.data ?? Duration.zero;
+          final value =
+              _dragValue ??
+              (total <= 0
+                  ? 0.0
+                  : pos.inMilliseconds.clamp(0, total).toDouble());
+          final shown = Duration(milliseconds: value.round());
+          return Row(
+            children: [
+              SizedBox(
+                width: 40,
+                child: Text(formatClock(shown), style: style),
+              ),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 4,
+                    activeTrackColor: accent,
+                    inactiveTrackColor: Colors.white24,
+                    thumbColor: accent,
+                    overlayColor: Colors.white12,
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 6,
+                    ),
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 14,
+                    ),
                   ),
-                  overlayShape: const RoundSliderOverlayShape(
-                    overlayRadius: 14,
+                  child: Slider(
+                    min: 0,
+                    max: total <= 0 ? 1 : total,
+                    value: total <= 0 ? 0 : value,
+                    onChanged: total <= 0
+                        ? null
+                        : (v) => setState(() => _dragValue = v),
+                    onChangeEnd: (v) async {
+                      await player.seek(Duration(milliseconds: v.round()));
+                      if (mounted) setState(() => _dragValue = null);
+                    },
                   ),
                 ),
-                child: Slider(
-                  min: 0,
-                  max: total <= 0 ? 1 : total,
-                  value: total <= 0 ? 0 : value,
-                  onChanged: total <= 0
-                      ? null
-                      : (v) => setState(() => _dragValue = v),
-                  onChangeEnd: (v) async {
-                    await player.seek(Duration(milliseconds: v.round()));
-                    if (mounted) setState(() => _dragValue = null);
-                  },
+              ),
+              SizedBox(
+                width: 40,
+                child: Text(
+                  formatClock(duration),
+                  style: style,
+                  textAlign: TextAlign.right,
                 ),
               ),
-            ),
-            SizedBox(
-              width: 40,
-              child: Text(
-                formatClock(duration),
-                style: style,
-                textAlign: TextAlign.right,
-              ),
-            ),
-          ],
-        );
-      },
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -541,60 +581,62 @@ class _Controls extends StatelessWidget {
       (p) => p.repeat,
     );
     final hasNext = context.select<PlayerController, bool>((p) => p.hasNext);
-
-    return Row(
-      children: [
-        for (final button in <Widget>[
-          IconButton(
-            tooltip: 'Shuffle',
-            icon: Icon(
-              Icons.shuffle_rounded,
-              color: shuffle ? Colors.white : Colors.white38,
+    return EggAccent(
+      fallback: Colors.white,
+      builder: (context, accent) => Row(
+        children: [
+          for (final button in <Widget>[
+            IconButton(
+              tooltip: 'Shuffle',
+              icon: Icon(
+                Icons.shuffle_rounded,
+                color: shuffle ? accent : Colors.white38,
+              ),
+              onPressed: player.toggleShuffle,
             ),
-            onPressed: player.toggleShuffle,
-          ),
-          IconButton(
-            tooltip: 'Previous',
-            iconSize: 40,
-            color: Colors.white,
-            icon: const Icon(Icons.fast_rewind_rounded),
-            onPressed: player.previous,
-          ),
-          IconButton(
-            tooltip: playing ? 'Pause' : 'Play',
-            iconSize: 56,
-            padding: EdgeInsets.zero,
-            color: Colors.white,
-            icon: Icon(
-              playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            IconButton(
+              tooltip: 'Previous',
+              iconSize: 40,
+              color: Colors.white,
+              icon: const Icon(Icons.fast_rewind_rounded),
+              onPressed: player.previous,
             ),
-            onPressed: player.togglePlay,
-          ),
-          IconButton(
-            tooltip: 'Next',
-            iconSize: 40,
-            color: Colors.white,
-            disabledColor: Colors.white30,
-            icon: const Icon(Icons.fast_forward_rounded),
-            onPressed: hasNext ? player.next : null,
-          ),
-          IconButton(
-            tooltip: switch (repeat) {
-              RepeatMode.off => 'Repeat off',
-              RepeatMode.all => 'Repeat all',
-              RepeatMode.one => 'Repeat one',
-            },
-            icon: Icon(
-              repeat == RepeatMode.one
-                  ? Icons.repeat_one_rounded
-                  : Icons.repeat_rounded,
-              color: repeat == RepeatMode.off ? Colors.white38 : Colors.white,
+            IconButton(
+              tooltip: playing ? 'Pause' : 'Play',
+              iconSize: 56,
+              padding: EdgeInsets.zero,
+              color: accent,
+              icon: Icon(
+                playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              ),
+              onPressed: player.togglePlay,
             ),
-            onPressed: player.cycleRepeat,
-          ),
-        ])
-          Expanded(child: Center(child: button)),
-      ],
+            IconButton(
+              tooltip: 'Next',
+              iconSize: 40,
+              color: Colors.white,
+              disabledColor: Colors.white30,
+              icon: const Icon(Icons.fast_forward_rounded),
+              onPressed: hasNext ? player.next : null,
+            ),
+            IconButton(
+              tooltip: switch (repeat) {
+                RepeatMode.off => 'Repeat off',
+                RepeatMode.all => 'Repeat all',
+                RepeatMode.one => 'Repeat one',
+              },
+              icon: Icon(
+                repeat == RepeatMode.one
+                    ? Icons.repeat_one_rounded
+                    : Icons.repeat_rounded,
+                color: repeat == RepeatMode.off ? Colors.white38 : accent,
+              ),
+              onPressed: player.cycleRepeat,
+            ),
+          ])
+            Expanded(child: Center(child: button)),
+        ],
+      ),
     );
   }
 }
@@ -997,6 +1039,7 @@ class _SyncedLyricsState extends State<SyncedLyrics>
   Widget build(BuildContext context) {
     final lines = widget.lyrics.lines;
     final current = _current;
+    final look = eggLyricStyle(context);
 
     return NotificationListener<UserScrollNotification>(
       onNotification: (_) {
@@ -1022,7 +1065,12 @@ class _SyncedLyricsState extends State<SyncedLyrics>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (lines.first.time > Duration.zero && !lines.first.isGap)
-                _Dots(key: _introKey, active: current < 0),
+                _Dots(
+                  key: _introKey,
+                  active: current < 0,
+                  look: look,
+                  clock: _clock,
+                ),
               for (final (i, line) in lines.indexed)
                 GestureDetector(
                   key: _keys[i],
@@ -1031,9 +1079,10 @@ class _SyncedLyricsState extends State<SyncedLyrics>
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: line.isGap
-                        ? _Dots(active: i == current)
+                        ? _Dots(active: i == current, look: look, clock: _clock)
                         : LyricLineView(
                             line: line,
+                            look: look,
                             state: i == current
                                 ? LineState.current
                                 : (i < current
@@ -1053,6 +1102,8 @@ class _SyncedLyricsState extends State<SyncedLyrics>
 }
 
 enum LineState { past, current, future }
+
+enum WordLayer { all, outline, fill }
 
 const _lyricStyle = TextStyle(
   fontFamily: 'Inter',
@@ -1077,6 +1128,7 @@ class LyricLineView extends StatelessWidget {
     required this.state,
     required this.clock,
     required this.end,
+    this.look,
   });
 
   static const currentScale = 1.0;
@@ -1086,6 +1138,7 @@ class LyricLineView extends StatelessWidget {
   final LineState state;
   final ValueListenable<Duration> clock;
   final Duration end;
+  final LyricStylePiece? look;
 
   @override
   Widget build(BuildContext context) {
@@ -1093,21 +1146,22 @@ class LyricLineView extends StatelessWidget {
     final Widget content = current && line.words.isNotEmpty
         ? ValueListenableBuilder<Duration>(
             valueListenable: clock,
-            builder: (context, pos, _) => Wrap(
-              children: [
-                for (final (i, w) in line.words.indexed)
-                  LyricWordView(
-                    text: w.text,
-                    progress: _progress(
-                      pos,
-                      w.time,
-                      i + 1 < line.words.length ? line.words[i + 1].time : end,
-                    ),
-                  ),
-              ],
-            ),
+            builder: (context, pos, _) => EggLyricFx.layered(look)
+                ? Stack(
+                    children: [
+                      _words(pos, WordLayer.outline),
+                      _words(pos, WordLayer.fill),
+                    ],
+                  )
+                : _words(pos, WordLayer.all),
           )
-        : Text(line.text, style: _lyricStyle);
+        : Text(
+            line.text,
+            style: EggLyrics.style(
+              _lyricStyle,
+              look,
+            ).copyWith(color: EggLyrics.lit(look, Colors.white)),
+          );
     final Widget body = line.extra.isEmpty
         ? content
         : Column(
@@ -1141,6 +1195,29 @@ class LyricLineView extends StatelessWidget {
     );
   }
 
+  Widget _words(Duration pos, WordLayer layer) => Wrap(
+    children: [
+      for (final (i, w) in line.words.indexed)
+        LyricWordView(
+          text: w.text,
+          index: i,
+          clock: pos,
+          look: look,
+          layer: layer,
+          since: (pos - w.time).inMicroseconds / Duration.microsecondsPerSecond,
+          sparks: layer == WordLayer.outline
+              ? SparkKind.none
+              : EggLyricFx.sparkKind(look, line.words, i),
+          seed: line.time.inMilliseconds + i,
+          progress: _progress(
+            pos,
+            w.time,
+            i + 1 < line.words.length ? line.words[i + 1].time : end,
+          ),
+        ),
+    ],
+  );
+
   static double _progress(Duration pos, Duration start, Duration end) {
     final span = (end - start).inMicroseconds;
     if (span <= 0) return pos >= start ? 1 : 0;
@@ -1149,35 +1226,75 @@ class LyricLineView extends StatelessWidget {
 }
 
 class LyricWordView extends StatelessWidget {
-  const LyricWordView({super.key, required this.text, required this.progress});
+  const LyricWordView({
+    super.key,
+    required this.text,
+    required this.progress,
+    this.index = 0,
+    this.clock = Duration.zero,
+    this.look,
+    this.layer = WordLayer.all,
+    this.since = 0,
+    this.sparks = SparkKind.none,
+    this.seed = 0,
+  });
 
   static const lift = 3.0;
   static const softEdge = 0.18;
 
   final String text;
   final double progress;
+  final int index;
+  final Duration clock;
+  final LyricStylePiece? look;
+  final WordLayer layer;
+  final double since;
+  final SparkKind sparks;
+  final int seed;
 
-  @override
-  Widget build(BuildContext context) {
-    final p = progress;
+  Widget _glowing(TextStyle base, double p) {
     final glow = math.sin(math.pi * p);
-    final dimmed = Text(
+    final litColor = EggLyrics.lit(look, Colors.white);
+    return Text(
       text,
-      style: _lyricStyle.copyWith(color: Colors.white38),
-    );
-    final lit = Text(
-      text,
-      style: _lyricStyle.copyWith(
+      style: base.copyWith(
+        color: litColor,
         shadows: glow > 0.02
             ? [
                 Shadow(
-                  color: Colors.white.withValues(alpha: 0.55 * glow),
+                  color: litColor.withValues(alpha: 0.55 * glow),
                   blurRadius: 16 * glow,
                 ),
               ]
             : null,
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = progress;
+    final look = this.look;
+    final base = EggLyrics.style(_lyricStyle, look);
+    final dimmed = Text(
+      text,
+      style: base.copyWith(
+        color: layer == WordLayer.outline
+            ? Colors.transparent
+            : EggLyrics.dim(look, Colors.white38),
+      ),
+    );
+    final lit = switch (layer) {
+      WordLayer.outline when look != null => Text(
+        text,
+        style: EggLyricFx.outlineStyle(base, look),
+      ),
+      WordLayer.fill when look != null => Text(
+        text,
+        style: EggLyricFx.fillStyle(base, look),
+      ),
+      _ => _glowing(base, p),
+    };
 
     final Widget body;
     if (p <= 0) {
@@ -1207,20 +1324,66 @@ class LyricWordView extends StatelessWidget {
       );
     }
 
-    return Transform.translate(
-      offset: Offset(0, -lift * Curves.easeOutCubic.transform(p)),
-      child: body,
+    final moved = Transform.translate(
+      offset: EggLyrics.wordOffset(
+        look,
+        index: index,
+        progress: p,
+        clock: clock,
+        lift: lift,
+        since: since,
+      ),
+      child: Transform(
+        transform: EggLyrics.wordTransform(
+          look,
+          progress: p,
+          since: since,
+          index: index,
+        ),
+        alignment: Alignment.bottomCenter,
+        child: body,
+      ),
+    );
+    final config = look?.sparks;
+    if (config == null || sparks == SparkKind.none) return moved;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        moved,
+        if (since >= 0 && since <= EggLyricFx.spanOf(config, sparks))
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: EggSparksPainter(
+                  sparks: config,
+                  kind: sparks,
+                  since: since,
+                  seed: seed,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
 
 class _Dots extends StatelessWidget {
-  const _Dots({super.key, required this.active});
+  const _Dots({super.key, required this.active, this.look, this.clock});
 
   final bool active;
+  final LyricStylePiece? look;
+  final ValueListenable<Duration>? clock;
 
   @override
   Widget build(BuildContext context) {
+    final look = this.look;
+    if (look != null && look.gapShape != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: EggGapDots(look: look, active: active, clock: clock),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Text(

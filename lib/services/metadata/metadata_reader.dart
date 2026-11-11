@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:path/path.dart' as p;
 
+import 'audio_quality.dart';
+
 class TrackTags {
   const TrackTags({
     this.title,
@@ -19,6 +21,10 @@ class TrackTags {
     this.coverKey,
     this.trackGain,
     this.albumGain,
+    this.format,
+    this.sampleRate,
+    this.bitrate,
+    this.bitDepth,
   });
 
   final String? title;
@@ -34,6 +40,10 @@ class TrackTags {
   final String? coverKey;
   final double? trackGain;
   final double? albumGain;
+  final String? format;
+  final int? sampleRate;
+  final int? bitrate;
+  final int? bitDepth;
 }
 
 class GainTags {
@@ -171,6 +181,7 @@ TrackTags? readTagsSync(String path, {CoverWriter? covers}) {
   try {
     final m = readMetadata(File(path), getImage: covers != null);
     String? coverKey;
+    final pictureBytes = m.pictures.fold(0, (sum, x) => sum + x.bytes.length);
     if (covers != null) {
       final pics = m.pictures.where((x) => x.bytes.isNotEmpty).toList();
       final front = pics
@@ -180,19 +191,42 @@ TrackTags? readTagsSync(String path, {CoverWriter? covers}) {
       coverKey = pic != null ? covers.save(pic.bytes) : covers.fromFolder(path);
     }
     final gain = readGainSync(path);
+    final durationMs = m.duration?.inMilliseconds;
+    int? fileBytes;
+    try {
+      fileBytes = File(path).lengthSync();
+    } on FileSystemException {
+      fileBytes = null;
+    }
+    final quality = AudioQuality.measure(
+      format: AudioQuality.detectFormat(
+        AudioQuality.readHead(path),
+        path,
+        aacInside: m.sampleRate != null,
+      ),
+      headerBitrate: m.bitrate,
+      headerSampleRate: m.sampleRate,
+      durationMs: durationMs,
+      fileBytes: fileBytes,
+      pictureBytes: pictureBytes,
+    );
     return TrackTags(
       title: _clean(m.title),
       artist: _clean(m.artist),
       album: _clean(m.album),
       albumArtist: _clean(m.albumArtist),
       genre: _clean(m.genres.join(', ')),
-      durationMs: m.duration?.inMilliseconds,
+      durationMs: durationMs,
       year: _positive(m.year?.year),
       trackNumber: _positive(m.trackNumber),
       discNumber: _positive(m.discNumber),
       coverKey: coverKey,
       trackGain: gain.track,
       albumGain: gain.album,
+      format: _clean(quality.format),
+      sampleRate: quality.sampleRate,
+      bitrate: quality.bitrate,
+      bitDepth: quality.bitDepth,
     );
   } catch (_) {
     return null;

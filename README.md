@@ -25,6 +25,8 @@ It runs on **Android** and **Linux**. Windows builds are possible but not a prio
 - **Lyrics that follow along.** Timed `.lrc` files scroll with the song, and the enhanced format lights up word by word. A second line with the same time, like romanization or a translation, shows smaller underneath.
 - **Library you can browse.** Songs, albums, artists and playlists, with search, favourites and a fast scroller for big collections.
 - **Your queue, your way.** Play next or add to the queue from any song, album, artist or playlist, then reorder or remove songs in the queue.
+- **Play or shuffle a whole album, or all of them.** Albums and playlists have Play and Shuffle buttons. Long press them on an album to keep going through all your albums, once or on repeat.
+- **Know what you're hearing.** The player shows the file's format, bit depth, sample rate and bitrate, like `FLAC · 24-bit · 96 kHz`.
 - **Songs that flow.** Gapless playback, an optional crossfade of up to 12 seconds, and a soft fade when you play or pause. Songs that follow each other on the same album never crossfade.
 - **Sound your way** (Android 9 or newer). A parametric equalizer with up to 10 filters you can drag on a graph, ready-made presets, your own saved presets, and import of [AutoEq](https://github.com/jaakkopasanen/AutoEq) headphone profiles (`ParametricEQ.txt`).
 - **Even volume.** Volume normalization uses the ReplayGain info inside your songs to turn loud songs down, per song or per album. Your files are never changed.
@@ -95,6 +97,8 @@ For romanization or a translation, add a second line with the same time right be
 ### Covers
 
 ForYou uses the picture embedded in the song first. If there isn't one, it looks for `cover.jpg`, `folder.jpg` or `front.jpg` (or `.png`) in the song's folder.
+
+You can also pick your own picture for any song, album, artist or playlist with **Change cover** in its menu. For an album, choose whether the cover goes on every song or only on songs that have none. ForYou keeps a copy of the picture; your music files are never changed. **Use original cover** brings the old one back.
 
 ## Privacy
 

@@ -8,6 +8,7 @@ import '../app/format.dart';
 import '../app/motion.dart';
 import '../app/theme.dart';
 import '../models/album.dart';
+import '../models/cover_owner.dart';
 import '../models/song.dart';
 import '../providers/collections_controller.dart';
 import '../providers/library_controller.dart';
@@ -140,6 +141,7 @@ class _ArtistPageState extends State<ArtistPage> {
             scroll: _scroll,
             heroHeight: heroHeight,
             songIds: [for (final s in artist.songs) s.id],
+            artistId: artist.id,
           ),
         ],
       ),
@@ -681,11 +683,13 @@ class _TopBar extends StatelessWidget {
     required this.scroll,
     required this.heroHeight,
     required this.songIds,
+    required this.artistId,
   });
 
   final ScrollController scroll;
   final double heroHeight;
   final List<String> songIds;
+  final String artistId;
 
   @override
   Widget build(BuildContext context) {
@@ -719,7 +723,10 @@ class _TopBar extends StatelessWidget {
                       onPressed: () => Navigator.of(context).maybePop(),
                     ),
                     trailing: MenuButton(
-                      actions: (context) => songsActions(context, songIds),
+                      actions: (context) => [
+                        ...songsActions(context, songIds),
+                        ...coverActions(context, CoverOwner.artist, artistId),
+                      ],
                     ),
                   ),
                 ),
@@ -752,7 +759,14 @@ class _TopBar extends StatelessWidget {
                                 box.localToGlobal(
                                   box.size.bottomCenter(Offset.zero),
                                 ),
-                                songsActions(context, songIds),
+                                [
+                                  ...songsActions(context, songIds),
+                                  ...coverActions(
+                                    context,
+                                    CoverOwner.artist,
+                                    artistId,
+                                  ),
+                                ],
                               );
                             },
                           ),
@@ -786,7 +800,12 @@ class ArtistSongsPage extends StatelessWidget {
     final ids = [for (final s in artist.songs) s.id];
     return DetailScaffold(
       title: 'Artists',
-      trailing: MenuButton(actions: (context) => songsActions(context, ids)),
+      trailing: MenuButton(
+        actions: (context) => [
+          ...songsActions(context, ids),
+          ...coverActions(context, CoverOwner.artist, artist.id),
+        ],
+      ),
       body: CollectionView(
         title: artist.name,
         subtitle: 'All songs',

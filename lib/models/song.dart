@@ -1,8 +1,9 @@
 class Song {
-  static const currentTagVersion = 3;
+  static const currentTagVersion = 5;
 
   final String id;
   final String title;
+  final bool? titleFromFile;
   final String artist;
   final String album;
   final String albumArtist;
@@ -13,6 +14,10 @@ class Song {
   final int? discNumber;
   final double? trackGain;
   final double? albumGain;
+  final String format;
+  final int? sampleRate;
+  final int? bitrate;
+  final int? bitDepth;
   final String coverKey;
   final String uri;
   final String sourceId;
@@ -29,6 +34,7 @@ class Song {
     required this.artist,
     required this.uri,
     required this.sourceId,
+    this.titleFromFile,
     this.album = '',
     this.albumArtist = '',
     this.genre = '',
@@ -38,6 +44,10 @@ class Song {
     this.discNumber,
     this.trackGain,
     this.albumGain,
+    this.format = '',
+    this.sampleRate,
+    this.bitrate,
+    this.bitDepth,
     this.coverKey = '',
     this.modifiedMs = 0,
     this.addedMs = 0,
@@ -69,6 +79,7 @@ class Song {
     id: id,
     sourceId: sourceId,
     title: title ?? this.title,
+    titleFromFile: titleFromFile,
     artist: artist ?? this.artist,
     album: album ?? this.album,
     albumArtist: albumArtist ?? this.albumArtist,
@@ -79,6 +90,10 @@ class Song {
     discNumber: discNumber,
     trackGain: trackGain,
     albumGain: albumGain,
+    format: format,
+    sampleRate: sampleRate,
+    bitrate: bitrate,
+    bitDepth: bitDepth,
     coverKey: coverKey ?? this.coverKey,
     uri: uri ?? this.uri,
     modifiedMs: modifiedMs ?? this.modifiedMs,
@@ -92,6 +107,7 @@ class Song {
   Map<String, dynamic> toMap() => {
     'id': id,
     'title': title,
+    'titleFromFile': titleFromFile,
     'artist': artist,
     'album': album,
     'albumArtist': albumArtist,
@@ -102,6 +118,10 @@ class Song {
     'discNumber': discNumber,
     'trackGain': trackGain,
     'albumGain': albumGain,
+    'format': format,
+    'sampleRate': sampleRate,
+    'bitrate': bitrate,
+    'bitDepth': bitDepth,
     'coverKey': coverKey,
     'uri': uri,
     'sourceId': sourceId,
@@ -116,6 +136,7 @@ class Song {
   factory Song.fromMap(Map<dynamic, dynamic> m) => Song(
     id: m['id'] as String,
     title: m['title'] as String? ?? '',
+    titleFromFile: m['titleFromFile'] as bool?,
     artist: m['artist'] as String? ?? '',
     album: m['album'] as String? ?? '',
     albumArtist: m['albumArtist'] as String? ?? '',
@@ -126,6 +147,10 @@ class Song {
     discNumber: m['discNumber'] as int?,
     trackGain: (m['trackGain'] as num?)?.toDouble(),
     albumGain: (m['albumGain'] as num?)?.toDouble(),
+    format: m['format'] as String? ?? '',
+    sampleRate: m['sampleRate'] as int?,
+    bitrate: m['bitrate'] as int?,
+    bitDepth: m['bitDepth'] as int?,
     coverKey: m['coverKey'] as String? ?? '',
     uri: m['uri'] as String,
     sourceId: m['sourceId'] as String,

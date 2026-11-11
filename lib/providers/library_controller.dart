@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import '../models/album.dart';
+import '../models/custom_covers.dart';
 import '../models/listening_stats.dart';
 import '../models/music_source.dart';
 import '../models/song.dart';
+import '../services/covers/song_covers.dart';
 import '../services/library_index.dart';
 import '../services/library_repository.dart';
 import '../services/song_filter.dart';
@@ -18,6 +20,7 @@ class LibraryController extends ChangeNotifier {
     String Function()? newId,
     this.pruneCovers,
     this._filter = SongFilter.none,
+    this._customCovers = CustomCovers.none,
   }) : _scanners = scanners ?? {MusicSourceType.local: LocalFolderScanner()},
        _newId = newId ?? (() => const Uuid().v4()) {
     _reload();
@@ -33,6 +36,7 @@ class LibraryController extends ChangeNotifier {
   static const recentlyAddedLimit = 6;
 
   SongFilter _filter;
+  CustomCovers _customCovers;
   List<Song> _all = const [];
   List<Song> _songs = const [];
   int _hiddenCount = 0;
@@ -78,6 +82,18 @@ class LibraryController extends ChangeNotifier {
     _filter = filter;
     _reload();
     notifyListeners();
+  }
+
+  void setCustomCovers(CustomCovers covers) {
+    if (covers == _customCovers) return;
+    _customCovers = covers;
+    _reload();
+    notifyListeners();
+  }
+
+  bool anyOwnCover(Iterable<String> songIds) {
+    final ids = songIds.toSet();
+    return _all.any((s) => s.hasCover && ids.contains(s.id));
   }
 
   List<MusicSource> get sources => List.unmodifiable(_sources);
@@ -131,10 +147,10 @@ class LibraryController extends ChangeNotifier {
     _sources = _repo.sources();
     _all = _repo.songs()
       ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
-    _songs = [
+    _songs = SongCovers.apply([
       for (final s in _all)
         if (!_filter.hides(s)) s,
-    ];
+    ], _customCovers);
     _hiddenCount = _all.length - _songs.length;
     _stats = _repo.allStats();
     _skipped = _computeSkipped();
@@ -148,7 +164,7 @@ class LibraryController extends ChangeNotifier {
     }
     _countBySource = counts;
     _availableBySource = reachable;
-    _index = LibraryIndex.build(_songs);
+    _index = LibraryIndex.build(_songs, covers: _customCovers);
 
     final available = _songs.where((s) => s.available).toList();
     _mostPlayed = _top(

@@ -3,15 +3,29 @@ import 'package:provider/provider.dart';
 
 import '../app/format.dart';
 import '../app/theme.dart';
+import '../models/cover_owner.dart';
 import '../models/song.dart';
 import '../providers/collections_controller.dart';
+import '../providers/custom_covers_controller.dart';
 import '../providers/player_controller.dart';
 import 'add_to_playlist_sheet.dart';
 import 'context_menu.dart';
 import 'menu_actions.dart';
 import 'song_swipe.dart';
+import 'tips.dart';
 import 'cover_art.dart';
 import '../services/haptics.dart';
+
+String playlistCoverOf(
+  BuildContext context,
+  String playlistId,
+  Iterable<Song> songs,
+) =>
+    context.watch<CustomCoversController?>()?.coverOf(
+      CoverOwner.playlist,
+      playlistId,
+    ) ??
+    coverOf(songs);
 
 String coverOf(Iterable<Song> songs) =>
     songs.firstWhere((s) => s.hasCover, orElse: () => _noCover).coverKey;
@@ -42,6 +56,8 @@ class CollectionView extends StatelessWidget {
     this.subtitleOf,
     this.onRemove,
     this.emptyMessage = 'No songs here yet',
+    this.playOptions,
+    this.shuffleOptions,
   });
 
   final String title;
@@ -54,6 +70,8 @@ class CollectionView extends StatelessWidget {
   final String Function(Song song)? subtitleOf;
   final void Function(Song song, int index)? onRemove;
   final String emptyMessage;
+  final MenuActionsBuilder? playOptions;
+  final MenuActionsBuilder? shuffleOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -169,6 +187,19 @@ class CollectionView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
+        if (songs.any((s) => s.available)) ...[
+          PlayButtons(
+            onPlay: () =>
+                context.read<PlayerController>().playCollection(songs),
+            onShuffle: () => context.read<PlayerController>().playCollection(
+              songs,
+              shuffle: true,
+            ),
+            playOptions: playOptions,
+            shuffleOptions: shuffleOptions,
+          ),
+          const SizedBox(height: 12),
+        ],
         if (songs.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 40),
@@ -210,6 +241,108 @@ class CollectionView extends StatelessWidget {
           ),
       ],
     );
+  }
+}
+
+class PlayButtons extends StatelessWidget {
+  const PlayButtons({
+    super.key,
+    required this.onPlay,
+    required this.onShuffle,
+    this.playOptions,
+    this.shuffleOptions,
+  });
+
+  final VoidCallback onPlay;
+  final VoidCallback onShuffle;
+  final MenuActionsBuilder? playOptions;
+  final MenuActionsBuilder? shuffleOptions;
+
+  @override
+  Widget build(BuildContext context) {
+    if (playOptions != null || shuffleOptions != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) Tip.playOptions.showOnce(context);
+      });
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: _PillButton(
+            label: 'Play',
+            icon: Icons.play_arrow_rounded,
+            filled: true,
+            onTap: onPlay,
+            options: playOptions,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _PillButton(
+            label: 'Shuffle',
+            icon: Icons.shuffle_rounded,
+            filled: false,
+            onTap: onShuffle,
+            options: shuffleOptions,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PillButton extends StatelessWidget {
+  const _PillButton({
+    required this.label,
+    required this.icon,
+    required this.filled,
+    required this.onTap,
+    this.options,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool filled;
+  final VoidCallback onTap;
+  final MenuActionsBuilder? options;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = filled ? Colors.black : Colors.white;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(22),
+    );
+    final button = Material(
+      color: filled ? Colors.white : Colors.white.withValues(alpha: 0.12),
+      shape: shape,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        customBorder: shape,
+        onTap: onTap,
+        child: SizedBox(
+          height: 44,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: fg, size: 22),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: fg,
+                  fontFamily: 'Inter',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final opts = options;
+    if (opts == null) return button;
+    return MenuTarget(actions: opts, child: button);
   }
 }
 

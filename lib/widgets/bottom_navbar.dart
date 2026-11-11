@@ -50,7 +50,9 @@ class BottomNavbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final song = context.select<PlayerController, Song?>((p) => p.current);
+    final song = context
+        .select<PlayerController, (Song?, int)>((p) => (p.current, p.revision))
+        .$1;
     final animate = TickerMode.valuesOf(context).enabled;
     final Widget mini = song != null
         ? Padding(

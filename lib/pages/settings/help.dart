@@ -54,6 +54,20 @@ class HelpPage extends StatelessWidget {
             'and swipe left to remove a song.',
       ),
       Faq(
+        'How do I play all my albums in a row?',
+        'Open an album and long press Play or Shuffle. Choose All albums to '
+            'keep going through your albums, or All albums, repeat to start '
+            'over at the end. A tap on Play or Shuffle plays only that album '
+            'or playlist and stops at the end.',
+      ),
+      Faq(
+        'What do the numbers under the artist mean?',
+        'They describe the song file: its format, bit depth, sample rate and '
+            'bitrate, like FLAC · 24-bit · 96 kHz · 2428 kbps. Bit depth is '
+            'shown for FLAC only. It is the quality of the file, not what '
+            'reaches your headphones.',
+      ),
+      Faq(
         'Can I write a note on a song?',
         'Yes. Choose Add note from the song menu. The note shows under the '
             'title in the player, and a small note icon marks the song in '
@@ -165,6 +179,14 @@ class HelpPage extends StatelessWidget {
             'looks for cover.jpg, folder.jpg or front.jpg in the song folder.',
       ),
       Faq(
+        'Can I use my own cover?',
+        'Yes. Choose Change cover in the menu of a song, album, artist or '
+            'playlist, and pick a picture. For an album, choose whether it '
+            'goes on every song or only on songs without a cover. Use '
+            'original cover brings the old one back. Your music files are '
+            'never changed.',
+      ),
+      Faq(
         'Can ForYou Music download lyrics or covers?',
         'No. Nothing is downloaded from the internet. Everything comes from '
             'your own files.',
@@ -237,6 +259,11 @@ class HelpPage extends StatelessWidget {
       ),
     ],
     'Troubleshooting': [
+      Faq(
+        'The screen changed while a song was playing.',
+        'A few songs come with a little surprise from the developer. It ends '
+            'when the song does. Double tap anywhere to stop it sooner.',
+      ),
       Faq(
         'Android: music stops when the screen turns off.',
         'Some phones put apps to sleep to save battery. On Samsung, open '

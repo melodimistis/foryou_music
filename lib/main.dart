@@ -4,6 +4,10 @@ import 'dart:io';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
 import 'package:foryou_music/providers/collections_controller.dart';
+import 'package:foryou_music/easter_eggs/app_tint.dart';
+import 'package:foryou_music/easter_eggs/easter_egg_controller.dart';
+import 'package:foryou_music/easter_eggs/easter_egg_layer.dart';
+import 'package:foryou_music/providers/custom_covers_controller.dart';
 import 'package:foryou_music/providers/library_controller.dart';
 import 'package:foryou_music/services/library_repository.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
@@ -48,6 +52,7 @@ Future<void> main() async {
   final libraryRepo = await LibraryRepository.open();
   final coversDir = await CoverStore.init();
   final collections = await CollectionsController.open();
+  final customCovers = await CustomCoversController.open(coversDir: coversDir);
   final settings = await SettingsController.open();
   final library = LibraryController(
     libraryRepo,
@@ -58,8 +63,10 @@ Future<void> main() async {
     },
     pruneCovers: CoverStore.prune,
     filter: settings.songFilter,
+    customCovers: customCovers.value,
   );
   settings.addListener(() => library.setFilter(settings.songFilter));
+  customCovers.addListener(() => library.setCustomCovers(customCovers.value));
   await settings.settleOnboarding(existingUser: library.sources.isNotEmpty);
 
   if (Platform.isAndroid) {
@@ -78,6 +85,7 @@ Future<void> main() async {
     recordSkip: library.recordSkip,
     store: await HiveQueueStore.open(),
   );
+  library.addListener(() => player.refreshSongs(library.songById));
   void syncAudio() {
     player.setCrossfade(Duration(seconds: settings.crossfadeSeconds));
     player.setNormalization(settings.normalization);
@@ -100,6 +108,11 @@ Future<void> main() async {
   unawaited(updates.installer?.clean());
 
   final lyricsService = LyricsService();
+  final eggs = EasterEggController(
+    player: player,
+    hasSyncedLyrics: (song) async =>
+        (await lyricsService.load(song))?.synced ?? false,
+  );
   final messages = YoruMessagesController(
     settings: settings,
     yoru: yoru,
@@ -116,6 +129,7 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: yoru),
         ChangeNotifierProvider.value(value: library),
         ChangeNotifierProvider.value(value: collections),
+        ChangeNotifierProvider.value(value: customCovers),
         ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider.value(value: equalizer),
         ChangeNotifierProvider(create: (_) => ShellController()),
@@ -124,6 +138,7 @@ Future<void> main() async {
         Provider.value(value: lyricsService),
         Provider.value(value: messages),
         ChangeNotifierProvider.value(value: player),
+        ChangeNotifierProvider.value(value: eggs),
       ],
       child: ForYouApp(
         skipWelcome: settings.skipWelcome,
@@ -163,7 +178,9 @@ class ForYouApp extends StatelessWidget {
       title: 'ForYou Music',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const ForYouScrollBehavior(),
-      builder: (context, child) => NoticeLayer(child: child!),
+      builder: (context, child) => EggAppTint(
+        child: NoticeLayer(child: EasterEggLayer(child: child!)),
+      ),
       theme: buildAppTheme(),
       home: !onboarded
           ? const OnboardingPage()

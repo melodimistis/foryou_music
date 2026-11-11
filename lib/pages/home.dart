@@ -375,7 +375,9 @@ class _ContinueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final player = context.read<PlayerController>();
-    final song = context.select<PlayerController, Song?>((p) => p.current);
+    final song = context
+        .select<PlayerController, (Song?, int)>((p) => (p.current, p.revision))
+        .$1;
     final playing = context.select<PlayerController, bool>((p) => p.isPlaying);
     final shuffle = context.select<PlayerController, bool>((p) => p.shuffle);
     final hasNext = context.select<PlayerController, bool>((p) => p.hasNext);
@@ -686,7 +688,7 @@ class _PlaylistShelf extends StatelessWidget {
           actions: (context) => playlistActions(context, p),
           child: _ShelfTile(
             title: p.name,
-            coverKey: coverOf(lib.songsByIds(p.songIds)),
+            coverKey: playlistCoverOf(context, p.id, lib.songsByIds(p.songIds)),
             onTap: () => PlaylistPage.open(context, p.id),
           ),
         ),

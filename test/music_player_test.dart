@@ -2,7 +2,15 @@ import 'dart:io';
 
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foryou_music/easter_eggs/easter_egg_controller.dart';
+import 'package:foryou_music/easter_eggs/egg_entry.dart';
+import 'package:foryou_music/easter_eggs/lyric_effects.dart';
+import 'package:foryou_music/easter_eggs/player_effects.dart';
+import 'package:foryou_music/easter_eggs/registry.dart';
+import 'package:foryou_music/easter_eggs/samples.dart';
+import 'package:foryou_music/easter_eggs/stickers.dart';
 import 'package:foryou_music/models/lyrics.dart';
+import 'package:foryou_music/models/song.dart';
 import 'package:foryou_music/pages/music_player.dart';
 import 'package:foryou_music/providers/collections_controller.dart';
 import 'package:foryou_music/providers/notice_controller.dart';
@@ -10,6 +18,7 @@ import 'package:foryou_music/providers/player_controller.dart';
 import 'package:foryou_music/providers/yoru_controller.dart';
 import 'package:foryou_music/services/lyrics/lyrics_service.dart';
 import 'package:foryou_music/widgets/bottom_navbar.dart';
+import 'package:foryou_music/widgets/cover_art.dart';
 import 'package:foryou_music/widgets/note_sheet.dart';
 import 'package:foryou_music/widgets/notice/notice_layer.dart';
 import 'package:hive_ce/hive.dart';
@@ -70,13 +79,14 @@ void main() {
     tester.view.reset();
   }
 
-  Widget app() => MultiProvider(
+  Widget app({EasterEggController? eggs}) => MultiProvider(
     providers: [
       ChangeNotifierProvider.value(value: player),
       ChangeNotifierProvider.value(value: collections),
       ChangeNotifierProvider.value(value: yoru),
       ChangeNotifierProvider(create: (_) => NoticeController()),
       Provider.value(value: lyrics),
+      if (eggs != null) ChangeNotifierProvider.value(value: eggs),
     ],
     child: MaterialApp(
       builder: (context, child) => NoticeLayer(child: child!),
@@ -226,6 +236,148 @@ void main() {
     await settle(tester);
     expect(find.byType(MusicPlayerPage), findsNothing);
 
+    await tearDownAll(tester);
+  });
+
+  testWidgets('shows audio quality and follows a new cover at once', (
+    tester,
+  ) async {
+    await setUpAll(tester);
+    await tester.pumpWidget(app());
+    const hiRes = Song(
+      id: 'q',
+      title: 'Lagu q',
+      artist: 'LANY',
+      uri: 'file:///m/q.flac',
+      sourceId: 's',
+      durationMs: 100000,
+      format: 'FLAC',
+      sampleRate: 96000,
+      bitrate: 2400000,
+      bitDepth: 24,
+    );
+    await player.playQueue([hiRes, song('b')]);
+    await settle(tester);
+    await tester.tap(find.text('Lagu q').first);
+    await settle(tester);
+    expect(find.text('FLAC · 24-bit · 96 kHz · 2400 kbps'), findsOneWidget);
+
+    Finder cover(String key) => find.byWidgetPredicate(
+      (w) => w is CoverArt && w.coverKey == key && w.size > 100,
+    );
+    expect(cover(''), findsOneWidget);
+    player.refreshSongs(
+      (id) => id == 'q' ? hiRes.copyWith(coverKey: 'custom/q.png') : null,
+    );
+    await settle(tester);
+    expect(cover('custom/q.png'), findsOneWidget);
+    expect(find.text('FLAC · 24-bit · 96 kHz · 2400 kbps'), findsOneWidget);
+
+    await player.next();
+    await settle(tester);
+    expect(find.textContaining('kbps'), findsNothing);
+    await tearDownAll(tester);
+  });
+
+  testWidgets('an easter egg colors the player, its cover and lyrics', (
+    tester,
+  ) async {
+    await setUpAll(tester);
+    final eggs = EasterEggController(player: player, registry: const []);
+    addTearDown(eggs.dispose);
+    await tester.pumpWidget(app(eggs: eggs));
+    await player.playQueue([song('a')]);
+    await settle(tester);
+    await tester.tap(find.text('Lagu a').first);
+    await settle(tester);
+
+    final inPlayer = find.byType(MusicPlayerPage);
+    Color? seekColor() => tester
+        .widget<SliderTheme>(
+          find.descendant(of: inPlayer, matching: find.byType(SliderTheme)),
+        )
+        .data
+        .activeTrackColor;
+    Color? playColor() => tester
+        .widget<IconButton>(
+          find.descendant(
+            of: inPlayer,
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w is IconButton &&
+                  (w.tooltip == 'Pause' || w.tooltip == 'Play'),
+            ),
+          ),
+        )
+        .color;
+    expect(seekColor(), Colors.white);
+    expect(playColor(), Colors.white);
+    expect(find.byType(StickersView), findsNothing);
+
+    Future<void> settleMoving() async {
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 40)),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+    }
+
+    eggs.preview(EggSamples.combos['Love song']!);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(seekColor(), isNot(Colors.white));
+    expect(seekColor(), isNot(EggSamples.rose.accent));
+    await settleMoving();
+    expect(seekColor(), EggSamples.rose.accent);
+    expect(playColor(), EggSamples.rose.accent);
+    final tint = tester.widget<DecoratedBox>(
+      find.descendant(
+        of: find.byType(EggTint),
+        matching: find.byType(DecoratedBox),
+      ),
+    );
+    final gradient = (tint.decoration as BoxDecoration).gradient!;
+    expect(
+      gradient.colors.first,
+      EggSamples.rose.top.withValues(alpha: EggSamples.rose.strength),
+    );
+    expect(
+      find.descendant(of: inPlayer, matching: find.byType(StickersView)),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Lyrics'));
+    await settleMoving();
+    final line = tester.widget<Text>(
+      find.text('Oh, my heart hurts so good').first,
+    );
+    expect(line.style?.color, EggSamples.bounce.lit);
+    expect(line.style?.fontWeight, FontWeight.w900);
+
+    eggs.stopPreview();
+    await settleMoving();
+    expect(seekColor(), Colors.white);
+    expect(
+      tester
+          .widget<Text>(find.text('Oh, my heart hurts so good').first)
+          .style
+          ?.color,
+      Colors.white,
+    );
+
+    expect(find.text('• • •'), findsOneWidget);
+    final superLook = eggRegistry
+        .firstWhere((e) => e.title == 'Super in Love')
+        .pieces
+        .whereType<LyricStylePiece>()
+        .single;
+    eggs.preview([superLook]);
+    await settleMoving();
+    expect(find.byType(EggGapDots), findsOneWidget);
+    expect(find.text('• • •'), findsNothing);
+    eggs.stopPreview();
+    await settleMoving();
     await tearDownAll(tester);
   });
 

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foryou_music/models/song.dart';
 import 'package:foryou_music/pages/album.dart';
@@ -460,6 +460,64 @@ void main() {
       FocusManager.instance.primaryFocus?.context?.widget,
       isNot(isA<EditableText>()),
     );
+
+    await tester.pumpWidget(const SizedBox());
+    await tearDownLibrary(tester);
+  });
+
+  testWidgets('album Play stops at the end; long press offers all albums', (
+    tester,
+  ) async {
+    await setUpLibrary(tester);
+    final album = library.albums.single;
+    player.cycleRepeat();
+    await tester.pumpWidget(app(AlbumPage(albumId: album.id)));
+    await settle(tester);
+
+    await tester.tap(find.text('Play'));
+    await tester.pump();
+    expect(player.current?.id, album.songs.first.id);
+    expect(player.repeat, RepeatMode.off);
+    expect(player.shuffle, isFalse);
+
+    await tester.longPress(find.text('Play'));
+    await settle(tester);
+    expect(find.text('Just this album'), findsOneWidget);
+    await tester.tap(find.text('All albums, repeat'));
+    await settle(tester);
+    expect(player.repeat, RepeatMode.all);
+
+    await tester.longPress(find.text('Shuffle'));
+    await settle(tester);
+    await tester.tap(find.text('All albums'));
+    await settle(tester);
+    expect(player.shuffle, isTrue);
+    expect(player.repeat, RepeatMode.off);
+    expect(player.queue.length, album.songs.length);
+
+    await tester.pumpWidget(const SizedBox());
+    await tearDownLibrary(tester);
+  });
+
+  testWidgets('playlist has Play and Shuffle without album options', (
+    tester,
+  ) async {
+    await setUpLibrary(tester);
+    late String id;
+    await tester.runAsync(() async {
+      id = (await collections.createPlaylist('Mine', songIds: ['t2', 't5'])).id;
+    });
+    await tester.pumpWidget(app(PlaylistPage(playlistId: id)));
+    await settle(tester);
+
+    await tester.tap(find.text('Shuffle'));
+    await tester.pump();
+    expect(player.shuffle, isTrue);
+    expect(['t2', 't5'], contains(player.current?.id));
+
+    await tester.longPress(find.text('Play'));
+    await settle(tester);
+    expect(find.text('All albums'), findsNothing);
 
     await tester.pumpWidget(const SizedBox());
     await tearDownLibrary(tester);

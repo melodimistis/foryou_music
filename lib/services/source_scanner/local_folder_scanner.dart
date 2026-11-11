@@ -130,6 +130,7 @@ class LocalFolderScanner implements SourceScanner {
         sourceId: source.id,
         uri: c.uri,
         title: title,
+        titleFromFile: t?.title == null,
         artist: artist,
         album: t?.album ?? '',
         albumArtist: t?.albumArtist ?? '',
@@ -140,6 +141,10 @@ class LocalFolderScanner implements SourceScanner {
         discNumber: t?.discNumber,
         trackGain: t?.trackGain,
         albumGain: t?.albumGain,
+        format: t?.format ?? '',
+        sampleRate: t?.sampleRate,
+        bitrate: t?.bitrate,
+        bitDepth: t?.bitDepth,
         coverKey: t?.coverKey ?? '',
         modifiedMs: c.modifiedMs,
         addedMs: old == null

@@ -50,6 +50,47 @@ class PlayerController extends ChangeNotifier {
   Song? get current =>
       _index >= 0 && _index < _queue.length ? _queue[_index] : null;
   bool get hasSong => current != null;
+
+  bool _ended = false;
+
+  bool get ended => _ended;
+
+  int _revision = 0;
+
+  int get revision => _revision;
+
+  void refreshSongs(Song? Function(String id) lookup) {
+    var changed = false;
+    List<Song> fresh(List<Song> songs) {
+      List<Song>? out;
+      for (var i = 0; i < songs.length; i++) {
+        final old = songs[i];
+        final now = lookup(old.id);
+        if (now == null || identical(now, old)) continue;
+        if (_looksDifferent(old, now)) changed = true;
+        (out ??= List.of(songs))[i] = now;
+      }
+      return out ?? songs;
+    }
+
+    _queue = fresh(_queue);
+    _original = fresh(_original);
+    if (!changed) return;
+    _revision++;
+    notifyListeners();
+  }
+
+  static bool _looksDifferent(Song a, Song b) =>
+      a.coverKey != b.coverKey ||
+      a.title != b.title ||
+      a.artist != b.artist ||
+      a.album != b.album ||
+      a.durationMs != b.durationMs ||
+      a.available != b.available ||
+      a.format != b.format ||
+      a.sampleRate != b.sampleRate ||
+      a.bitrate != b.bitrate ||
+      a.bitDepth != b.bitDepth;
   List<Song> get queue => List.unmodifiable(_queue);
   bool get isPlaying => _isPlaying;
   bool get shuffle => _shuffle;
@@ -126,6 +167,7 @@ class PlayerController extends ChangeNotifier {
     _index = i;
     final song = current!;
     _counted = false;
+    _ended = false;
     _position = Duration.zero;
     _lastSaved = Duration.zero;
     _duration = Duration(milliseconds: song.durationMs);
@@ -149,6 +191,7 @@ class PlayerController extends ChangeNotifier {
 
   Future<void> play() async {
     if (!hasSong) return;
+    _ended = false;
     if (_lastError != null) return _loadCurrent();
     await _engine.play();
   }
@@ -199,6 +242,32 @@ class PlayerController extends ChangeNotifier {
       songs,
       startIndex: playable[_random.nextInt(playable.length)],
     );
+  }
+
+  Future<void> playCollection(
+    List<Song> songs, {
+    bool shuffle = false,
+    RepeatMode repeat = RepeatMode.off,
+    Iterable<int>? startAmong,
+  }) async {
+    final all = [
+      for (final (i, s) in songs.indexed)
+        if (s.available) i,
+    ];
+    final among = startAmong == null
+        ? const <int>[]
+        : [
+            for (final i in startAmong)
+              if (i >= 0 && i < songs.length && songs[i].available) i,
+          ];
+    final candidates = among.isNotEmpty ? among : all;
+    if (candidates.isEmpty) return;
+    final start = shuffle
+        ? candidates[_random.nextInt(candidates.length)]
+        : candidates.first;
+    _shuffle = shuffle;
+    _repeat = repeat;
+    await playQueue(songs, startIndex: start);
   }
 
   Future<void> jumpTo(int index) async {
@@ -380,6 +449,7 @@ class PlayerController extends ChangeNotifier {
     if (song == null) return;
     final token = ++_loadToken;
     _counted = false;
+    _ended = false;
     _position = Duration.zero;
     _duration = Duration(milliseconds: song.durationMs);
     _lastError = null;
@@ -435,6 +505,8 @@ class PlayerController extends ChangeNotifier {
 
     final atEnd = _index >= _queue.length - 1;
     if (atEnd && _repeat == RepeatMode.off) {
+      _ended = true;
+      notifyListeners();
       await _engine.pause();
       await seek(Duration.zero);
       return;

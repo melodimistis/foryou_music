@@ -658,7 +658,7 @@ class _PlaylistList extends StatelessWidget {
                 child: MediaRow(
                   title: p.name,
                   subtitle: songs.isEmpty ? 'Empty' : artistsSummary(songs),
-                  coverKey: coverOf(songs),
+                  coverKey: playlistCoverOf(context, p.id, songs),
                   onTap: () => PlaylistPage.open(context, p.id),
                 ),
               );

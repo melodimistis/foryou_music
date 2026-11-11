@@ -17,6 +17,11 @@ enum Tip {
     touch: 'Long press a song for more options',
     pointer: 'Right-click a song for more options',
     icon: Icons.touch_app_outlined,
+  ),
+  playOptions(
+    touch: 'Long press Play or Shuffle for more ways to play',
+    pointer: 'Right-click Play or Shuffle for more ways to play',
+    icon: Icons.touch_app_outlined,
   );
 
   const Tip({required this.touch, required this.pointer, required this.icon});

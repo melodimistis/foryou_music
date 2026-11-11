@@ -6,6 +6,11 @@ import 'package:foryou_music/app/theme.dart';
 
 bool isGray(Color c) => (c.r - c.g).abs() < 0.002 && (c.g - c.b).abs() < 0.002;
 
+const easterEggFolder = 'lib/easter_eggs/';
+
+bool isEasterEgg(String path) =>
+    path.replaceAll(r'\', '/').startsWith(easterEggFolder);
+
 void main() {
   test('every theme color is between white and black', () {
     final s = buildAppTheme().colorScheme;
@@ -60,6 +65,7 @@ void main() {
     final problems = <String>[];
     for (final f in Directory('lib').listSync(recursive: true)) {
       if (f is! File || !f.path.endsWith('.dart')) continue;
+      if (isEasterEgg(f.path)) continue;
       final lines = f.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
         final line = lines[i];
@@ -74,5 +80,24 @@ void main() {
       }
     }
     expect(problems, isEmpty);
+  });
+
+  test('only the easter egg folder may use color', () {
+    expect(Directory(easterEggFolder).existsSync(), isTrue);
+    expect(
+      isEasterEgg('lib/easter_eggs/particles/particle_preset.dart'),
+      isTrue,
+    );
+    expect(isEasterEgg('lib/easter_eggs_extra/x.dart'), isFalse);
+    expect(isEasterEgg('lib/pages/easter_eggs/x.dart'), isFalse);
+    final outside = [
+      for (final f in Directory('lib').listSync(recursive: true))
+        if (f is File &&
+            f.path.endsWith('.dart') &&
+            !isEasterEgg(f.path) &&
+            f.readAsStringSync().contains("easter_eggs/particles/"))
+          f.path,
+    ];
+    expect(outside, isEmpty);
   });
 }

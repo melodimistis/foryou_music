@@ -1,6 +1,8 @@
 import 'package:path/path.dart' as p;
 
 import '../models/album.dart';
+import '../models/cover_owner.dart';
+import '../models/custom_covers.dart';
 import '../models/song.dart';
 
 class LibraryIndex {
@@ -155,6 +157,17 @@ class LibraryIndex {
     };
   }
 
+  static List<String> namesIn({required String artist, String title = ''}) {
+    final a = _parseArtist(artist);
+    final t = _titleFeatured(title);
+    return _dedupe([
+      for (final n in [...a.main, ...a.featured, ...t.sure, ...t.maybe]) ...[
+        n,
+        ..._names(n, _listSeparator),
+      ],
+    ]);
+  }
+
   static int _trackOrder(Song a, Song b) {
     final disc = (a.discNumber ?? 1).compareTo(b.discNumber ?? 1);
     if (disc != 0) return disc;
@@ -189,7 +202,10 @@ class LibraryIndex {
     return keys.take(limit).map((k) => display[k]!).toList();
   }
 
-  static LibraryIndex build(Iterable<Song> songs) {
+  static LibraryIndex build(
+    Iterable<Song> songs, {
+    CustomCovers covers = CustomCovers.none,
+  }) {
     final albumGroups = <String, List<Song>>{};
     final artistGroups = <String, List<Song>>{};
     final artistNames = <String, String>{};
@@ -236,9 +252,9 @@ class LibraryIndex {
         songs: List.unmodifiable(tracks),
         year: years.isEmpty ? null : years.reduce((a, b) => a < b ? a : b),
         genre: _topGenres(tracks, 1).firstOrNull ?? '',
-        coverKey: tracks
-            .firstWhere((s) => s.hasCover, orElse: () => first)
-            .coverKey,
+        coverKey:
+            covers.of(CoverOwner.album, e.key) ??
+            tracks.firstWhere((s) => s.hasCover, orElse: () => first).coverKey,
       );
       albums.add(album);
       for (final s in tracks) {
@@ -263,10 +279,12 @@ class LibraryIndex {
             final c = (b.year ?? 0).compareTo(a.year ?? 0);
             return c != 0 ? c : _norm(a.title).compareTo(_norm(b.title));
           });
-      final cover = ownAlbums
-          .map((a) => a.coverKey)
-          .followedBy(own.map((s) => s.coverKey))
-          .firstWhere((k) => k.isNotEmpty, orElse: () => '');
+      final cover =
+          covers.of(CoverOwner.artist, e.key) ??
+          ownAlbums
+              .map((a) => a.coverKey)
+              .followedBy(own.map((s) => s.coverKey))
+              .firstWhere((k) => k.isNotEmpty, orElse: () => '');
       artists.add(
         Artist(
           id: e.key,

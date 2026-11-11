@@ -57,6 +57,7 @@ class PlaylistPage extends StatelessWidget {
       body: CollectionView(
         title: playlist.name,
         subtitle: artistsSummary(songs),
+        coverKey: playlistCoverOf(context, playlist.id, songs),
         songs: songs,
         emptyMessage: 'Add songs with the + button on an album',
         onRemove: (song, _) => _remove(context, playlist, song),

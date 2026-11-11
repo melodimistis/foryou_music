@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
+import '../easter_eggs/egg_lab_page.dart';
 import '../providers/notice_controller.dart';
 import '../services/links.dart';
 import '../widgets/foryou_logo.dart';
@@ -22,9 +23,14 @@ class AboutUsPage extends StatelessWidget {
         MediaQuery.paddingOf(context).bottom + 24,
       ),
       children: [
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
-          child: ForYouLogo(size: 72),
+          child: GestureDetector(
+            onLongPress: EggLabPage.available
+                ? () => EggLabPage.open(context)
+                : null,
+            child: const ForYouLogo(size: 72),
+          ),
         ),
         const SizedBox(height: 16),
         const Text(
