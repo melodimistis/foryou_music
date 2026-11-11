@@ -165,7 +165,9 @@ class HelpPage extends StatelessWidget {
         'Yes. In a .lrc file, give the extra line the same time as the '
             'original line, right below it. ForYou Music shows it smaller, '
             'under the lyric, for example "[00:16.00]사랑해" followed by '
-            '"[00:16.00]saranghae".',
+            '"[00:16.00]saranghae". Some .lrc files already carry a '
+            'translation and romanization for every line; they show up too. '
+            'Tap the translate button below the lyrics to show or hide them.',
       ),
       Faq(
         'How do I get word-by-word highlighting?',

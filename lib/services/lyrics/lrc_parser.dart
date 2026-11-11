@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../models/lyrics.dart';
 
 final _lineStamp = RegExp(r'\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]');
@@ -6,7 +8,40 @@ final _offsetTag = RegExp(
   r'^\[offset:\s*([+-]?\d+)\s*\]',
   caseSensitive: false,
 );
-final _metaTag = RegExp(r'^\[[a-zA-Z#]+:.*\]\s*$');
+final _metaTag = RegExp(r'^\[[a-zA-Z#][a-zA-Z#-]*:.*\]\s*$');
+final _extTag = RegExp(r'^\[x-(romaji|translation):(\d+):([^\]]*)\]\s*$');
+final _notLetter = RegExp(r'[^\p{L}\p{N}]', unicode: true);
+const _extSlackMs = 15;
+
+String? _decode(String data) {
+  try {
+    final text = utf8
+        .decode(
+          base64.decode(base64.normalize(data.trim())),
+          allowMalformed: true,
+        )
+        .trim();
+    return text.isEmpty ? null : text;
+  } on FormatException {
+    return null;
+  }
+}
+
+String _bare(String s) => s.toLowerCase().replaceAll(_notLetter, '');
+
+String? _extFor(Map<int, String> found, int ms, String original) {
+  var value = found[ms];
+  if (value == null) {
+    for (final e in found.entries) {
+      if ((e.key - ms).abs() <= _extSlackMs) {
+        value = e.value;
+        break;
+      }
+    }
+  }
+  if (value == null || _bare(value) == _bare(original)) return null;
+  return value;
+}
 
 Duration _stamp(Match m) {
   final frac = m.group(3) ?? '';
@@ -44,28 +79,43 @@ Lyrics parseLyrics(String raw) {
     if (m != null) offset = Duration(milliseconds: int.parse(m.group(1)!));
   }
 
+  final romaji = <int, String>{};
+  final translation = <int, String>{};
+  for (final rawLine in text.split('\n')) {
+    final m = _extTag.firstMatch(rawLine.trim());
+    if (m == null) continue;
+    final value = _decode(m.group(3)!);
+    if (value == null) continue;
+    (m.group(1) == 'romaji' ? romaji : translation)[int.parse(m.group(2)!)] =
+        value;
+  }
+
   final lines = <({LyricLine line, int order})>[];
   for (final rawLine in text.split('\n')) {
     final line = rawLine.trim();
     var rest = line;
-    final times = <Duration>[];
+    final stamps = <Duration>[];
     while (true) {
       final m = _lineStamp.matchAsPrefix(rest);
       if (m == null) break;
-      times.add(_stamp(m) - offset);
+      stamps.add(_stamp(m));
       rest = rest.substring(m.end);
     }
-    if (times.isEmpty) continue;
+    if (stamps.isEmpty) continue;
     final words = _words(rest, offset);
     final clean = words.isNotEmpty
         ? words.map((w) => w.text).join().trim()
         : rest.replaceAll(_wordStamp, '').trim();
-    for (final t in times) {
+    for (final stamp in stamps) {
+      final t = stamp - offset;
+      final ms = stamp.inMilliseconds;
       lines.add((
         line: LyricLine(
           t < Duration.zero ? Duration.zero : t,
           clean,
           words: words,
+          romaji: clean.isEmpty ? null : _extFor(romaji, ms, clean),
+          translation: clean.isEmpty ? null : _extFor(translation, ms, clean),
         ),
         order: lines.length,
       ));
@@ -109,6 +159,8 @@ List<LyricLine> _mergeSameTime(List<({LyricLine line, int order})> sorted) {
         main.text,
         words: main.words,
         extra: [for (final l in texts.skip(1)) l.text],
+        romaji: main.romaji,
+        translation: main.translation,
       ),
     );
   }

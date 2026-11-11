@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart' hide RepeatMode;
@@ -15,6 +16,7 @@ import 'package:foryou_music/pages/music_player.dart';
 import 'package:foryou_music/providers/collections_controller.dart';
 import 'package:foryou_music/providers/notice_controller.dart';
 import 'package:foryou_music/providers/player_controller.dart';
+import 'package:foryou_music/providers/settings_controller.dart';
 import 'package:foryou_music/providers/yoru_controller.dart';
 import 'package:foryou_music/services/lyrics/lyrics_service.dart';
 import 'package:foryou_music/widgets/bottom_navbar.dart';
@@ -31,6 +33,14 @@ const lrc = '''
 [00:05.00]Oh, my heart hurts so good
 [00:10.00]I love you, baby, so bad, so bad
 [00:15.00]Oh, oh, my heart hurts so good
+''';
+
+final translatedLrc =
+    '''
+[x-translation:5000:${base64.encode(utf8.encode('I love you'))}]
+[x-romaji:5000:${base64.encode(utf8.encode('saranghae'))}]
+[00:05.00]사랑해
+[00:10.00]Oh, my heart hurts so good
 ''';
 
 void main() {
@@ -79,28 +89,30 @@ void main() {
     tester.view.reset();
   }
 
-  Widget app({EasterEggController? eggs}) => MultiProvider(
-    providers: [
-      ChangeNotifierProvider.value(value: player),
-      ChangeNotifierProvider.value(value: collections),
-      ChangeNotifierProvider.value(value: yoru),
-      ChangeNotifierProvider(create: (_) => NoticeController()),
-      Provider.value(value: lyrics),
-      if (eggs != null) ChangeNotifierProvider.value(value: eggs),
-    ],
-    child: MaterialApp(
-      builder: (context, child) => NoticeLayer(child: child!),
-      home: Scaffold(
-        extendBody: true,
-        bottomNavigationBar: BottomNavbar(
-          currentIndex: 0,
-          onTap: (_) {},
-          onSearchTap: () {},
+  Widget app({EasterEggController? eggs, SettingsController? settings}) =>
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: player),
+          ChangeNotifierProvider.value(value: collections),
+          ChangeNotifierProvider.value(value: yoru),
+          ChangeNotifierProvider(create: (_) => NoticeController()),
+          Provider.value(value: lyrics),
+          if (eggs != null) ChangeNotifierProvider.value(value: eggs),
+          if (settings != null) ChangeNotifierProvider.value(value: settings),
+        ],
+        child: MaterialApp(
+          builder: (context, child) => NoticeLayer(child: child!),
+          home: Scaffold(
+            extendBody: true,
+            bottomNavigationBar: BottomNavbar(
+              currentIndex: 0,
+              onTap: (_) {},
+              onSearchTap: () {},
+            ),
+            body: const SizedBox.expand(),
+          ),
         ),
-        body: const SizedBox.expand(),
-      ),
-    ),
-  );
+      );
 
   testWidgets('music player: open, controls, favourite, lyrics, queue, close', (
     tester,
@@ -465,6 +477,82 @@ void main() {
     expect(ids(), ['a', 'd', 'b']);
     expect(player.current?.id, 'a');
 
+    await tearDownAll(tester);
+  });
+
+  testWidgets('translation and romanization show under the line when on', (
+    tester,
+  ) async {
+    const line = LyricLine(
+      Duration.zero,
+      '사랑해',
+      romaji: 'saranghae',
+      translation: 'I love you',
+    );
+    Future<void> show({required bool translation, required bool romaji}) =>
+        tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: LyricLineView(
+                line: line,
+                state: LineState.current,
+                clock: ValueNotifier(Duration.zero),
+                end: const Duration(seconds: 2),
+                showTranslation: translation,
+                showRomaji: romaji,
+              ),
+            ),
+          ),
+        );
+    await show(translation: true, romaji: false);
+    expect(find.text('I love you'), findsOneWidget);
+    expect(find.text('saranghae'), findsNothing);
+    expect(
+      tester.getRect(find.text('I love you')).top,
+      greaterThanOrEqualTo(tester.getRect(find.text('사랑해')).bottom),
+    );
+    await show(translation: true, romaji: true);
+    expect(
+      tester.getRect(find.text('saranghae')).top,
+      lessThan(tester.getRect(find.text('I love you')).top),
+    );
+    await show(translation: false, romaji: false);
+    expect(find.text('I love you'), findsNothing);
+    expect(find.text('saranghae'), findsNothing);
+  });
+
+  testWidgets('the translate button shows and hides lyric translations', (
+    tester,
+  ) async {
+    await setUpAll(tester);
+    late SettingsController settings;
+    await tester.runAsync(
+      () async => settings = await SettingsController.open(),
+    );
+    lyrics = LyricsService(embedded: (path) async => translatedLrc);
+    await tester.pumpWidget(app(settings: settings));
+    await player.playQueue([song('a')]);
+    await settle(tester);
+    await tester.tap(find.text('Lagu a').first);
+    await settle(tester);
+    expect(find.byTooltip('Translation'), findsNothing);
+    await player.pause();
+    await settle(tester);
+
+    await tester.tap(find.byTooltip('Lyrics'));
+    await settle(tester);
+    expect(find.text('I love you'), findsOneWidget);
+    expect(find.text('saranghae'), findsNothing);
+    await tester.tap(find.byTooltip('Translation'));
+    await settle(tester);
+    expect(find.text('Show romanization'), findsOneWidget);
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Hide translation'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await settle(tester);
+    expect(settings.lyricsTranslation, isFalse);
+    expect(find.text('I love you'), findsNothing);
     await tearDownAll(tester);
   });
 

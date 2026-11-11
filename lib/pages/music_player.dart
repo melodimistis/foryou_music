@@ -15,6 +15,7 @@ import '../models/song.dart';
 import '../providers/collections_controller.dart';
 import '../providers/notice_controller.dart';
 import '../providers/player_controller.dart';
+import '../providers/settings_controller.dart';
 import '../providers/yoru_controller.dart';
 import '../services/audio_output.dart';
 import '../services/covers/blurred_cover.dart';
@@ -175,6 +176,7 @@ class _MusicPlayerPageState extends State<MusicPlayerPage>
                       const _Controls(),
                       const SizedBox(height: 16),
                       _BottomRow(
+                        song: song,
                         lyricsOn: _lyrics,
                         onLyrics: () => setState(() => _lyrics = !_lyrics),
                       ),
@@ -642,10 +644,65 @@ class _Controls extends StatelessWidget {
 }
 
 class _BottomRow extends StatelessWidget {
-  const _BottomRow({required this.lyricsOn, required this.onLyrics});
+  const _BottomRow({
+    required this.song,
+    required this.lyricsOn,
+    required this.onLyrics,
+  });
 
+  final Song song;
   final bool lyricsOn;
   final VoidCallback onLyrics;
+
+  static Future<void> _translate(
+    BuildContext context,
+    Lyrics lyrics,
+    SettingsController settings,
+  ) async {
+    final actions = [
+      if (lyrics.hasTranslation)
+        MenuAction(
+          settings.lyricsTranslation ? 'Hide translation' : 'Show translation',
+          Icons.translate_rounded,
+          () => settings.setLyricsTranslation(!settings.lyricsTranslation),
+        ),
+      if (lyrics.hasRomaji)
+        MenuAction(
+          settings.lyricsRomaji ? 'Hide romanization' : 'Show romanization',
+          Icons.abc_rounded,
+          () => settings.setLyricsRomaji(!settings.lyricsRomaji),
+        ),
+    ];
+    if (actions.length == 1) {
+      await actions.single.onSelected();
+      return;
+    }
+    final box = context.findRenderObject()! as RenderBox;
+    await showContextMenu(
+      context,
+      box.localToGlobal(box.size.center(Offset.zero)),
+      actions,
+    );
+  }
+
+  Widget _translateButton(Lyrics lyrics) => Builder(
+    builder: (context) {
+      final settings = context.watch<SettingsController?>();
+      final on =
+          (lyrics.hasTranslation && (settings?.lyricsTranslation ?? true)) ||
+          (lyrics.hasRomaji && (settings?.lyricsRomaji ?? false));
+      return IconButton(
+        tooltip: 'Translation',
+        icon: Icon(
+          Icons.translate_rounded,
+          color: on ? Colors.white : Colors.white70,
+        ),
+        onPressed: settings == null
+            ? null
+            : () => _translate(context, lyrics, settings),
+      );
+    },
+  );
 
   Future<void> _output(BuildContext context) async {
     final notices = context.read<NoticeController>();
@@ -660,6 +717,18 @@ class _BottomRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<Lyrics?>(
+      future: lyricsOn ? context.read<LyricsService?>()?.load(song) : null,
+      builder: (context, snap) {
+        final lyrics = lyricsOn ? snap.data : null;
+        final translatable =
+            lyrics != null && (lyrics.hasTranslation || lyrics.hasRomaji);
+        return _row(context, translatable ? lyrics : null);
+      },
+    );
+  }
+
+  Widget _row(BuildContext context, Lyrics? translatable) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -671,6 +740,7 @@ class _BottomRow extends StatelessWidget {
           ),
           onPressed: onLyrics,
         ),
+        if (translatable != null) _translateButton(translatable),
         if (AudioOutput.supported)
           IconButton(
             tooltip: 'Audio output',
@@ -1040,6 +1110,10 @@ class _SyncedLyricsState extends State<SyncedLyrics>
     final lines = widget.lyrics.lines;
     final current = _current;
     final look = eggLyricStyle(context);
+    final (showTranslation, showRomaji) = context
+        .select<SettingsController?, (bool, bool)>(
+          (s) => (s?.lyricsTranslation ?? true, s?.lyricsRomaji ?? false),
+        );
 
     return NotificationListener<UserScrollNotification>(
       onNotification: (_) {
@@ -1083,6 +1157,8 @@ class _SyncedLyricsState extends State<SyncedLyrics>
                         : LyricLineView(
                             line: line,
                             look: look,
+                            showTranslation: showTranslation,
+                            showRomaji: showRomaji,
                             state: i == current
                                 ? LineState.current
                                 : (i < current
@@ -1121,6 +1197,23 @@ const _lyricExtraStyle = TextStyle(
   color: Colors.white70,
 );
 
+const _lyricRomajiStyle = TextStyle(
+  fontFamily: 'Inter',
+  fontSize: 15,
+  fontWeight: FontWeight.w600,
+  fontStyle: FontStyle.italic,
+  height: 1.3,
+  color: Colors.white60,
+);
+
+const _lyricTranslationStyle = TextStyle(
+  fontFamily: 'Inter',
+  fontSize: 15,
+  fontWeight: FontWeight.w500,
+  height: 1.3,
+  color: Colors.white70,
+);
+
 class LyricLineView extends StatelessWidget {
   const LyricLineView({
     super.key,
@@ -1129,6 +1222,8 @@ class LyricLineView extends StatelessWidget {
     required this.clock,
     required this.end,
     this.look,
+    this.showTranslation = true,
+    this.showRomaji = false,
   });
 
   static const currentScale = 1.0;
@@ -1139,6 +1234,8 @@ class LyricLineView extends StatelessWidget {
   final ValueListenable<Duration> clock;
   final Duration end;
   final LyricStylePiece? look;
+  final bool showTranslation;
+  final bool showRomaji;
 
   @override
   Widget build(BuildContext context) {
@@ -1176,13 +1273,26 @@ class LyricLineView extends StatelessWidget {
               look,
             ).copyWith(color: EggLyrics.lit(look, Colors.white)),
           );
-    final Widget body = line.extra.isEmpty
+    final romaji = showRomaji ? line.romaji : null;
+    final translation = showTranslation ? line.translation : null;
+    final Widget body =
+        line.extra.isEmpty && romaji == null && translation == null
         ? content
         : Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               content,
+              if (romaji != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(romaji, style: _lyricRomajiStyle),
+                ),
+              if (translation != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(translation, style: _lyricTranslationStyle),
+                ),
               for (final e in line.extra)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),

@@ -94,6 +94,8 @@ For romanization or a translation, add a second line with the same time right be
 [00:16.00]saranghae
 ```
 
+Some `.lrc` files from lyric sites already carry a translation and a romanization for every line, in hidden `[x-translation:…]` and `[x-romaji:…]` tags. ForYou shows them under the lyric, and the translate button below the lyrics shows or hides them. Translations that only repeat the original line are left out.
+
 ### Covers
 
 ForYou uses the picture embedded in the song first. If there isn't one, it looks for `cover.jpg`, `folder.jpg` or `front.jpg` (or `.png`) in the song's folder.

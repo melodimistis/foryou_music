@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,8 @@ import 'package:foryou_music/services/lyrics/lyrics_service.dart';
 import 'fakes/temp_dir.dart';
 
 const sec = Duration(seconds: 1);
+
+String b64(String s) => base64.encode(utf8.encode(s));
 
 void main() {
   group('parseLyrics', () {
@@ -28,6 +31,47 @@ void main() {
       expect(l.lines[1].isGap, isTrue);
       expect(l.lines[3].text, 'I love you, baby, so bad, so bad');
       expect(l.wordSynced, isFalse);
+    });
+
+    test('hidden translation and romanization tags fill each line', () {
+      final l = parseLyrics('''
+[ti:Super in Love]
+[x-romaji:15769:${b64('sol jik hi')}]
+[x-translation:15769:${b64("I'll be honest")}]
+[x-translation:32086:${b64("I don't wanna know right now")}]
+[x-romaji:32086:${b64("I don't wanna know right now")}]
+[x-translation:40000:not base64!!]
+[00:15.769]v1:<00:15.769>솔<00:16.102><00:16.207>직<00:16.436>히 <00:17.000>
+[00:32.086]v1:<00:32.086>I <00:32.226>don't <00:32.406>wanna <00:32.639>know <00:32.872>right <00:33.202>now
+[00:40.00]Hello
+''');
+      expect(l.lines.map((x) => x.text), [
+        '솔직히',
+        "I don't wanna know right now",
+        'Hello',
+      ]);
+      expect(l.lines[0].romaji, 'sol jik hi');
+      expect(l.lines[0].translation, "I'll be honest");
+      expect(l.lines[1].translation, isNull);
+      expect(l.lines[1].romaji, isNull);
+      expect(l.lines[2].translation, isNull);
+      expect(l.hasTranslation, isTrue);
+      expect(l.hasRomaji, isTrue);
+      expect(parseLyrics('[00:01.00]a').hasTranslation, isFalse);
+    });
+
+    test('translations follow their line through offsets and repeats', () {
+      final l = parseLyrics(
+        '[offset:+500]\n[x-translation:1250:${b64('one')}]\n'
+        '[00:01.250]uno\n[00:01.250]eins',
+      );
+      expect(l.lines.single.time.inMilliseconds, 750);
+      expect(l.lines.single.translation, 'one');
+      expect(l.lines.single.extra, ['eins']);
+      expect(
+        parseLyrics('[x-translation:1:${b64('x')}]\nplain words').plain,
+        'plain words',
+      );
     });
 
     test('three-digit fractions and offset tag', () {

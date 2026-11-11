@@ -15,6 +15,23 @@ import 'package:provider/provider.dart';
 import 'fakes/temp_dir.dart';
 
 void main() {
+  test('lyric translation shows by default, romanization does not', () async {
+    final dir = tempDir('foryou_settings_lyrics');
+    Hive.init(dir.path);
+    final a = await SettingsController.open();
+    expect(a.lyricsTranslation, isTrue);
+    expect(a.lyricsRomaji, isFalse);
+    await a.setLyricsTranslation(false);
+    await a.setLyricsRomaji(true);
+    await Hive.close();
+    Hive.init(dir.path);
+    final b = await SettingsController.open();
+    expect(b.lyricsTranslation, isFalse);
+    expect(b.lyricsRomaji, isTrue);
+    await Hive.close();
+    dir.deleteSync(recursive: true);
+  });
+
   test('update toggle survives reopening', () async {
     final dir = tempDir('foryou_settings');
     Hive.init(dir.path);

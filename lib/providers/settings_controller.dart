@@ -23,6 +23,8 @@ class SettingsController extends ChangeNotifier {
   static const _normalizationKey = 'normalization';
   static const _onboardedKey = 'onboarded';
   static const _tipsKey = 'tipsSeen';
+  static const _lyricsTranslationKey = 'lyricsTranslation';
+  static const _lyricsRomajiKey = 'lyricsRomaji';
   static const maxCrossfade = 12;
   static const hideShortChoices = [0, 15, 30, 60];
 
@@ -143,6 +145,22 @@ class SettingsController extends ChangeNotifier {
   Future<void> setHaptics(bool value) async {
     Haptics.enabled = value;
     await _box.put(_hapticsKey, value);
+    notifyListeners();
+  }
+
+  bool get lyricsTranslation =>
+      _box.get(_lyricsTranslationKey, defaultValue: true) as bool;
+
+  Future<void> setLyricsTranslation(bool value) async {
+    await _box.put(_lyricsTranslationKey, value);
+    notifyListeners();
+  }
+
+  bool get lyricsRomaji =>
+      _box.get(_lyricsRomajiKey, defaultValue: false) as bool;
+
+  Future<void> setLyricsRomaji(bool value) async {
+    await _box.put(_lyricsRomajiKey, value);
     notifyListeners();
   }
 
