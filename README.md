@@ -9,6 +9,18 @@
   <em>For You, By You and All Yours!</em>
 </p>
 
+<p align="center">
+  <a href="https://github.com/melodimistis/foryou_music/releases/latest"><img src="https://img.shields.io/badge/Download_for-Android-1C1C1C?style=for-the-badge&logo=android&logoColor=white" alt="Download for Android"></a>
+  <a href="https://github.com/melodimistis/foryou_music/releases/latest"><img src="https://img.shields.io/badge/Download_for-Linux-1C1C1C?style=for-the-badge&logo=linux&logoColor=white" alt="Download for Linux"></a>
+</p>
+
+<p align="center">
+  <img src="docs/readme/home.png" alt="Home" width="180">
+  <img src="docs/readme/albums.png" alt="Albums" width="180">
+  <img src="docs/readme/player.png" alt="Player" width="180">
+  <img src="docs/readme/lyrics.png" alt="Lyrics" width="180">
+</p>
+
 ---
 
 ForYou Music plays the songs sitting in your folders. There is no account, no streaming and no ads. Your library, favourites, playlists and play history are kept on your device, and the app shapes itself around what you actually listen to.
@@ -16,6 +28,19 @@ ForYou Music plays the songs sitting in your folders. There is no account, no st
 It runs on **Android** and **Linux**. Windows builds are possible but not a priority yet.
 
 **Reading this on Codeberg?** Codeberg only holds a copy of the source code. Downloads, release notes, issues and everything else live on GitHub: [github.com/melodimistis/foryou_music](https://github.com/melodimistis/foryou_music).
+
+## Surprises
+
+Some songs the developer loves come with something extra. Play one of them and the player changes with the song: the cover turns into a hospital monitor with a heartbeat seek bar, the whole app goes pixel art, or the screen gets cinema bars for the ending credits. Each one is made for that song, from its lyrics, cover and music video.
+
+<p align="center">
+  <img src="docs/readme/egg_the_cure.gif" alt="the cure by Olivia Rodrigo" width="240">
+  <img src="docs/readme/egg_jellyous.gif" alt="jellyous by ILLIT" width="240">
+  <img src="docs/readme/egg_midnight.gif" alt="Midnight Fiction by ILLIT" width="240">
+</p>
+<p align="center"><sub><em>the cure</em> (Olivia Rodrigo) · <em>jellyous</em> (ILLIT) · <em>Midnight Fiction</em> (ILLIT)</sub></p>
+
+A surprise only starts when the song really is that song (the title, artist and length must match, plus the album, year or track number), so other versions and covers stay normal. Double tap anywhere to stop one, and it ends by itself with the song. Which songs have one? Play your library and see.
 
 ## What it does
 
@@ -38,6 +63,7 @@ It runs on **Android** and **Linux**. Windows builds are possible but not a prio
 - **Every artist gets credit.** A song by "A feat. B" shows up on both artists' pages instead of creating a new artist for the pair.
 - **Plays in the background.** Media notification, lock screen and headset controls on Android; MPRIS on Linux, so media keys and desktop widgets work.
 - **Yoru.** A small companion that greets you and listens along. You can turn it off.
+- **Surprises.** Some songs change the player while they play. See [Surprises](#surprises).
 
 Nothing is downloaded from the internet: lyrics and covers come from your own files.
 

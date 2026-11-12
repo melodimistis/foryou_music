@@ -75,13 +75,15 @@ class EggPulseTrackState extends EggAnimatedState<EggPulseTrack>
 
   @override
   Widget build(BuildContext context) => IgnorePointer(
-    child: CustomPaint(
-      size: Size.infinite,
-      painter: PulsePainter(
-        piece: widget.piece,
-        progress: widget.progress,
-        position: () => widget.still ? widget.at : song,
-        repaint: frames,
+    child: RepaintBoundary(
+      child: CustomPaint(
+        size: Size.infinite,
+        painter: PulsePainter(
+          piece: widget.piece,
+          progress: widget.progress,
+          position: () => widget.still ? widget.at : song,
+          repaint: frames,
+        ),
       ),
     ),
   );

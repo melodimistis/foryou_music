@@ -633,23 +633,53 @@ class EggCoverGlowState extends EggAnimatedState<EggCoverGlow> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<int>(
-      valueListenable: frames,
-      builder: (context, _, _) => DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(widget.radius),
-          boxShadow: [
-            BoxShadow(
-              color: widget.piece.color.withValues(alpha: level),
-              blurRadius: EggCoverGlow.blur,
-              spreadRadius: 4,
-            ),
-          ],
+    return RepaintBoundary(
+      child: CustomPaint(
+        painter: CoverGlowPainter(
+          piece: widget.piece,
+          radius: widget.radius,
+          level: () => level,
+          repaint: frames,
         ),
         child: const SizedBox.expand(),
       ),
     );
   }
+}
+
+class CoverGlowPainter extends CustomPainter {
+  CoverGlowPainter({
+    required this.piece,
+    required this.radius,
+    required this.level,
+    super.repaint,
+  });
+
+  final CoverGlowPiece piece;
+  final double radius;
+  final double Function() level;
+
+  BoxDecoration decorationAt(double level) => BoxDecoration(
+    borderRadius: BorderRadius.circular(radius),
+    boxShadow: [
+      BoxShadow(
+        color: piece.color.withValues(alpha: level),
+        blurRadius: EggCoverGlow.blur,
+        spreadRadius: 4,
+      ),
+    ],
+  );
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final painter = decorationAt(level()).createBoxPainter();
+    painter.paint(canvas, Offset.zero, ImageConfiguration(size: size));
+    painter.dispose();
+  }
+
+  @override
+  bool shouldRepaint(CoverGlowPainter oldDelegate) =>
+      oldDelegate.piece != piece || oldDelegate.radius != radius;
 }
 
 class EggCoverStickers extends StatefulWidget {
@@ -803,9 +833,9 @@ class EggMonitorState extends EggAnimatedState<EggMonitor> with EggSongTime {
             (p) => p?.position ?? Duration.zero,
           )
         : null;
-    return ValueListenableBuilder<int>(
-      valueListenable: frames,
-      builder: (context, _, child) => Stack(
+    double clock() => widget.still ? 0 : time;
+    return RepaintBoundary(
+      child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned(
@@ -817,7 +847,8 @@ class EggMonitorState extends EggAnimatedState<EggMonitor> with EggSongTime {
               child: CustomPaint(
                 painter: MonitorBezelPainter(
                   monitor: widget.monitor,
-                  blink: widget.still ? 0 : time,
+                  blink: clock,
+                  repaint: frames,
                 ),
               ),
             ),
@@ -826,10 +857,14 @@ class EggMonitorState extends EggAnimatedState<EggMonitor> with EggSongTime {
             borderRadius: BorderRadius.circular(EggMonitor.radius),
             child: Stack(
               children: [
-                Transform(
-                  transform: drift(time, widget.size, still: widget.still),
-                  alignment: Alignment.center,
-                  child: child,
+                Flow(
+                  delegate: DriftFlow(
+                    time: clock,
+                    size: widget.size,
+                    still: widget.still,
+                    repaint: frames,
+                  ),
+                  children: [widget.child],
                 ),
                 Positioned.fill(
                   child: IgnorePointer(
@@ -837,8 +872,9 @@ class EggMonitorState extends EggAnimatedState<EggMonitor> with EggSongTime {
                       painter: MonitorGlassPainter(
                         monitor: widget.monitor,
                         pulse: widget.pulse,
-                        time: widget.still ? 0 : time,
-                        song: position ?? song,
+                        time: clock,
+                        song: () => position ?? song,
+                        repaint: frames,
                       ),
                     ),
                   ),
@@ -848,16 +884,54 @@ class EggMonitorState extends EggAnimatedState<EggMonitor> with EggSongTime {
           ),
         ],
       ),
-      child: widget.child,
     );
   }
 }
 
+class DriftFlow extends FlowDelegate {
+  DriftFlow({
+    required this.time,
+    required this.size,
+    this.still = false,
+    super.repaint,
+  });
+
+  final double Function() time;
+  final double size;
+  final bool still;
+
+  @override
+  void paintChildren(FlowPaintingContext context) {
+    final box = context.size;
+    final m = Matrix4.identity()
+      ..translateByDouble(box.width / 2, box.height / 2, 0, 1)
+      ..multiply(EggMonitorState.drift(time(), size, still: still))
+      ..translateByDouble(-box.width / 2, -box.height / 2, 0, 1);
+    context.paintChild(0, transform: m);
+  }
+
+  @override
+  BoxConstraints getConstraintsForChild(int i, BoxConstraints constraints) =>
+      BoxConstraints.tight(Size.square(size));
+
+  @override
+  Size getSize(BoxConstraints constraints) =>
+      constraints.constrain(Size.square(size));
+
+  @override
+  bool shouldRepaint(DriftFlow oldDelegate) =>
+      oldDelegate.size != size || oldDelegate.still != still;
+}
+
 class MonitorBezelPainter extends CustomPainter {
-  MonitorBezelPainter({required this.monitor, required this.blink});
+  MonitorBezelPainter({
+    required this.monitor,
+    required this.blink,
+    super.repaint,
+  });
 
   final MonitorPiece monitor;
-  final double blink;
+  final double Function() blink;
   final Paint _paint = Paint()..isAntiAlias = true;
 
   @override
@@ -907,7 +981,7 @@ class MonitorBezelPainter extends CustomPainter {
     canvas
       ..drawCircle(Offset(w - pad - 40, y), 4, _paint)
       ..drawCircle(Offset(w - pad - 26, y), 4, _paint);
-    final on = (blink * 0.8) % 1 < 0.7;
+    final on = (blink() * 0.8) % 1 < 0.7;
     _paint.color = monitor.alarm.withValues(alpha: on ? 0.35 : 0.12);
     canvas.drawCircle(Offset(w - pad - 8, y), 7, _paint);
     _paint.color = monitor.alarm.withValues(alpha: on ? 1 : 0.4);
@@ -916,7 +990,7 @@ class MonitorBezelPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(MonitorBezelPainter oldDelegate) =>
-      oldDelegate.monitor != monitor || oldDelegate.blink != blink;
+      oldDelegate.monitor != monitor;
 }
 
 class MonitorGlassPainter extends CustomPainter {
@@ -925,6 +999,7 @@ class MonitorGlassPainter extends CustomPainter {
     required this.time,
     required this.song,
     this.pulse,
+    super.repaint,
   });
 
   static const rollTime = 6.0;
@@ -932,9 +1007,43 @@ class MonitorGlassPainter extends CustomPainter {
 
   final MonitorPiece monitor;
   final PulsePiece? pulse;
-  final double time;
-  final Duration song;
+  final double Function() time;
+  final Duration Function() song;
   final Paint _paint = Paint()..isAntiAlias = true;
+
+  static final _texts = <(String, int, bool), TextPainter>{};
+
+  static TextPainter textOf(String text, Color color, {bool small = false}) {
+    final key = (text, color.toARGB32(), small);
+    final cached = _texts[key];
+    if (cached != null) return cached;
+    if (_texts.length > 64) {
+      for (final t in _texts.values) {
+        t.dispose();
+      }
+      _texts.clear();
+    }
+    return _texts[key] = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: small
+            ? TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: color,
+              )
+            : TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: color,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+  }
 
   static String readout(PulsePiece? pulse, Duration song) {
     if (pulse == null) return '--';
@@ -944,6 +1053,8 @@ class MonitorGlassPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final time = this.time();
+    final song = this.song();
     final w = size.width;
     final h = size.height;
     _paint
@@ -991,33 +1102,12 @@ class MonitorGlassPainter extends CustomPainter {
     );
     canvas.drawRRect(box, _paint);
     if (blinkOff) return;
-    final label = TextPainter(
-      text: TextSpan(
-        text: 'HR',
-        style: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: color.withValues(alpha: 0.8),
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    label.paint(canvas, Offset(left + 7, 12));
-    final number = TextPainter(
-      text: TextSpan(
-        text: value,
-        style: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 22,
-          fontWeight: FontWeight.w800,
-          color: color,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    number.paint(canvas, Offset(left + 28, 9));
+    textOf(
+      'HR',
+      color.withValues(alpha: 0.8),
+      small: true,
+    ).paint(canvas, Offset(left + 7, 12));
+    textOf(value, color).paint(canvas, Offset(left + 28, 9));
     final heart = ShapeBook.outlineOf(ParticleShape.heart);
     _paint.color = color;
     canvas

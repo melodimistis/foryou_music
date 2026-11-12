@@ -74,9 +74,14 @@ class EggText {
 
   static Set<String> get versionWords => _versions.keys.toSet();
 
+  static const maxLength = 300;
+
+  static String cap(String text) =>
+      text.length > maxLength ? text.substring(0, maxLength) : text;
+
   static String fold(String text) {
     final out = StringBuffer();
-    for (final c in text.toLowerCase().runes) {
+    for (final c in cap(text).toLowerCase().runes) {
       out.write(_plain[c] ?? String.fromCharCode(c));
     }
     return out.toString();
@@ -183,7 +188,19 @@ class EggMatcher {
     return out;
   }
 
-  static EggCheck check(Song song, EggEntry entry) {
+  static Song _capped(Song song) =>
+      song.title.length <= EggText.maxLength &&
+          song.artist.length <= EggText.maxLength &&
+          song.album.length <= EggText.maxLength
+      ? song
+      : song.copyWith(
+          title: EggText.cap(song.title),
+          artist: EggText.cap(song.artist),
+          album: EggText.cap(song.album),
+        );
+
+  static EggCheck check(Song raw, EggEntry entry) {
+    final song = _capped(raw);
     final fromFile = song.titleFromFile;
     if (fromFile == null) {
       return const EggCheck.fail('Tags not read by this version yet, rescan');

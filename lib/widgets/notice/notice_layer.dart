@@ -311,7 +311,11 @@ class _UpdateNoticeState extends State<UpdateNotice>
   }
 
   Future<void> _close({bool act = false}) async {
-    if (act) widget.notice.onAction?.call();
+    if (act) {
+      widget.notice.onAction?.call();
+    } else {
+      widget.notice.onDismiss?.call();
+    }
     await _lift.forward();
     if (mounted) context.read<NoticeController>().dismiss(widget.notice.id);
   }

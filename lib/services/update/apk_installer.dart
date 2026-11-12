@@ -109,15 +109,21 @@ class ApkInstaller {
       throw UpdateDownloadException('HTTP ${response.status}');
     }
     final total = asset.size > 0 ? asset.size : response.length;
+    if (total > UpdateAsset.maxSize) {
+      throw const UpdateDownloadException('Update file is too large');
+    }
     final digest = _DigestSink();
     final hasher = sha256.startChunkedConversion(digest);
     final sink = part.openWrite();
     var received = 0;
     try {
       await for (final chunk in response.body) {
+        received += chunk.length;
+        if (received > UpdateAsset.maxSize) {
+          throw const UpdateDownloadException('Update file is too large');
+        }
         sink.add(chunk);
         hasher.add(chunk);
-        received += chunk.length;
         if (total > 0) onProgress?.call((received / total).clamp(0.0, 1.0));
       }
     } finally {

@@ -23,26 +23,30 @@ UpdateChecker reply(int status, String body, {List<Uri>? calls}) =>
 String release(String tag) =>
     '{"tag_name":"$tag","html_url":"https://github.com/melodimistis/foryou_music/releases/tag/$tag","body":"notes"}';
 
-String releaseWithApk(String tag, {String? digest, int size = 6}) =>
-    jsonEncode({
-      'tag_name': tag,
-      'html_url':
-          'https://github.com/melodimistis/foryou_music/releases/tag/$tag',
-      'body': 'notes',
-      'assets': [
-        {
-          'name': 'ForYou-Music-$tag.AppImage',
-          'browser_download_url': 'https://example.com/app.AppImage',
-          'size': 99,
-        },
-        {
-          'name': 'ForYou-Music-$tag.apk',
-          'browser_download_url': 'https://example.com/app.apk',
-          'size': size,
-          'digest': ?digest,
-        },
-      ],
-    });
+String releaseWithApk(
+  String tag, {
+  String? digest,
+  int size = 6,
+}) => jsonEncode({
+  'tag_name': tag,
+  'html_url': 'https://github.com/melodimistis/foryou_music/releases/tag/$tag',
+  'body': 'notes',
+  'assets': [
+    {
+      'name': 'ForYou-Music-$tag.AppImage',
+      'browser_download_url':
+          'https://github.com/melodimistis/foryou_music/releases/download/v1/app.AppImage',
+      'size': 99,
+    },
+    {
+      'name': 'ForYou-Music-$tag.apk',
+      'browser_download_url':
+          'https://github.com/melodimistis/foryou_music/releases/download/v1/app.apk',
+      'size': size,
+      'digest': ?digest,
+    },
+  ],
+});
 
 final apkBytes = utf8.encode('apk!!!');
 
@@ -118,10 +122,41 @@ void main() {
       releaseWithApk('v1.1.0', digest: 'sha256:$hash'),
     ).check('1.0.0');
     expect(r.apk?.name, 'ForYou-Music-v1.1.0.apk');
-    expect(r.apk?.url.toString(), 'https://example.com/app.apk');
+    expect(
+      r.apk?.url.toString(),
+      'https://github.com/melodimistis/foryou_music/releases/download/v1/app.apk',
+    );
     expect(r.apk?.size, 6);
     expect(r.apk?.sha256, hash);
     expect((await reply(200, release('v1.1.0')).check('1.0.0')).apk, isNull);
+  });
+
+  test('only GitHub over https is trusted for downloads and links', () {
+    expect(UpdateAsset.trusted(Uri.parse('https://github.com/a')), isTrue);
+    expect(UpdateAsset.trusted(Uri.parse('https://api.github.com/a')), isTrue);
+    expect(UpdateAsset.trusted(Uri.parse('http://github.com/a')), isFalse);
+    expect(UpdateAsset.trusted(Uri.parse('https://evil.com/a')), isFalse);
+    expect(
+      UpdateAsset.trusted(Uri.parse('https://github.com.evil.com/a')),
+      isFalse,
+    );
+    expect(UpdateAsset.trusted(null), isFalse);
+    Map<String, Object> apk(String url, int size) => {
+      'name': 'x.apk',
+      'browser_download_url': url,
+      'size': size,
+    };
+    expect(UpdateAsset.apkFrom([apk('https://evil.com/x.apk', 6)]), isNull);
+    expect(
+      UpdateAsset.apkFrom([
+        apk('https://github.com/x.apk', UpdateAsset.maxSize + 1),
+      ]),
+      isNull,
+    );
+    expect(
+      UpdateAsset.apkFrom([apk('https://github.com/x.apk', 6)]),
+      isNotNull,
+    );
   });
 
   group('installer', () {
@@ -285,6 +320,50 @@ void main() {
       expect(notices.current, isNull);
       await make(reply(500, '')).check(quiet: true);
       expect(notices.current, isNull);
+    });
+
+    test('a small update is told once and can be skipped', () async {
+      expect(UpdateChecker.isSmallStep('1.0.0', '1.0.1'), isTrue);
+      expect(UpdateChecker.isSmallStep('1.0.0', '1.1.0'), isFalse);
+      expect(UpdateChecker.isSmallStep('1.0.3', '2.0.0'), isFalse);
+      expect(UpdateChecker.isSmallStep('1.0.0', 'nope'), isFalse);
+
+      final c = make(reply(200, release('v1.0.1')));
+      await c.checkIfDue();
+      expect(notices.current?.title, 'Small update');
+      expect(notices.current?.message, contains('small update'));
+      expect(notices.current?.dismissLabel, 'Skip this version');
+      notices.dismiss(notices.current!.id);
+
+      now = now.add(const Duration(days: 2));
+      await c.checkIfDue();
+      expect(notices.current, isNull);
+
+      await c.check();
+      expect(notices.current?.title, 'Small update');
+      notices.current!.onDismiss!();
+      await Future<void>.delayed(Duration.zero);
+      expect(settings.skippedVersion, '1.0.1');
+      notices.dismiss(notices.current!.id);
+
+      final big = make(reply(200, release('v1.1.0')));
+      now = now.add(const Duration(days: 2));
+      await big.checkIfDue();
+      expect(notices.current?.title, 'Update available');
+      expect(notices.current?.dismissLabel, 'Later');
+      expect(notices.current?.onDismiss, isNull);
+    });
+
+    test('small update notices can be turned off', () async {
+      await settings.setSmallUpdates(false);
+      await make(reply(200, release('v1.0.1'))).checkIfDue();
+      expect(notices.current, isNull);
+      await make(reply(200, release('v1.0.1'))).check();
+      expect(notices.current?.title, 'Small update');
+      notices.dismiss(notices.current!.id);
+      now = now.add(const Duration(days: 2));
+      await make(reply(200, release('v2.0.0'))).checkIfDue();
+      expect(notices.current?.title, 'Update available');
     });
 
     test('manual check always answers', () async {

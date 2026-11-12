@@ -1314,47 +1314,53 @@ class LyricLineView extends StatelessWidget {
     final duet = EggLyricFx.duetOf(look, line);
     final duetLook = duet ? look?.duet : null;
     final Widget content = current && line.words.isNotEmpty
-        ? ValueListenableBuilder<Duration>(
-            valueListenable: clock,
-            builder: (context, raw, _) {
-              final pos = EggLyricFx.stopFrame(look, raw);
-              final layered = EggLyricFx.layered(look);
-              final ghost = EggLyricFx.ghostLevel(look, line.text);
-              final mood = EggLyricFx.moodOf(look, line.text);
-              final rough = ghost > 1;
-              final layers = [
-                if (ghost > 0)
-                  for (var k = 0; k < 2; k++)
-                    Transform.translate(
-                      offset: EggLyricFx.ghostOffset(pos, k, strong: ghost > 1),
-                      child: _words(
-                        pos,
-                        WordLayer.ghost,
-                        ghost: k,
-                        rough: rough,
-                        duet: duet,
+        ? RepaintBoundary(
+            child: ValueListenableBuilder<Duration>(
+              valueListenable: clock,
+              builder: (context, raw, _) {
+                final pos = EggLyricFx.stopFrame(look, raw);
+                final layered = EggLyricFx.layered(look);
+                final ghost = EggLyricFx.ghostLevel(look, line.text);
+                final mood = EggLyricFx.moodOf(look, line.text);
+                final rough = ghost > 1;
+                final layers = [
+                  if (ghost > 0)
+                    for (var k = 0; k < 2; k++)
+                      Transform.translate(
+                        offset: EggLyricFx.ghostOffset(
+                          pos,
+                          k,
+                          strong: ghost > 1,
+                        ),
+                        child: _words(
+                          pos,
+                          WordLayer.ghost,
+                          ghost: k,
+                          rough: rough,
+                          duet: duet,
+                        ),
                       ),
+                  if (layered)
+                    _words(
+                      pos,
+                      WordLayer.outline,
+                      mood: mood,
+                      rough: rough,
+                      duet: duet,
                     ),
-                if (layered)
                   _words(
                     pos,
-                    WordLayer.outline,
+                    layered ? WordLayer.fill : WordLayer.all,
                     mood: mood,
                     rough: rough,
                     duet: duet,
                   ),
-                _words(
-                  pos,
-                  layered ? WordLayer.fill : WordLayer.all,
-                  mood: mood,
-                  rough: rough,
-                  duet: duet,
-                ),
-              ];
-              return layers.length == 1
-                  ? layers.single
-                  : Stack(children: layers);
-            },
+                ];
+                return layers.length == 1
+                    ? layers.single
+                    : Stack(children: layers);
+              },
+            ),
           )
         : Text(
             line.text,
@@ -1818,7 +1824,9 @@ class _Dots extends StatelessWidget {
     if (look != null && look.gapShape != null) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        child: EggGapDots(look: look, active: active, clock: clock),
+        child: RepaintBoundary(
+          child: EggGapDots(look: look, active: active, clock: clock),
+        ),
       );
     }
     return Padding(

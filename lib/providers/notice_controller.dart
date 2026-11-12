@@ -13,6 +13,7 @@ class Notice {
     this.actionLabel,
     this.onAction,
     this.dismissLabel,
+    this.onDismiss,
     this.progress,
     this.duration = const Duration(seconds: 3),
   });
@@ -25,6 +26,7 @@ class Notice {
   final String? actionLabel;
   final VoidCallback? onAction;
   final String? dismissLabel;
+  final VoidCallback? onDismiss;
   final ValueListenable<double>? progress;
   final Duration duration;
 }
@@ -61,6 +63,7 @@ class NoticeController extends ChangeNotifier {
     required String actionLabel,
     required VoidCallback onAction,
     String dismissLabel = 'Later',
+    VoidCallback? onDismiss,
   }) => _put(
     Notice(
       id: ++_seq,
@@ -71,6 +74,7 @@ class NoticeController extends ChangeNotifier {
       actionLabel: actionLabel,
       onAction: onAction,
       dismissLabel: dismissLabel,
+      onDismiss: onDismiss,
     ),
   );
 

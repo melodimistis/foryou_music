@@ -53,6 +53,7 @@ class LyricsService {
         if (e is! File) continue;
         final name = p.basename(e.path).toLowerCase();
         if (name == '$base.lrc') {
+          if (await e.length() > maxLyricsLength) return null;
           return utf8.decode(await e.readAsBytes(), allowMalformed: true);
         }
       }

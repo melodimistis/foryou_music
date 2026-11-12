@@ -18,6 +18,13 @@ class UpdateAsset {
   final int size;
   final String? sha256;
 
+  static const maxSize = 300 * 1024 * 1024;
+
+  static bool trusted(Uri? uri) =>
+      uri != null &&
+      uri.scheme == 'https' &&
+      (uri.host == 'github.com' || uri.host.endsWith('.github.com'));
+
   static UpdateAsset? apkFrom(Object? assets) {
     if (assets is! List) return null;
     for (final a in assets) {
@@ -26,11 +33,14 @@ class UpdateAsset {
       final url = a['browser_download_url'];
       if (name is! String || url is! String) continue;
       if (!name.toLowerCase().endsWith('.apk')) continue;
+      final uri = Uri.tryParse(url);
+      final size = a['size'] is int ? a['size'] as int : 0;
+      if (!trusted(uri) || size > maxSize) continue;
       final digest = a['digest'];
       return UpdateAsset(
         name: name,
-        url: Uri.parse(url),
-        size: a['size'] is int ? a['size'] as int : 0,
+        url: uri!,
+        size: size,
         sha256: digest is String && digest.startsWith('sha256:')
             ? digest.substring(7).toLowerCase()
             : null,
@@ -99,7 +109,10 @@ class UpdateChecker {
       if (latest == null || current == null) {
         return const UpdateResult(UpdateStatus.failed);
       }
-      final url = json['html_url'] as String? ?? Links.releases;
+      final page = json['html_url'];
+      final url = page is String && UpdateAsset.trusted(Uri.tryParse(page))
+          ? page
+          : Links.releases;
       final version = latest.join('.');
       if (compareVersions(latest, current) <= 0) {
         return UpdateResult(UpdateStatus.upToDate, version: version, url: url);
@@ -124,6 +137,13 @@ class UpdateChecker {
       int.parse(match.group(2)!),
       int.parse(match.group(3) ?? '0'),
     ];
+  }
+
+  static bool isSmallStep(String from, String to) {
+    final a = parseVersion(from);
+    final b = parseVersion(to);
+    if (a == null || b == null) return false;
+    return a[0] == b[0] && a[1] == b[1] && b[2] > a[2];
   }
 
   static int compareVersions(List<int> a, List<int> b) {

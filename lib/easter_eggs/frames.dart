@@ -144,61 +144,80 @@ class EggFrameState extends EggAnimatedState<EggFrame> with EggSongTime {
             child: widget.child,
           )
         : widget.child;
-    final Widget body = ValueListenableBuilder<int>(
-      valueListenable: frames,
-      builder: (context, _, child) {
-        final level = EggFrames.photoLevel(
-          frame,
-          moments,
-          position ?? song,
-          still: widget.still,
-        );
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-              left: -out.left,
-              top: -out.top,
-              right: -out.right,
-              bottom: -out.bottom,
-              child: IgnorePointer(
-                child: CustomPaint(
-                  painter: FrameBackPainter(frame: frame, outset: out),
-                ),
-              ),
+    double level() => EggFrames.photoLevel(
+      frame,
+      moments,
+      position ?? song,
+      still: widget.still,
+    );
+    final Widget body = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: -out.left,
+          top: -out.top,
+          right: -out.right,
+          bottom: -out.bottom,
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: FrameBackPainter(frame: frame, outset: out),
             ),
-            ClipPath(
-              clipper: FrameClipper(frame.style),
-              child: Stack(
-                children: [
-                  Transform.scale(scale: EggFrames.fill, child: child),
-                  if (level < 1)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: ColoredBox(
-                          color: frame.paper.withValues(
-                            alpha: (1 - level).clamp(0.0, 1.0),
-                          ),
-                        ),
+          ),
+        ),
+        ClipPath(
+          clipper: FrameClipper(frame.style),
+          child: Stack(
+            children: [
+              Transform.scale(scale: EggFrames.fill, child: photo),
+              if (frame.develop != null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: DevelopPainter(
+                        paper: frame.paper,
+                        level: level,
+                        repaint: frames,
                       ),
                     ),
-                ],
-              ),
-            ),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: CustomPaint(painter: FrameFrontPainter(frame: frame)),
-              ),
-            ),
-          ],
-        );
-      },
-      child: photo,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(painter: FrameFrontPainter(frame: frame)),
+          ),
+        ),
+      ],
     );
+    final isolated = frame.develop == null
+        ? body
+        : RepaintBoundary(child: body);
     return frame.style == FrameStyle.polaroid
-        ? Transform.rotate(angle: EggFrames.polaroidTilt, child: body)
-        : body;
+        ? Transform.rotate(angle: EggFrames.polaroidTilt, child: isolated)
+        : isolated;
   }
+}
+
+class DevelopPainter extends CustomPainter {
+  DevelopPainter({required this.paper, required this.level, super.repaint});
+
+  final Color paper;
+  final double Function() level;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cover = (1 - level()).clamp(0.0, 1.0);
+    if (cover <= 0) return;
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = paper.withValues(alpha: cover),
+    );
+  }
+
+  @override
+  bool shouldRepaint(DevelopPainter oldDelegate) => oldDelegate.paper != paper;
 }
 
 class FrameClipper extends CustomClipper<Path> {

@@ -13,6 +13,9 @@ final _extTag = RegExp(r'^\[x-(romaji|translation):(\d+):([^\]]*)\]\s*$');
 final _notLetter = RegExp(r'[^\p{L}\p{N}]', unicode: true);
 final _voiceTag = RegExp(r'^v(\d{1,2}):');
 const _extSlackMs = 15;
+const maxLyricsLength = 2 * 1024 * 1024;
+const _maxStamps = 64;
+const _maxOffsetMs = 24 * 60 * 60 * 1000;
 
 String? _decode(String data) {
   try {
@@ -73,11 +76,17 @@ List<LyricWord> _words(String body, Duration offset) {
 }
 
 Lyrics parseLyrics(String raw) {
-  final text = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  final text =
+      (raw.length > maxLyricsLength ? raw.substring(0, maxLyricsLength) : raw)
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n');
   var offset = Duration.zero;
   for (final line in text.split('\n')) {
     final m = _offsetTag.firstMatch(line.trim());
-    if (m != null) offset = Duration(milliseconds: int.parse(m.group(1)!));
+    final ms = m == null ? null : int.tryParse(m.group(1)!);
+    if (ms != null && ms.abs() <= _maxOffsetMs) {
+      offset = Duration(milliseconds: ms);
+    }
   }
 
   final romaji = <int, String>{};
@@ -85,23 +94,24 @@ Lyrics parseLyrics(String raw) {
   for (final rawLine in text.split('\n')) {
     final m = _extTag.firstMatch(rawLine.trim());
     if (m == null) continue;
-    final value = _decode(m.group(3)!);
+    final at = int.tryParse(m.group(2)!);
+    final value = at == null ? null : _decode(m.group(3)!);
     if (value == null) continue;
-    (m.group(1) == 'romaji' ? romaji : translation)[int.parse(m.group(2)!)] =
-        value;
+    (m.group(1) == 'romaji' ? romaji : translation)[at!] = value;
   }
 
   final lines = <({LyricLine line, int order})>[];
   for (final rawLine in text.split('\n')) {
     final line = rawLine.trim();
-    var rest = line;
     final stamps = <Duration>[];
+    var at = 0;
     while (true) {
-      final m = _lineStamp.matchAsPrefix(rest);
+      final m = _lineStamp.matchAsPrefix(line, at);
       if (m == null) break;
-      stamps.add(_stamp(m));
-      rest = rest.substring(m.end);
+      if (stamps.length < _maxStamps) stamps.add(_stamp(m));
+      at = m.end;
     }
+    var rest = line.substring(at);
     if (stamps.isEmpty) continue;
     final voiceMark = _voiceTag.firstMatch(rest);
     final voice = voiceMark == null ? 0 : int.parse(voiceMark.group(1)!);

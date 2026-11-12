@@ -1128,14 +1128,15 @@ void main() {
       await tester.pump();
       await tester.pump(AppTint.fade);
       expect(tester.getSize(find.byType(EggCoverGlow)), const Size(200, 200));
-      final box = tester.widget<DecoratedBox>(
+      final paint = tester.widget<CustomPaint>(
         find.descendant(
           of: find.byType(EggCoverGlow),
-          matching: find.byType(DecoratedBox),
+          matching: find.byType(CustomPaint),
         ),
       );
+      final glow = paint.painter! as CoverGlowPainter;
       expect(
-        (box.decoration as BoxDecoration).boxShadow!.single.blurRadius,
+        glow.decorationAt(0.5).boxShadow!.single.blurRadius,
         EggCoverGlow.blur,
       );
     });

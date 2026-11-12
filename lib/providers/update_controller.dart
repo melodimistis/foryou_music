@@ -62,7 +62,15 @@ class UpdateController extends ChangeNotifier {
 
     switch (result.status) {
       case UpdateStatus.available:
-        _announce(result);
+        final small = UpdateChecker.isSmallStep(
+          await currentVersion(),
+          result.version ?? '',
+        );
+        if (quiet && small && !_shouldTellSmall(result.version)) break;
+        if (quiet && small) {
+          await settings.setToldSmallVersion(result.version!);
+        }
+        _announce(result, small: small);
       case UpdateStatus.upToDate:
         if (!quiet) {
           notices.show(
@@ -84,27 +92,56 @@ class UpdateController extends ChangeNotifier {
   void _openReleases(UpdateResult result) =>
       Links.openWith(notices, result.url ?? Links.releases);
 
-  void _announce(UpdateResult result) {
+  bool _shouldTellSmall(String? version) =>
+      version != null &&
+      settings.smallUpdates &&
+      settings.skippedVersion != version &&
+      settings.toldSmallVersion != version;
+
+  static String messageFor(
+    String version, {
+    required bool small,
+    required bool canInstall,
+    String size = '',
+  }) {
+    final what = small
+        ? 'ForYou Music $version is a small update with fixes and little '
+              'extras$size. Update whenever you like.'
+        : 'ForYou Music $version brings bigger changes$size.';
+    if (small) return what;
+    return canInstall
+        ? '$what Tap Update to download it and install it over this version.'
+        : '$what Download it from GitHub Releases.';
+  }
+
+  void _announce(UpdateResult result, {bool small = false}) {
     final apk = result.apk;
+    final version = result.version ?? '';
+    final title = small ? 'Small update' : 'Update available';
+    final dismiss = small ? 'Skip this version' : 'Later';
+    VoidCallback? onDismiss;
+    if (small && result.version != null) {
+      onDismiss = () => unawaited(settings.skipVersion(result.version!));
+    }
     if (installer == null || apk == null) {
       notices.showUpdate(
-        title: 'Update available',
-        message:
-            'ForYou Music ${result.version} is ready. Download it from '
-            'GitHub Releases.',
+        title: title,
+        message: messageFor(version, small: small, canInstall: false),
         actionLabel: 'GitHub',
         onAction: () => _openReleases(result),
+        dismissLabel: dismiss,
+        onDismiss: onDismiss,
       );
       return;
     }
     final size = apk.size > 0 ? ' (${formatBytes(apk.size)})' : '';
     notices.showUpdate(
-      title: 'Update available',
-      message:
-          'ForYou Music ${result.version} is ready$size. Tap Update to '
-          'download it and install it over this version.',
+      title: title,
+      message: messageFor(version, small: small, canInstall: true, size: size),
       actionLabel: 'Update',
       onAction: () => unawaited(downloadAndInstall(result)),
+      dismissLabel: dismiss,
+      onDismiss: onDismiss,
     );
   }
 

@@ -251,7 +251,10 @@ class EggView extends StatelessWidget {
     final group = piece is ParticlePiece ? piece.group : 0;
     return ValueListenableBuilder<double>(
       valueListenable: level(group),
-      builder: (context, value, child) => Opacity(opacity: value, child: child),
+      builder: (context, value, child) => TickerMode(
+        enabled: value > 0,
+        child: Opacity(opacity: value, child: child),
+      ),
       child: child,
     );
   }

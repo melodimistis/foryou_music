@@ -12,6 +12,9 @@ class SettingsController extends ChangeNotifier {
   static const _autoUpdateKey = 'autoUpdate';
   static const _skipWelcomeKey = 'skipWelcome';
   static const _lastUpdateCheckKey = 'lastUpdateCheckMs';
+  static const _smallUpdatesKey = 'smallUpdates';
+  static const _skippedVersionKey = 'skippedVersion';
+  static const _toldVersionKey = 'toldSmallVersion';
   static const _hapticsKey = 'haptics';
   static const _yoruMessagesKey = 'yoruMessages';
   static const _messagesPerDayKey = 'messagesPerDay';
@@ -169,6 +172,27 @@ class SettingsController extends ChangeNotifier {
   Future<void> setAutoUpdate(bool value) async {
     await _box.put(_autoUpdateKey, value);
     notifyListeners();
+  }
+
+  bool get smallUpdates =>
+      _box.get(_smallUpdatesKey, defaultValue: true) as bool;
+
+  Future<void> setSmallUpdates(bool value) async {
+    await _box.put(_smallUpdatesKey, value);
+    notifyListeners();
+  }
+
+  String? get skippedVersion => _box.get(_skippedVersionKey) as String?;
+
+  Future<void> skipVersion(String version) async {
+    await _box.put(_skippedVersionKey, version);
+    notifyListeners();
+  }
+
+  String? get toldSmallVersion => _box.get(_toldVersionKey) as String?;
+
+  Future<void> setToldSmallVersion(String version) async {
+    await _box.put(_toldVersionKey, version);
   }
 
   bool get skipWelcome =>

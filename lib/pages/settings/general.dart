@@ -38,6 +38,19 @@ class GeneralPage extends StatelessWidget {
             onChanged: settings.setAutoUpdate,
           ),
         ),
+        TileBleed(
+          child: SwitchListTile(
+            contentPadding: TileBleed.padding,
+            title: const Text('Tell me about small updates', style: _title),
+            subtitle: const Text(
+              'Small updates only bring fixes and little extras, and you hear '
+              'about each one once. Bigger updates are always shown.',
+              style: _subtitle,
+            ),
+            value: settings.smallUpdates,
+            onChanged: settings.autoUpdate ? settings.setSmallUpdates : null,
+          ),
+        ),
         _CheckNowTile(last: settings.lastUpdateCheck),
         TileBleed(
           child: SwitchListTile(
