@@ -11,6 +11,7 @@ final _offsetTag = RegExp(
 final _metaTag = RegExp(r'^\[[a-zA-Z#][a-zA-Z#-]*:.*\]\s*$');
 final _extTag = RegExp(r'^\[x-(romaji|translation):(\d+):([^\]]*)\]\s*$');
 final _notLetter = RegExp(r'[^\p{L}\p{N}]', unicode: true);
+final _voiceTag = RegExp(r'^v(\d{1,2}):');
 const _extSlackMs = 15;
 
 String? _decode(String data) {
@@ -102,6 +103,9 @@ Lyrics parseLyrics(String raw) {
       rest = rest.substring(m.end);
     }
     if (stamps.isEmpty) continue;
+    final voiceMark = _voiceTag.firstMatch(rest);
+    final voice = voiceMark == null ? 0 : int.parse(voiceMark.group(1)!);
+    if (voiceMark != null) rest = rest.substring(voiceMark.end);
     final words = _words(rest, offset);
     final clean = words.isNotEmpty
         ? words.map((w) => w.text).join().trim()
@@ -116,6 +120,7 @@ Lyrics parseLyrics(String raw) {
           words: words,
           romaji: clean.isEmpty ? null : _extFor(romaji, ms, clean),
           translation: clean.isEmpty ? null : _extFor(translation, ms, clean),
+          voice: voice,
         ),
         order: lines.length,
       ));
@@ -161,6 +166,7 @@ List<LyricLine> _mergeSameTime(List<({LyricLine line, int order})> sorted) {
         extra: [for (final l in texts.skip(1)) l.text],
         romaji: main.romaji,
         translation: main.translation,
+        voice: main.voice,
       ),
     );
   }

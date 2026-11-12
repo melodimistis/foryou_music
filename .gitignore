@@ -12,6 +12,9 @@
 migrate_working_dir/
 foryou_music_project_documentation.md
 ForYouUI.pdf
+lib/easter_eggs/CLAUDE.md
+.claude/
+assets/easter_eggs/about_you/
 
 *.iml
 *.ipr

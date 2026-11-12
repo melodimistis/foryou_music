@@ -7,6 +7,105 @@ class ShapeBook {
   ShapeBook._();
 
   static final Map<ParticleShape, Path> _paths = {
+    ParticleShape.pixelHeart: _grid([
+      '.XX.XX.',
+      'XXXXXXX',
+      'XXXXXXX',
+      '.XXXXX.',
+      '..XXX..',
+      '...X...',
+    ]),
+    ParticleShape.pixelStar: _grid([
+      '...X...',
+      '...X...',
+      'XXXXXXX',
+      '.XXXXX.',
+      '..XXX..',
+      '.XX.XX.',
+      '.X...X.',
+    ]),
+    ParticleShape.pixel: Path()
+      ..addRect(const Rect.fromLTRB(-0.7, -0.7, 0.7, 0.7)),
+    ParticleShape.tooth: Path()
+      ..moveTo(-0.75, -0.55)
+      ..cubicTo(-0.75, -0.95, -0.35, -1, -0.2, -0.85)
+      ..cubicTo(-0.1, -0.78, 0.1, -0.78, 0.2, -0.85)
+      ..cubicTo(0.35, -1, 0.75, -0.95, 0.75, -0.55)
+      ..cubicTo(0.75, -0.1, 0.6, 0.15, 0.5, 0.55)
+      ..cubicTo(0.45, 0.95, 0.2, 1, 0.15, 0.6)
+      ..cubicTo(0.1, 0.3, -0.1, 0.3, -0.15, 0.6)
+      ..cubicTo(-0.2, 1, -0.45, 0.95, -0.5, 0.55)
+      ..cubicTo(-0.6, 0.15, -0.75, -0.1, -0.75, -0.55)
+      ..close(),
+    ParticleShape.diamond: Path()
+      ..moveTo(-0.55, -0.6)
+      ..lineTo(0.55, -0.6)
+      ..lineTo(1, -0.15)
+      ..lineTo(0, 0.95)
+      ..lineTo(-1, -0.15)
+      ..close(),
+    ParticleShape.cherry: _union([
+      Path()..addOval(
+        Rect.fromCircle(center: const Offset(-0.45, 0.5), radius: 0.42),
+      ),
+      Path()..addOval(
+        Rect.fromCircle(center: const Offset(0.4, 0.58), radius: 0.4),
+      ),
+      Path()
+        ..moveTo(-0.5, 0.15)
+        ..quadraticBezierTo(-0.35, -0.5, 0.1, -0.85)
+        ..lineTo(0.2, -0.75)
+        ..quadraticBezierTo(-0.22, -0.4, -0.36, 0.15)
+        ..close(),
+      Path()
+        ..moveTo(0.36, 0.25)
+        ..quadraticBezierTo(0.3, -0.35, 0.12, -0.8)
+        ..lineTo(0.24, -0.82)
+        ..quadraticBezierTo(0.44, -0.35, 0.48, 0.25)
+        ..close(),
+      Path()..addOval(
+        Rect.fromCenter(
+          center: const Offset(0.45, -0.82),
+          width: 0.6,
+          height: 0.26,
+        ),
+      ),
+    ]),
+    ParticleShape.plus: _union([
+      Path()..addRRect(
+        RRect.fromLTRBR(-0.34, -1, 0.34, 1, const Radius.circular(0.14)),
+      ),
+      Path()..addRRect(
+        RRect.fromLTRBR(-1, -0.34, 1, 0.34, const Radius.circular(0.14)),
+      ),
+    ]),
+    ParticleShape.syringe: _union([
+      Path()..addRRect(
+        RRect.fromLTRBR(-0.6, -0.24, 0.5, 0.24, const Radius.circular(0.06)),
+      ),
+      Path()..addRect(const Rect.fromLTRB(-0.95, -0.07, -0.6, 0.07)),
+      Path()..addRRect(
+        RRect.fromLTRBR(-1, -0.28, -0.9, 0.28, const Radius.circular(0.04)),
+      ),
+      Path()..addRect(const Rect.fromLTRB(0.5, -0.12, 0.64, 0.12)),
+      Path()..addRect(const Rect.fromLTRB(0.64, -0.035, 1, 0.035)),
+    ]),
+    ParticleShape.rose: _rose(),
+    ParticleShape.pill: Path()
+      ..addRRect(
+        RRect.fromLTRBR(-1, -0.42, 1, 0.42, const Radius.circular(0.42)),
+      ),
+    ParticleShape.toothbrush: _union([
+      Path()..addRRect(
+        RRect.fromLTRBR(-1, -0.12, 0.5, 0.14, const Radius.circular(0.13)),
+      ),
+      Path()..addRRect(
+        RRect.fromLTRBR(0.4, -0.18, 1, 0.12, const Radius.circular(0.08)),
+      ),
+      Path()..addRect(const Rect.fromLTRB(0.46, -0.62, 0.58, -0.16)),
+      Path()..addRect(const Rect.fromLTRB(0.64, -0.62, 0.76, -0.16)),
+      Path()..addRect(const Rect.fromLTRB(0.82, -0.62, 0.94, -0.16)),
+    ]),
     ParticleShape.bolt: Path()
       ..moveTo(0.2, -1)
       ..lineTo(-0.5, 0.15)
@@ -202,6 +301,88 @@ class ShapeBook {
           : path.lineTo(point.dx, point.dy);
     }
     return path..close();
+  }
+
+  static Path _spiral(
+    double from,
+    double to,
+    double r0,
+    double r1,
+    double width,
+  ) {
+    const steps = 90;
+    final outer = <Offset>[];
+    final inner = <Offset>[];
+    for (var k = 0; k <= steps; k++) {
+      final f = k / steps;
+      final a = from + (to - from) * f;
+      final r = r0 + (r1 - r0) * f;
+      final w = width * (0.35 + 0.65 * f);
+      outer.add(Offset(math.cos(a), math.sin(a)) * (r + w / 2));
+      inner.add(Offset(math.cos(a), math.sin(a)) * math.max(0, r - w / 2));
+    }
+    final path = Path()..moveTo(outer.first.dx, outer.first.dy);
+    for (final o in outer.skip(1)) {
+      path.lineTo(o.dx, o.dy);
+    }
+    for (final o in inner.reversed) {
+      path.lineTo(o.dx, o.dy);
+    }
+    return path..close();
+  }
+
+  static Path _rose() {
+    final body = _union([
+      Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: 0.66)),
+      for (var k = 0; k < 6; k++)
+        Path()..addOval(
+          Rect.fromCircle(
+            center: Offset(
+              math.cos(-math.pi / 2 + k * math.pi / 3) * 0.55,
+              math.sin(-math.pi / 2 + k * math.pi / 3) * 0.55,
+            ),
+            radius: 0.42,
+          ),
+        ),
+    ]);
+    return Path.combine(
+      PathOperation.difference,
+      body,
+      _spiral(0.4, 0.4 + math.pi * 4.2, 0.06, 0.8, 0.13),
+    );
+  }
+
+  static Path _grid(List<String> rows) {
+    final width = rows.fold(0, (m, r) => math.max(m, r.length));
+    final side = math.max(width, rows.length);
+    final cell = 2 / side;
+    final left = -1 + (side - width) * cell / 2;
+    final top = -1 + (side - rows.length) * cell / 2;
+    final runs = <Path>[];
+    for (final (y, row) in rows.indexed) {
+      var x = 0;
+      while (x < row.length) {
+        if (row[x] != 'X') {
+          x++;
+          continue;
+        }
+        final start = x;
+        while (x < row.length && row[x] == 'X') {
+          x++;
+        }
+        runs.add(
+          Path()..addRect(
+            Rect.fromLTRB(
+              left + start * cell,
+              top + y * cell,
+              left + x * cell,
+              top + (y + 1) * cell,
+            ),
+          ),
+        );
+      }
+    }
+    return _union(runs);
   }
 
   static Path _union(List<Path> parts) => parts

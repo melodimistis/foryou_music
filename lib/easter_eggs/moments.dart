@@ -10,12 +10,14 @@ class EggMomentState {
     this.flash,
     this.tint,
     this.levels = const {},
+    this.letterbox = 0,
   });
 
   final Offset shake;
   final Color? flash;
   final AppTintPiece? tint;
   final Map<int, double> levels;
+  final double letterbox;
 
   double levelOf(int group) => levels[group] ?? 1;
 
@@ -38,6 +40,7 @@ class EggMoments {
     AppTintPiece? tint;
     Duration? tintAt;
     final groups = <int, List<EggMoment>>{};
+    var bars = 0.0;
     final t = position.inMicroseconds / Duration.microsecondsPerSecond;
     for (final m in piece.moments) {
       final dt = position - m.at;
@@ -45,6 +48,9 @@ class EggMoments {
       switch (m.kind) {
         case MomentKind.ambient:
           (groups[m.group] ??= []).add(m);
+        case MomentKind.letterbox:
+          if (dt > m.length) continue;
+          bars = math.max(bars, still ? 1.0 : barsAt(dt, m.length));
         case MomentKind.tint:
           if (tintAt == null || m.at >= tintAt) {
             tint = m.tint;
@@ -73,7 +79,18 @@ class EggMoments {
         for (final e in groups.entries)
           e.key: ambientOf(e.value, position, still: still),
       },
+      letterbox: bars,
     );
+  }
+
+  static const barsSlide = Duration(milliseconds: 700);
+
+  static double barsAt(Duration dt, Duration length) {
+    final slide = barsSlide.inMicroseconds.toDouble();
+    final inside = dt.inMicroseconds / slide;
+    final outside = (length - dt).inMicroseconds / slide;
+    final f = math.min(inside, outside).clamp(0.0, 1.0);
+    return Curves.easeInOut.transform(f);
   }
 
   static double ambientOf(

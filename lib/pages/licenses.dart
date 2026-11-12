@@ -10,12 +10,20 @@ class AppLicenses {
   AppLicenses._();
 
   static const interAsset = 'assets/fonts/OFL.txt';
+  static const galmuriAsset = 'assets/fonts/Galmuri-OFL.txt';
+  static const jacquardAsset = 'assets/fonts/Jacquard-OFL.txt';
 
   static void register() {
     LicenseRegistry.addLicense(() async* {
       yield LicenseEntryWithLineBreaks(const [
         'Inter (font)',
       ], await rootBundle.loadString(interAsset));
+      yield LicenseEntryWithLineBreaks(const [
+        'Galmuri (font)',
+      ], await rootBundle.loadString(galmuriAsset));
+      yield LicenseEntryWithLineBreaks(const [
+        'Jacquard 24 (font)',
+      ], await rootBundle.loadString(jacquardAsset));
     });
   }
 

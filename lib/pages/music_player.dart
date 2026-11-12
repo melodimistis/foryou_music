@@ -21,7 +21,9 @@ import '../services/audio_output.dart';
 import '../services/covers/blurred_cover.dart';
 import '../easter_eggs/egg_entry.dart';
 import '../easter_eggs/lyric_effects.dart';
+import '../easter_eggs/memories.dart';
 import '../easter_eggs/player_effects.dart';
+import '../easter_eggs/ambient/pulse.dart';
 import '../easter_eggs/stickers.dart';
 import '../services/metadata/audio_quality.dart';
 import '../services/lyrics/lyrics_service.dart';
@@ -337,21 +339,27 @@ class _TitleRow extends StatelessWidget {
                 song.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
+                style: EggFont.apply(
+                  context,
+                  const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Inter',
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               Text(
                 artistOrUnknown(song.artist),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontFamily: 'Inter',
-                  fontSize: 15,
+                style: EggFont.apply(
+                  context,
+                  const TextStyle(
+                    color: Colors.white70,
+                    fontFamily: 'Inter',
+                    fontSize: 15,
+                  ),
                 ),
               ),
               if (quality.isNotEmpty)
@@ -361,11 +369,14 @@ class _TitleRow extends StatelessWidget {
                     quality,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      fontFeatures: [FontFeature.tabularFigures()],
+                    style: EggFont.apply(
+                      context,
+                      const TextStyle(
+                        color: Colors.white54,
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
                 ),
@@ -380,13 +391,21 @@ class _TitleRow extends StatelessWidget {
             children: [
               IconButton(
                 tooltip: fav ? 'Unfavorite' : 'Favorite',
-                icon: Icon(
-                  fav ? Icons.star_rounded : Icons.star_outline_rounded,
-                  color: Colors.white,
+                icon: EggFavoriteIcon(
+                  on: fav,
+                  fallback: Icon(
+                    fav ? Icons.star_rounded : Icons.star_outline_rounded,
+                    color: Colors.white,
+                  ),
                 ),
                 onPressed: () => toggleFavouriteWithNotice(context, song),
               ),
-              MenuButton(actions: (context) => songActions(context, song)),
+              MenuButton(
+                actions: (context) => [
+                  ...songActions(context, song),
+                  ...EggMemories.actions(context),
+                ],
+              ),
             ],
           ),
         ),
@@ -421,6 +440,7 @@ class _CoverPanel extends StatelessWidget {
                       coverKey: song.coverKey,
                       size: size,
                       radius: 18,
+                      pixels: EggFont.pixelsOf(context),
                     ),
                   ),
                 ),
@@ -505,11 +525,11 @@ class _SeekBarState extends State<_SeekBar> {
       (p) => p.duration,
     );
     final total = duration.inMilliseconds.toDouble();
-    const style = TextStyle(
-      color: Colors.white70,
-      fontFamily: 'Inter',
-      fontSize: 11,
+    final style = EggFont.apply(
+      context,
+      const TextStyle(color: Colors.white70, fontFamily: 'Inter', fontSize: 11),
     );
+    final pulse = EggPulse.of(context);
 
     return EggAccent(
       fallback: Colors.white,
@@ -531,31 +551,40 @@ class _SeekBarState extends State<_SeekBar> {
                 child: Text(formatClock(shown), style: style),
               ),
               Expanded(
-                child: SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 4,
-                    activeTrackColor: accent,
-                    inactiveTrackColor: Colors.white24,
-                    thumbColor: accent,
-                    overlayColor: Colors.white12,
-                    thumbShape: const RoundSliderThumbShape(
-                      enabledThumbRadius: 6,
+                child: _withPulse(
+                  pulse,
+                  progress: total <= 0 ? 0 : value / total,
+                  at: pos,
+                  child: SliderTheme(
+                    data: _trackFor(
+                      pulse,
+                      SliderTheme.of(context).copyWith(
+                        trackHeight: 4,
+                        activeTrackColor: accent,
+                        inactiveTrackColor: Colors.white24,
+                        thumbColor: accent,
+                        overlayColor: Colors.white12,
+                        thumbShape: EggThumb.shapeOf(
+                          context,
+                          const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        ),
+                        overlayShape: const RoundSliderOverlayShape(
+                          overlayRadius: 14,
+                        ),
+                      ),
                     ),
-                    overlayShape: const RoundSliderOverlayShape(
-                      overlayRadius: 14,
+                    child: Slider(
+                      min: 0,
+                      max: total <= 0 ? 1 : total,
+                      value: total <= 0 ? 0 : value,
+                      onChanged: total <= 0
+                          ? null
+                          : (v) => setState(() => _dragValue = v),
+                      onChangeEnd: (v) async {
+                        await player.seek(Duration(milliseconds: v.round()));
+                        if (mounted) setState(() => _dragValue = null);
+                      },
                     ),
-                  ),
-                  child: Slider(
-                    min: 0,
-                    max: total <= 0 ? 1 : total,
-                    value: total <= 0 ? 0 : value,
-                    onChanged: total <= 0
-                        ? null
-                        : (v) => setState(() => _dragValue = v),
-                    onChangeEnd: (v) async {
-                      await player.seek(Duration(milliseconds: v.round()));
-                      if (mounted) setState(() => _dragValue = null);
-                    },
                   ),
                 ),
               ),
@@ -573,6 +602,40 @@ class _SeekBarState extends State<_SeekBar> {
       ),
     );
   }
+}
+
+SliderThemeData _trackFor(PulsePiece? pulse, SliderThemeData theme) =>
+    pulse == null ? theme : EggPulse.track(theme);
+
+Widget _withPulse(
+  PulsePiece? pulse, {
+  required double progress,
+  required Duration at,
+  required Widget child,
+}) {
+  if (pulse == null) return child;
+  return Builder(
+    builder: (context) => Stack(
+      alignment: Alignment.center,
+      children: [
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: EggPulse.inset,
+              vertical: 6,
+            ),
+            child: EggPulseTrack(
+              piece: pulse,
+              progress: progress,
+              at: at,
+              still: MediaQuery.maybeDisableAnimationsOf(context) ?? false,
+            ),
+          ),
+        ),
+        child,
+      ],
+    ),
+  );
 }
 
 class _Controls extends StatelessWidget {
@@ -781,10 +844,13 @@ class _YoruCaption extends StatelessWidget {
         child: Text(
           text,
           key: ValueKey(text),
-          style: const TextStyle(
-            color: Colors.white70,
-            fontFamily: 'Inter',
-            fontSize: 12,
+          style: EggFont.apply(
+            context,
+            const TextStyle(
+              color: Colors.white70,
+              fontFamily: 'Inter',
+              fontSize: 12,
+            ),
           ),
         ),
       ),
@@ -1245,25 +1311,44 @@ class LyricLineView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = state == LineState.current;
+    final duet = EggLyricFx.duetOf(look, line);
+    final duetLook = duet ? look?.duet : null;
     final Widget content = current && line.words.isNotEmpty
         ? ValueListenableBuilder<Duration>(
             valueListenable: clock,
-            builder: (context, pos, _) {
+            builder: (context, raw, _) {
+              final pos = EggLyricFx.stopFrame(look, raw);
               final layered = EggLyricFx.layered(look);
               final ghost = EggLyricFx.ghostLevel(look, line.text);
               final mood = EggLyricFx.moodOf(look, line.text);
+              final rough = ghost > 1;
               final layers = [
                 if (ghost > 0)
                   for (var k = 0; k < 2; k++)
                     Transform.translate(
                       offset: EggLyricFx.ghostOffset(pos, k, strong: ghost > 1),
-                      child: _words(pos, WordLayer.ghost, ghost: k),
+                      child: _words(
+                        pos,
+                        WordLayer.ghost,
+                        ghost: k,
+                        rough: rough,
+                        duet: duet,
+                      ),
                     ),
-                if (layered) _words(pos, WordLayer.outline, mood: mood),
+                if (layered)
+                  _words(
+                    pos,
+                    WordLayer.outline,
+                    mood: mood,
+                    rough: rough,
+                    duet: duet,
+                  ),
                 _words(
                   pos,
                   layered ? WordLayer.fill : WordLayer.all,
                   mood: mood,
+                  rough: rough,
+                  duet: duet,
                 ),
               ];
               return layers.length == 1
@@ -1273,10 +1358,11 @@ class LyricLineView extends StatelessWidget {
           )
         : Text(
             line.text,
-            style: EggLyrics.style(
-              _lyricStyle,
-              look,
-            ).copyWith(color: EggLyrics.lit(look, Colors.white)),
+            textAlign: duet ? TextAlign.right : null,
+            style: EggLyrics.style(_lyricStyle, look).copyWith(
+              color: duetLook?.lit ?? EggLyrics.lit(look, Colors.white),
+              fontStyle: duetLook?.italic == true ? FontStyle.italic : null,
+            ),
           );
     final romaji = showRomaji ? line.romaji : null;
     final translation = showTranslation ? line.translation : null;
@@ -1284,24 +1370,35 @@ class LyricLineView extends StatelessWidget {
         line.extra.isEmpty && romaji == null && translation == null
         ? content
         : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: duet
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               content,
               if (romaji != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text(romaji, style: _lyricRomajiStyle),
+                  child: Text(
+                    romaji,
+                    style: EggFont.withLook(_lyricRomajiStyle, look),
+                  ),
                 ),
               if (translation != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text(translation, style: _lyricTranslationStyle),
+                  child: Text(
+                    translation,
+                    style: EggFont.withLook(_lyricTranslationStyle, look),
+                  ),
                 ),
               for (final e in line.extra)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text(e, style: _lyricExtraStyle),
+                  child: Text(
+                    e,
+                    style: EggFont.withLook(_lyricExtraStyle, look),
+                  ),
                 ),
             ],
           );
@@ -1309,7 +1406,7 @@ class LyricLineView extends StatelessWidget {
     final side = EggLyricFx.chatSide(look, line);
     final chat = look?.chat;
     final Widget shown = side == null || chat == null
-        ? body
+        ? (duet ? Align(alignment: Alignment.centerRight, child: body) : body)
         : LayoutBuilder(
             builder: (context, c) => Align(
               alignment: side == ChatSide.right
@@ -1337,7 +1434,7 @@ class LyricLineView extends StatelessWidget {
       child: AnimatedScale(
         duration: const Duration(milliseconds: 450),
         curve: Curves.easeOutCubic,
-        alignment: side == ChatSide.right
+        alignment: side == ChatSide.right || duet
             ? Alignment.centerRight
             : Alignment.centerLeft,
         scale: current ? currentScale : restScale,
@@ -1351,17 +1448,39 @@ class LyricLineView extends StatelessWidget {
     WordLayer layer, {
     int ghost = 0,
     LineMood mood = LineMood.normal,
+    bool rough = false,
+    bool duet = false,
   }) => Wrap(
+    alignment: duet ? WrapAlignment.end : WrapAlignment.start,
     children: [
       for (final group in wordGroups(line.words))
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final i in group)
-              _word(pos, layer, i, ghost: ghost, mood: mood),
-          ],
-        ),
+        if (group.length == 1)
+          _word(
+            pos,
+            layer,
+            group.single,
+            ghost: ghost,
+            mood: mood,
+            rough: rough,
+            duet: duet,
+          )
+        else
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final i in group)
+                _word(
+                  pos,
+                  layer,
+                  i,
+                  ghost: ghost,
+                  mood: mood,
+                  rough: rough,
+                  duet: duet,
+                ),
+            ],
+          ),
     ],
   );
 
@@ -1390,10 +1509,15 @@ class LyricLineView extends StatelessWidget {
     int i, {
     required int ghost,
     required LineMood mood,
+    bool rough = false,
+    bool duet = false,
   }) {
     final w = line.words[i];
     final hype = EggLyricFx.hypeOf(look, line.text);
     return LyricWordView(
+      rough: rough,
+      duet: duet,
+      fading: EggLyricFx.fades(look, line.words, i),
       text: w.text,
       index: i,
       clock: pos,
@@ -1447,6 +1571,9 @@ class LyricWordView extends StatelessWidget {
     this.drop = 0,
     this.hype = false,
     this.neon = false,
+    this.rough = false,
+    this.duet = false,
+    this.fading = false,
   });
 
   static const lift = 3.0;
@@ -1469,16 +1596,20 @@ class LyricWordView extends StatelessWidget {
   final int drop;
   final bool hype;
   final bool neon;
+  final bool rough;
+  final bool duet;
+  final bool fading;
 
   Widget _glowing(TextStyle base, double p) {
     final glow = math.sin(math.pi * p);
     final look = this.look;
     final neonColor = neon ? look?.neonColor : null;
+    final duetLit = duet ? look?.duet?.lit : null;
     final litColor =
         neonColor ??
         (hot && look?.hotColor != null
             ? look!.hotColor!
-            : EggLyrics.lit(look, Colors.white));
+            : duetLit ?? EggLyrics.lit(look, Colors.white));
     return Text(
       text,
       style: base.copyWith(
@@ -1501,7 +1632,10 @@ class LyricWordView extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = progress;
     final look = this.look;
-    final base = EggLyrics.style(_lyricStyle, look);
+    final styled = EggLyrics.style(_lyricStyle, look);
+    final base = duet && look?.duet?.italic == true
+        ? styled.copyWith(fontStyle: FontStyle.italic)
+        : styled;
     final ghostColors = look?.ghost?.colors ?? const [];
     if (layer == WordLayer.ghost && ghostColors.isNotEmpty) {
       final color = ghostColors[ghost % ghostColors.length];
@@ -1516,6 +1650,7 @@ class LyricWordView extends StatelessWidget {
           hot: hot,
           drop: drop,
           hype: hype,
+          rough: rough,
         ),
         child: Transform(
           transform: EggLyrics.wordTransform(
@@ -1526,6 +1661,7 @@ class LyricWordView extends StatelessWidget {
             clock: clock,
             spin: spin,
             hype: hype,
+            rough: rough,
           ),
           alignment: Alignment.bottomCenter,
           child: Text(
@@ -1544,6 +1680,8 @@ class LyricWordView extends StatelessWidget {
             ? Colors.transparent
             : neon && look?.neonColor != null
             ? look!.neonColor!.withValues(alpha: 0.3)
+            : duet && look?.duet?.dim != null
+            ? look!.duet!.dim!
             : EggLyrics.dim(look, Colors.white38),
       ),
     );
@@ -1591,6 +1729,28 @@ class LyricWordView extends StatelessWidget {
       );
     }
 
+    final faded = fading && p > 0
+        ? Opacity(opacity: EggLyricFx.fadeAt(since), child: body)
+        : body;
+    final spread = look?.motion == LyricMotion.recall
+        ? EggLyricFx.recallAt(p > 0 ? since : -1) * EggLyricFx.recallSpread
+        : 0.0;
+    final Widget shown = spread < 0.05
+        ? faded
+        : Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Transform.translate(
+                offset: Offset(-spread, spread * 0.3),
+                child: Opacity(opacity: 0.28, child: faded),
+              ),
+              Transform.translate(
+                offset: Offset(spread * 0.8, -spread * 0.4),
+                child: Opacity(opacity: 0.28, child: faded),
+              ),
+              faded,
+            ],
+          );
     final moved = Transform.translate(
       offset: EggLyrics.wordOffset(
         look,
@@ -1602,6 +1762,7 @@ class LyricWordView extends StatelessWidget {
         hot: hot,
         drop: drop,
         hype: hype,
+        rough: rough,
       ),
       child: Transform(
         transform: EggLyrics.wordTransform(
@@ -1612,11 +1773,12 @@ class LyricWordView extends StatelessWidget {
           clock: clock,
           spin: spin,
           hype: hype,
+          rough: rough,
         ),
         alignment: Alignment.bottomCenter,
         child: look?.motion == LyricMotion.flicker || neon
-            ? Opacity(opacity: EggLyricFx.flicker(since), child: body)
-            : body,
+            ? Opacity(opacity: EggLyricFx.flicker(since), child: shown)
+            : shown,
       ),
     );
     if (look == null || sparks == SparkKind.none) return moved;

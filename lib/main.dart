@@ -7,6 +7,7 @@ import 'package:foryou_music/providers/collections_controller.dart';
 import 'package:foryou_music/easter_eggs/app_tint.dart';
 import 'package:foryou_music/easter_eggs/easter_egg_controller.dart';
 import 'package:foryou_music/easter_eggs/easter_egg_layer.dart';
+import 'package:foryou_music/easter_eggs/memories.dart';
 import 'package:foryou_music/providers/custom_covers_controller.dart';
 import 'package:foryou_music/providers/library_controller.dart';
 import 'package:foryou_music/services/library_repository.dart';
@@ -53,6 +54,7 @@ Future<void> main() async {
   final coversDir = await CoverStore.init();
   final collections = await CollectionsController.open();
   final customCovers = await CustomCoversController.open(coversDir: coversDir);
+  final memories = await EggMemories.open(baseDir: coversDir.parent);
   final settings = await SettingsController.open();
   final library = LibraryController(
     libraryRepo,
@@ -139,6 +141,7 @@ Future<void> main() async {
         Provider.value(value: messages),
         ChangeNotifierProvider.value(value: player),
         ChangeNotifierProvider.value(value: eggs),
+        ChangeNotifierProvider.value(value: memories),
       ],
       child: ForYouApp(
         skipWelcome: settings.skipWelcome,

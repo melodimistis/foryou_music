@@ -1,16 +1,20 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/player_controller.dart';
 import '../services/haptics.dart';
 import 'ambient/light.dart';
+import 'ambient/pulse.dart';
 import 'app_tint.dart';
 import 'easter_egg_controller.dart';
 import 'egg_entry.dart';
 import 'egg_ticker.dart';
+import 'frames.dart';
 import 'particles/particle_preset.dart';
 import 'shapes.dart';
 
@@ -114,7 +118,8 @@ class StickerInk {
     Offset shadow = const Offset(1.5, 2),
     double shade = 0.25,
   }) {
-    final path = ShapeBook.outlineOf(piece.shape);
+    final shape = piece.shapeAt(index);
+    final path = ShapeBook.outlineOf(shape);
     void enter(Offset where) => canvas
       ..save()
       ..translate(where.dx, where.dy)
@@ -131,7 +136,7 @@ class StickerInk {
     canvas
       ..drawPath(path, _outline)
       ..drawPath(path, _fill);
-    if (piece.shape == ParticleShape.flower) {
+    if (shape == ParticleShape.flower) {
       _fill.color = const Color(0xFFFFF3C4);
       canvas.drawCircle(Offset.zero, 0.28, _fill);
     }
@@ -688,6 +693,31 @@ class EggCoverStickersState extends State<EggCoverStickers> {
       (c) => c?.show?.coverGlow,
     );
     final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final monitor = context.select<EasterEggController?, MonitorPiece?>(
+      (c) => c?.show?.monitor,
+    );
+    final pulse = context.select<EasterEggController?, PulsePiece?>(
+      (c) => c?.show?.pulse,
+    );
+    final frame = context.select<EasterEggController?, FramePiece?>(
+      (c) => c?.show?.frame,
+    );
+    final cover = monitor != null
+        ? EggMonitor(
+            monitor: monitor,
+            pulse: pulse,
+            size: widget.size,
+            still: still,
+            child: widget.child,
+          )
+        : frame != null
+        ? EggFrame(
+            frame: frame,
+            size: widget.size,
+            still: still,
+            child: widget.child,
+          )
+        : widget.child;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -705,8 +735,299 @@ class EggCoverStickersState extends State<EggCoverStickers> {
             ),
           ),
         ),
-        CompositedTransformTarget(link: link, child: widget.child),
+        CompositedTransformTarget(link: link, child: cover),
       ],
     );
   }
+}
+
+class EggMonitor extends StatefulWidget {
+  const EggMonitor({
+    super.key,
+    required this.monitor,
+    required this.size,
+    required this.child,
+    this.pulse,
+    this.still = false,
+  });
+
+  static const pad = 10.0;
+  static const chin = 26.0;
+  static const radius = 10.0;
+
+  final MonitorPiece monitor;
+  final PulsePiece? pulse;
+  final double size;
+  final bool still;
+  final Widget child;
+
+  @override
+  State<EggMonitor> createState() => EggMonitorState();
+}
+
+class EggMonitorState extends EggAnimatedState<EggMonitor> with EggSongTime {
+  double time = 0;
+
+  @override
+  bool get still => widget.still;
+
+  @override
+  void advance(double seconds) {
+    time += seconds;
+    tickSong(seconds);
+  }
+
+  @override
+  void didUpdateWidget(EggMonitor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.still != widget.still) sync();
+  }
+
+  static Matrix4 drift(double t, double size, {bool still = false}) {
+    if (still) return Matrix4.diagonal3Values(1.05, 1.05, 1);
+    final s = 1.08 + 0.04 * math.sin(t * 0.12);
+    return Matrix4.identity()
+      ..translateByDouble(
+        math.sin(t * 0.07) * size * 0.02,
+        math.cos(t * 0.09) * size * 0.015,
+        0,
+        1,
+      )
+      ..scaleByDouble(s, s, 1, 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final position = widget.still
+        ? context.select<PlayerController?, Duration>(
+            (p) => p?.position ?? Duration.zero,
+          )
+        : null;
+    return ValueListenableBuilder<int>(
+      valueListenable: frames,
+      builder: (context, _, child) => Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: -EggMonitor.pad,
+            top: -EggMonitor.pad,
+            right: -EggMonitor.pad,
+            bottom: -EggMonitor.chin,
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: MonitorBezelPainter(
+                  monitor: widget.monitor,
+                  blink: widget.still ? 0 : time,
+                ),
+              ),
+            ),
+          ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(EggMonitor.radius),
+            child: Stack(
+              children: [
+                Transform(
+                  transform: drift(time, widget.size, still: widget.still),
+                  alignment: Alignment.center,
+                  child: child,
+                ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: MonitorGlassPainter(
+                        monitor: widget.monitor,
+                        pulse: widget.pulse,
+                        time: widget.still ? 0 : time,
+                        song: position ?? song,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      child: widget.child,
+    );
+  }
+}
+
+class MonitorBezelPainter extends CustomPainter {
+  MonitorBezelPainter({required this.monitor, required this.blink});
+
+  final MonitorPiece monitor;
+  final double blink;
+  final Paint _paint = Paint()..isAntiAlias = true;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    const pad = EggMonitor.pad;
+    const chin = EggMonitor.chin;
+    _paint
+      ..style = PaintingStyle.fill
+      ..color = monitor.bezel;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(18)),
+      _paint,
+    );
+    _paint.color = const Color(0x33FFFFFF);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(3, 3, w - 6, pad),
+        const Radius.circular(8),
+      ),
+      _paint,
+    );
+    _paint.color = monitor.panel;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(pad - 3, pad - 3, w - pad + 3, h - chin + 3),
+        const Radius.circular(EggMonitor.radius + 3),
+      ),
+      _paint,
+    );
+    final y = h - chin / 2;
+    _paint.color = Color.lerp(monitor.bezel, const Color(0xFF000000), 0.3)!;
+    for (var i = 0; i < 4; i++) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(pad + 8 + i * 6, y),
+            width: 2.4,
+            height: 10,
+          ),
+          const Radius.circular(1.2),
+        ),
+        _paint,
+      );
+    }
+    canvas
+      ..drawCircle(Offset(w - pad - 40, y), 4, _paint)
+      ..drawCircle(Offset(w - pad - 26, y), 4, _paint);
+    final on = (blink * 0.8) % 1 < 0.7;
+    _paint.color = monitor.alarm.withValues(alpha: on ? 0.35 : 0.12);
+    canvas.drawCircle(Offset(w - pad - 8, y), 7, _paint);
+    _paint.color = monitor.alarm.withValues(alpha: on ? 1 : 0.4);
+    canvas.drawCircle(Offset(w - pad - 8, y), 3.6, _paint);
+  }
+
+  @override
+  bool shouldRepaint(MonitorBezelPainter oldDelegate) =>
+      oldDelegate.monitor != monitor || oldDelegate.blink != blink;
+}
+
+class MonitorGlassPainter extends CustomPainter {
+  MonitorGlassPainter({
+    required this.monitor,
+    required this.time,
+    required this.song,
+    this.pulse,
+  });
+
+  static const rollTime = 6.0;
+  static const boxWidth = 96.0;
+
+  final MonitorPiece monitor;
+  final PulsePiece? pulse;
+  final double time;
+  final Duration song;
+  final Paint _paint = Paint()..isAntiAlias = true;
+
+  static String readout(PulsePiece? pulse, Duration song) {
+    if (pulse == null) return '--';
+    final bpm = PulsePainter.bpmAt(pulse, song.inMicroseconds / 1e6);
+    return bpm == null ? '--' : '$bpm';
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    _paint
+      ..shader = null
+      ..color = monitor.text.withValues(alpha: 0.07);
+    canvas.drawRect(Offset.zero & size, _paint);
+    _paint.color = const Color(0x24000000);
+    for (var y = 0.0; y < h; y += 3) {
+      canvas.drawRect(Rect.fromLTWH(0, y, w, 1), _paint);
+    }
+    final band = ((time / rollTime) % 1) * (h + 80) - 40;
+    _paint.shader = ui.Gradient.linear(
+      Offset(0, band - 40),
+      Offset(0, band + 40),
+      [
+        const Color(0x00FFFFFF),
+        const Color(0x14FFFFFF),
+        const Color(0x00FFFFFF),
+      ],
+      [0, 0.5, 1],
+    );
+    canvas.drawRect(Rect.fromLTWH(0, band - 40, w, 80), _paint);
+    _paint.shader = ui.Gradient.radial(
+      size.center(Offset.zero),
+      size.longestSide * 0.75,
+      [
+        const Color(0x00000000),
+        const Color(0x00000000),
+        const Color(0x73000000),
+      ],
+      [0, 0.55, 1],
+    );
+    canvas.drawRect(Offset.zero & size, _paint);
+    _paint.shader = null;
+
+    final value = readout(pulse, song);
+    final alarm = value == '--' || value == '0';
+    final color = alarm ? monitor.alarm : monitor.text;
+    final blinkOff = alarm && (time * 2) % 1 > 0.6;
+    _paint.color = const Color(0x8C000000);
+    final left = (w - boxWidth) / 2;
+    final box = RRect.fromRectAndRadius(
+      Rect.fromLTWH(left, 8, boxWidth, 34),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(box, _paint);
+    if (blinkOff) return;
+    final label = TextPainter(
+      text: TextSpan(
+        text: 'HR',
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: color.withValues(alpha: 0.8),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    label.paint(canvas, Offset(left + 7, 12));
+    final number = TextPainter(
+      text: TextSpan(
+        text: value,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 22,
+          fontWeight: FontWeight.w800,
+          color: color,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    number.paint(canvas, Offset(left + 28, 9));
+    final heart = ShapeBook.outlineOf(ParticleShape.heart);
+    _paint.color = color;
+    canvas
+      ..save()
+      ..translate(left + boxWidth - 10, 16)
+      ..scale(4.5)
+      ..drawPath(heart, _paint)
+      ..restore();
+  }
+
+  @override
+  bool shouldRepaint(MonitorGlassPainter oldDelegate) => true;
 }

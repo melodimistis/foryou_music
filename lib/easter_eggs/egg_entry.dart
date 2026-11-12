@@ -16,11 +16,16 @@ enum LyricMotion {
   flicker,
   gust,
   swing,
+  step,
+  sink,
+  recall,
 }
 
 enum LightShape { spotlight, screen }
 
-enum MomentKind { shake, flash, tint, ambient }
+enum MomentKind { shake, flash, tint, ambient, letterbox }
+
+enum FrameStyle { polaroid, postcard, gothic }
 
 sealed class EggPiece {
   const EggPiece();
@@ -106,6 +111,7 @@ class StickerPiece extends EggPiece {
     ],
     this.count = 4,
     this.size = 1,
+    this.shapes = const [],
   });
 
   final ParticleShape shape;
@@ -113,6 +119,172 @@ class StickerPiece extends EggPiece {
   final List<Color> colors;
   final int count;
   final double size;
+  final List<ParticleShape> shapes;
+
+  ParticleShape shapeAt(int index) =>
+      shapes.isEmpty ? shape : shapes[index % shapes.length];
+}
+
+class PulsePiece extends EggPiece {
+  const PulsePiece({
+    this.bpm = 72,
+    this.fastBpm = 140,
+    this.fast = const [],
+    this.skips = const [],
+    this.flats = const [],
+    this.until,
+    this.color = const Color(0xFFA6E0D0),
+    this.alarm = const Color(0xFFFF4FA0),
+  });
+
+  final double bpm;
+  final double fastBpm;
+  final List<(Duration, Duration)> fast;
+  final List<(Duration, Duration)> skips;
+  final List<(Duration, Duration)> flats;
+  final Duration? until;
+  final Color color;
+  final Color alarm;
+}
+
+class MonitorPiece extends EggPiece {
+  const MonitorPiece({
+    this.bezel = const Color(0xFFA6E0D0),
+    this.panel = const Color(0xFF14211E),
+    this.text = const Color(0xFFA6E0D0),
+    this.alarm = const Color(0xFFFF4FA0),
+  });
+
+  final Color bezel;
+  final Color panel;
+  final Color text;
+  final Color alarm;
+}
+
+class CracksPiece extends EggPiece {
+  const CracksPiece(
+    this.times, {
+    this.color = const Color(0xFFE6E8EC),
+    this.opacity = 0.55,
+    this.edges = false,
+    this.scar = 1,
+    this.fade = const Duration(milliseconds: 2500),
+  });
+
+  final List<Duration> times;
+  final Color color;
+  final double opacity;
+  final bool edges;
+  final double scar;
+  final Duration fade;
+}
+
+class FramePiece extends EggPiece {
+  const FramePiece({
+    this.style = FrameStyle.polaroid,
+    this.paper = const Color(0xFFF2EFE8),
+    this.ink = const Color(0xFF3A3A3A),
+    this.accent = const Color(0xFFB3152F),
+    this.mono = false,
+    this.develop,
+  });
+
+  final FrameStyle style;
+  final Color paper;
+  final Color ink;
+  final Color accent;
+  final bool mono;
+  final int? develop;
+}
+
+class FavoritePiece extends EggPiece {
+  const FavoritePiece({
+    this.shape = ParticleShape.rose,
+    this.color = const Color(0xFF6F9BFF),
+    this.outline = const Color(0xFFFFFFFF),
+  });
+
+  final ParticleShape shape;
+  final Color color;
+  final Color outline;
+}
+
+class ThumbPiece extends EggPiece {
+  const ThumbPiece({
+    this.shape = ParticleShape.rose,
+    this.color = const Color(0xFF6F9BFF),
+    this.outline = const Color(0xFFFFFFFF),
+    this.size = 10,
+  });
+
+  final ParticleShape shape;
+  final Color color;
+  final Color outline;
+  final double size;
+}
+
+class PhotosPiece extends EggPiece {
+  const PhotosPiece({
+    required this.slot,
+    this.from = Duration.zero,
+    this.until,
+    this.hanging = true,
+    this.falling = 5,
+    this.mono = true,
+    this.paper = const Color(0xFFF3F0EA),
+    this.string = const Color(0xFFE8E4DC),
+  });
+
+  final String slot;
+  final Duration from;
+  final Duration? until;
+  final bool hanging;
+  final int falling;
+  final bool mono;
+  final Color paper;
+  final Color string;
+}
+
+class FilmPiece extends EggPiece {
+  const FilmPiece({
+    this.scratches = 1,
+    this.dust = 1,
+    this.flicker = 1,
+    this.color = const Color(0xFFFFFFFF),
+  });
+
+  final double scratches;
+  final double dust;
+  final double flicker;
+  final Color color;
+}
+
+class RetroPiece extends EggPiece {
+  const RetroPiece({
+    this.font,
+    this.pixels,
+    this.scanlines = 0.5,
+    this.minSize = 0,
+  });
+
+  final String? font;
+  final int? pixels;
+  final double scanlines;
+  final double minSize;
+}
+
+class CheckerPiece extends EggPiece {
+  const CheckerPiece({
+    this.colors = const [Color(0xFFFFC8E6), Color(0xFFFFFFFF)],
+    this.height = 0.24,
+    this.opacity = 0.35,
+    this.speed = 1,
+  });
+
+  final List<Color> colors;
+  final double height;
+  final double opacity;
+  final double speed;
 }
 
 class ThemePiece extends EggPiece {
@@ -219,6 +391,14 @@ class EggMoment {
        color = null,
        tint = null;
 
+  const EggMoment.letterbox(this.at, {this.length = letterboxTime})
+    : kind = MomentKind.letterbox,
+      strength = 1,
+      color = null,
+      tint = null,
+      group = 0;
+
+  static const letterboxTime = Duration(seconds: 4);
   static const shakeTime = Duration(milliseconds: 450);
   static const flashTime = Duration(milliseconds: 600);
   static const ambientFade = Duration(seconds: 3);
@@ -294,6 +474,15 @@ class LyricChat {
   final Color right;
 }
 
+class LyricDuet {
+  const LyricDuet({this.voice = 2, this.lit, this.dim, this.italic = true});
+
+  final int voice;
+  final Color? lit;
+  final Color? dim;
+  final bool italic;
+}
+
 class LyricSparks {
   const LyricSparks({
     this.shapes = const [ParticleShape.heart, ParticleShape.sparkle],
@@ -351,6 +540,10 @@ class LyricStylePiece extends EggPiece {
     this.chat,
     this.neon = const {},
     this.neonColor,
+    this.font,
+    this.frames = 0,
+    this.fade = const {},
+    this.duet,
   });
 
   final LyricMotion motion;
@@ -378,6 +571,10 @@ class LyricStylePiece extends EggPiece {
   final LyricChat? chat;
   final Set<String> neon;
   final Color? neonColor;
+  final String? font;
+  final int frames;
+  final Set<String> fade;
+  final LyricDuet? duet;
 
   @override
   Set<EggNeed> get needs => const {EggNeed.syncedLyrics};

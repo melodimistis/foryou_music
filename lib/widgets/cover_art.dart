@@ -9,6 +9,7 @@ class CoverArt extends StatelessWidget {
     required this.size,
     this.radius = 12,
     this.circle = false,
+    this.pixels,
   });
 
   final String coverKey;
@@ -16,11 +17,14 @@ class CoverArt extends StatelessWidget {
   final double radius;
 
   final bool circle;
+  final int? pixels;
 
   @override
   Widget build(BuildContext context) {
     final file = CoverStore.fileFor(coverKey);
-    final px = (size * MediaQuery.devicePixelRatioOf(context)).round();
+    final blocks = pixels;
+    final px =
+        blocks ?? (size * MediaQuery.devicePixelRatioOf(context)).round();
     final placeholder = _Placeholder(size: size);
 
     final Widget image = file == null
@@ -32,7 +36,9 @@ class CoverArt extends StatelessWidget {
             fit: BoxFit.cover,
             cacheWidth: px,
             gaplessPlayback: true,
-            filterQuality: FilterQuality.medium,
+            filterQuality: blocks == null
+                ? FilterQuality.medium
+                : FilterQuality.none,
             errorBuilder: (_, _, _) => placeholder,
           );
 

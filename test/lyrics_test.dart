@@ -13,6 +13,18 @@ String b64(String s) => base64.encode(utf8.encode(s));
 
 void main() {
   group('parseLyrics', () {
+    test('reads the singer of each line from v1 and v2 marks', () {
+      final lyrics = parseLyrics(
+        '[00:01.00]v1:<00:01.00>I <00:01.40>know\n'
+        '[00:03.00]v2:<00:03.00>There <00:03.50>was\n'
+        '[00:05.00]v2:Something plain\n'
+        '[00:07.00]No mark',
+      );
+      expect(lyrics.lines.map((l) => l.voice), [1, 2, 2, 0]);
+      expect(lyrics.lines[1].text, 'There was');
+      expect(lyrics.lines[2].text, 'Something plain');
+    });
+
     test('line-synced LRC, sorted, repeated stamps, metadata ignored', () {
       final l = parseLyrics('''
 [ar:LANY]

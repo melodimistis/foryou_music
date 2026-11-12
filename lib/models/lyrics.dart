@@ -13,6 +13,7 @@ class LyricLine {
     this.extra = const [],
     this.romaji,
     this.translation,
+    this.voice = 0,
   });
 
   final Duration time;
@@ -21,6 +22,7 @@ class LyricLine {
   final List<String> extra;
   final String? romaji;
   final String? translation;
+  final int voice;
 
   bool get isGap => text.trim().isEmpty;
 }

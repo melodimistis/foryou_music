@@ -307,6 +307,98 @@ void main() {
       );
     });
 
+    test(
+      'jellyous, Cherish (My Love) and Midnight Fiction match their files',
+      () {
+        EggEntry named(String title) =>
+            eggRegistry.firstWhere((e) => e.title == title);
+        for (final (title, album, year, track, ms) in [
+          ('jellyous', 'jellyous - Single', 2025, 1, 163250),
+          ('Cherish (My Love)', "I'LL LIKE YOU - EP", 2024, 2, 176860),
+          ('Midnight Fiction', 'SUPER REAL ME - EP', 2024, 3, 168110),
+        ]) {
+          expect(
+            EggMatcher.find(
+              tune(
+                title: title,
+                artist: 'ILLIT',
+                album: album,
+                year: year,
+                track: track,
+                durationMs: ms,
+              ),
+              eggRegistry,
+            ),
+            same(named(title)),
+            reason: title,
+          );
+        }
+      },
+    );
+
+    test('the cure matches its file, not stupid song from the same album', () {
+      final cure = eggRegistry.firstWhere((e) => e.title == 'the cure');
+      expect(
+        EggMatcher.find(
+          tune(
+            title: 'the cure',
+            artist: 'Olivia Rodrigo',
+            album: 'you seem pretty sad for a girl so in love',
+            year: 2026,
+            track: 8,
+            durationMs: 297134,
+          ),
+          eggRegistry,
+        ),
+        same(cure),
+      );
+    });
+
+    test('ma chérie and About You match their own files', () {
+      EggEntry named(String title) =>
+          eggRegistry.firstWhere((e) => e.title == title);
+      expect(
+        EggMatcher.find(
+          tune(
+            title: 'ma chérie～愛しい君へ～',
+            artist: 'MALICE MIZER',
+            album: 'ma chérie～愛しい君へ～',
+            year: 1996,
+            track: 1,
+            durationMs: 324160,
+          ),
+          eggRegistry,
+        ),
+        same(named('ma chérie～愛しい君へ～')),
+      );
+      expect(
+        EggMatcher.find(
+          tune(
+            title: 'About You',
+            artist: 'The 1975',
+            album: 'Being Funny In A Foreign Language',
+            year: 2022,
+            track: 9,
+            durationMs: 326497,
+          ),
+          eggRegistry,
+        ),
+        same(named('About You')),
+      );
+      expect(
+        EggMatcher.find(
+          tune(
+            title: 'Ma Chérie ～愛しい君へ～',
+            artist: 'HIKAYA',
+            album: 'Malice Mizer (La Comédie Musicale)',
+            durationMs: 274000,
+          ),
+          eggRegistry,
+        ),
+        isNull,
+      );
+    });
+
     test('Vivarium also matches its Japanese title', () {
       final vivarium = eggRegistry.firstWhere((e) => e.title == 'Vivarium');
       final song = tune(

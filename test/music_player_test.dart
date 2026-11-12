@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foryou_music/easter_eggs/ambient/pulse.dart';
 import 'package:foryou_music/easter_eggs/easter_egg_controller.dart';
 import 'package:foryou_music/easter_eggs/egg_entry.dart';
 import 'package:foryou_music/easter_eggs/lyric_effects.dart';
@@ -384,6 +385,19 @@ void main() {
         .pieces
         .whereType<LyricStylePiece>()
         .single;
+    eggs.preview(const [PulsePiece()]);
+    await settleMoving();
+    expect(
+      find.descendant(of: inPlayer, matching: find.byType(EggPulseTrack)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: inPlayer, matching: find.byType(Slider)),
+      findsOneWidget,
+    );
+    eggs.stopPreview();
+    await settleMoving();
+    expect(find.byType(EggPulseTrack), findsNothing);
     eggs.preview([superLook]);
     await settleMoving();
     expect(find.byType(EggGapDots), findsOneWidget);

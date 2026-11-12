@@ -7,13 +7,19 @@ import 'package:provider/provider.dart';
 import '../providers/player_controller.dart';
 import 'easter_egg_controller.dart';
 import 'egg_entry.dart';
+import 'memories.dart';
 import 'moments.dart';
 import 'ambient/drips.dart';
 import 'ambient/glass.dart';
 import 'ambient/grain.dart';
 import 'ambient/light.dart';
 import 'ambient/night_sky.dart';
+import 'ambient/checker.dart';
+import 'ambient/cracks.dart';
+import 'ambient/film.dart';
+import 'ambient/photos.dart';
 import 'ambient/rose.dart';
+import 'ambient/scanlines.dart';
 import 'ambient/waves.dart';
 import 'particles/particle_overlay.dart';
 import 'stickers.dart';
@@ -35,8 +41,10 @@ class _EasterEggLayerState extends State<EasterEggLayer>
   final _shake = ValueNotifier<Offset>(Offset.zero);
   final _flash = ValueNotifier<Color?>(null);
   final _levels = <int, ValueNotifier<double>>{};
+  final _bars = ValueNotifier<double>(0);
   final _clock = EggClock();
   MomentsPiece? _moments;
+  String? _greeted;
   bool _still = false;
   int? _pointer;
   bool _multi = false;
@@ -108,6 +116,7 @@ class _EasterEggLayerState extends State<EasterEggLayer>
     for (final e in _levels.entries) {
       e.value.value = now.levelOf(e.key);
     }
+    _bars.value = now.letterbox;
     context.read<EasterEggController?>()?.momentTint(now.tint, from: moments);
   }
 
@@ -121,6 +130,7 @@ class _EasterEggLayerState extends State<EasterEggLayer>
       for (final level in _levels.values) {
         level.value = 1;
       }
+      _bars.value = 0;
       return;
     }
     final ticker = _ticker ??= createTicker(_tick);
@@ -135,6 +145,7 @@ class _EasterEggLayerState extends State<EasterEggLayer>
     for (final level in _levels.values) {
       level.dispose();
     }
+    _bars.dispose();
     super.dispose();
   }
 
@@ -144,6 +155,12 @@ class _EasterEggLayerState extends State<EasterEggLayer>
     final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     _still = still;
     _follow(show?.moments);
+    if (show != null && show.key != _greeted) {
+      _greeted = show.key;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) EggMemories.greetOnce(context, show);
+      });
+    }
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: _down,
@@ -169,6 +186,28 @@ class _EasterEggLayerState extends State<EasterEggLayer>
                         still: still,
                         level: _level,
                       ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: still ? Duration.zero : EasterEggLayer.fade,
+              child: show?.photos == null
+                  ? const SizedBox.shrink(key: ValueKey('no-photos'))
+                  : PhotosOverlay(
+                      key: ValueKey('photos-${show!.key}'),
+                      piece: show.photos!,
+                      still: still,
+                    ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ValueListenableBuilder<double>(
+                valueListenable: _bars,
+                builder: (context, level, _) => level <= 0
+                    ? const SizedBox.expand()
+                    : CustomPaint(painter: LetterboxPainter(level)),
               ),
             ),
           ),
@@ -202,7 +241,11 @@ class EggView extends StatelessWidget {
 
   Widget _dimmed(EggPiece piece, Widget child) {
     final level = this.level;
-    if (level == null || child is SizedBox || piece is RosePiece) {
+    if (level == null ||
+        child is SizedBox ||
+        piece is RosePiece ||
+        piece is CracksPiece ||
+        piece is PulsePiece) {
       return child;
     }
     final group = piece is ParticlePiece ? piece.group : 0;
@@ -228,6 +271,19 @@ class EggView extends StatelessWidget {
             DripsPiece() => DripsOverlay(piece: piece, still: still),
             GlassPiece() => GlassOverlay(piece: piece, still: still),
             RosePiece() => RoseOverlay(piece: piece, still: still),
+            CheckerPiece() => CheckerOverlay(piece: piece, still: still),
+            PulsePiece() ||
+            MonitorPiece() ||
+            FramePiece() ||
+            FavoritePiece() ||
+            ThumbPiece() => const SizedBox.shrink(),
+            FilmPiece() => FilmOverlay(piece: piece, still: still),
+            PhotosPiece() => const SizedBox.shrink(),
+            CracksPiece() => CracksOverlay(piece: piece, still: still),
+            RetroPiece(scanlines: final s) when s > 0 => ScanlineOverlay(
+              strength: s,
+            ),
+            RetroPiece() => const SizedBox.shrink(),
             StickerPiece(place: StickerPlace.edges) => StickersView(
               piece: piece,
               still: still,
@@ -242,4 +298,25 @@ class EggView extends StatelessWidget {
       ],
     );
   }
+}
+
+class LetterboxPainter extends CustomPainter {
+  LetterboxPainter(this.level);
+
+  static const share = 0.12;
+
+  final double level;
+  final Paint _paint = Paint()..color = const Color(0xFF000000);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bar = size.height * share * level;
+    canvas
+      ..drawRect(Rect.fromLTWH(0, 0, size.width, bar), _paint)
+      ..drawRect(Rect.fromLTWH(0, size.height - bar, size.width, bar), _paint);
+  }
+
+  @override
+  bool shouldRepaint(LetterboxPainter oldDelegate) =>
+      oldDelegate.level != level;
 }

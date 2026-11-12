@@ -108,7 +108,18 @@ class ParticlePainter extends CustomPainter {
             ParticleShape.bolt ||
             ParticleShape.flame ||
             ParticleShape.chat ||
-            ParticleShape.dot:
+            ParticleShape.dot ||
+            ParticleShape.pixelHeart ||
+            ParticleShape.pixelStar ||
+            ParticleShape.pixel ||
+            ParticleShape.tooth ||
+            ParticleShape.diamond ||
+            ParticleShape.cherry ||
+            ParticleShape.toothbrush ||
+            ParticleShape.pill ||
+            ParticleShape.plus ||
+            ParticleShape.syringe ||
+            ParticleShape.rose:
           canvas
             ..save()
             ..translate(p.x, p.y)

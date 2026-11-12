@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:flutter/material.dart'
+    show SliderComponentShape, SliderThemeData;
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +9,7 @@ import 'app_tint.dart';
 import 'easter_egg_controller.dart';
 import 'egg_entry.dart';
 import 'lyric_effects.dart';
+import 'shapes.dart';
 
 class EggAccent extends StatelessWidget {
   const EggAccent({super.key, required this.fallback, required this.builder});
@@ -84,9 +87,11 @@ class EggLyrics {
   static TextStyle style(TextStyle base, LyricStylePiece? look) {
     if (look == null) return base;
     return base.copyWith(
+      fontFamily: look.font ?? base.fontFamily,
       fontWeight: look.weight ?? base.fontWeight,
       fontStyle: look.italic ? FontStyle.italic : base.fontStyle,
-      letterSpacing: look.spacing ?? base.letterSpacing,
+      letterSpacing:
+          look.spacing ?? (look.font != null ? 0 : base.letterSpacing),
     );
   }
 
@@ -106,6 +111,7 @@ class EggLyrics {
     bool hot = false,
     int drop = 0,
     bool hype = false,
+    bool rough = false,
   }) {
     final eased = Curves.easeOutCubic.transform(progress.clamp(0.0, 1.0));
     final rise = Offset(0, -lift * eased);
@@ -118,8 +124,12 @@ class EggLyrics {
         : Offset.zero;
     return shake +
         fall +
+        EggLyricFx.boil(look, clock, index, rough: rough) +
         switch (hype ? LyricMotion.jelly : look?.motion ?? LyricMotion.lift) {
-          LyricMotion.lift || LyricMotion.bounce || LyricMotion.flicker => rise,
+          LyricMotion.lift ||
+          LyricMotion.bounce ||
+          LyricMotion.flicker ||
+          LyricMotion.recall => rise,
           LyricMotion.slam => rise + EggLyricFx.slamShake(since, index),
           LyricMotion.jelly => rise + Offset(0, EggLyricFx.hop(since)),
           LyricMotion.wave =>
@@ -135,6 +145,14 @@ class EggLyrics {
           LyricMotion.gust => rise + Offset(EggLyricFx.gustPush(t, index), 0),
           LyricMotion.swing =>
             rise + Offset(EggLyricFx.swingAt(t, index) * swingWidth, 0),
+          LyricMotion.sink => Offset(
+            0,
+            EggLyricFx.sinkDepth * EggLyricFx.sinkAt(progress > 0 ? since : -1),
+          ),
+          LyricMotion.step => Offset(
+            0,
+            EggLyricFx.stepRise(lift, eased, progress > 0 ? since : -1),
+          ),
         };
   }
 
@@ -151,6 +169,7 @@ class EggLyrics {
     Duration clock = Duration.zero,
     bool spin = false,
     bool hype = false,
+    bool rough = false,
   }) {
     final t = clock.inMicroseconds / Duration.microsecondsPerSecond;
     final Matrix4 m;
@@ -164,10 +183,18 @@ class EggLyrics {
         m = Matrix4.rotationZ(EggLyricFx.gustTilt(t, index));
       case LyricMotion.swing:
         m = Matrix4.rotationZ(EggLyricFx.swingAt(t, index) * swingTilt);
+      case LyricMotion.sink:
+        m = Matrix4.rotationZ(
+          (index.isEven ? 1 : -1) *
+              EggLyricFx.sinkTilt *
+              EggLyricFx.sinkAt(progress > 0 ? since : -1),
+        );
       default:
         final s = wordScale(look, progress);
         m = Matrix4.diagonal3Values(s, s, 1);
     }
+    final tilt = EggLyricFx.boilTurn(look, clock, index, rough: rough);
+    if (tilt != 0) m.multiply(Matrix4.rotationZ(tilt));
     final turn = spin && progress > 0 ? EggLyricFx.spinTurn(since) : 0.0;
     if (turn > 0) {
       m.multiply(
@@ -177,5 +204,154 @@ class EggLyrics {
       );
     }
     return m;
+  }
+}
+
+class EggFont {
+  EggFont._();
+
+  static String? familyOf(BuildContext context) => context
+      .select<EasterEggController?, String?>((c) => c?.show?.retro?.font);
+
+  static int? pixelsOf(BuildContext context) =>
+      context.select<EasterEggController?, int?>((c) => c?.show?.retro?.pixels);
+
+  static TextStyle apply(BuildContext context, TextStyle style) {
+    final retro = context.select<EasterEggController?, RetroPiece?>(
+      (c) => c?.show?.retro,
+    );
+    final family = retro?.font;
+    if (family == null || (style.fontSize ?? 14) < retro!.minSize) {
+      return style;
+    }
+    return style.copyWith(fontFamily: family, letterSpacing: 0);
+  }
+
+  static TextStyle withLook(TextStyle style, LyricStylePiece? look) {
+    final family = look?.font;
+    return family == null
+        ? style
+        : style.copyWith(fontFamily: family, letterSpacing: 0);
+  }
+}
+
+class EggFavoriteIcon extends StatelessWidget {
+  const EggFavoriteIcon({super.key, required this.on, required this.fallback});
+
+  static const size = 24.0;
+
+  final bool on;
+  final Widget fallback;
+
+  @override
+  Widget build(BuildContext context) {
+    final piece = context.select<EasterEggController?, FavoritePiece?>(
+      (c) => c?.show?.favorite,
+    );
+    if (piece == null) return fallback;
+    return SizedBox.square(
+      dimension: size,
+      child: CustomPaint(
+        painter: FavoritePainter(piece: piece, on: on),
+      ),
+    );
+  }
+}
+
+class FavoritePainter extends CustomPainter {
+  FavoritePainter({required this.piece, required this.on});
+
+  final FavoritePiece piece;
+  final bool on;
+  final Paint _paint = Paint()..isAntiAlias = true;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.shortestSide * 0.42;
+    final path = ShapeBook.outlineOf(piece.shape);
+    canvas
+      ..save()
+      ..translate(size.width / 2, size.height / 2)
+      ..scale(scale);
+    if (on) {
+      _paint
+        ..style = PaintingStyle.fill
+        ..color = piece.color;
+      canvas.drawPath(path, _paint);
+    }
+    _paint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (on ? 1.0 : 1.8) / scale
+      ..strokeJoin = StrokeJoin.round
+      ..color = piece.outline;
+    canvas
+      ..drawPath(path, _paint)
+      ..restore();
+  }
+
+  @override
+  bool shouldRepaint(FavoritePainter oldDelegate) =>
+      oldDelegate.piece != piece || oldDelegate.on != on;
+}
+
+class EggThumb {
+  EggThumb._();
+
+  static SliderComponentShape shapeOf(
+    BuildContext context,
+    SliderComponentShape fallback,
+  ) {
+    final piece = context.select<EasterEggController?, ThumbPiece?>(
+      (c) => c?.show?.thumb,
+    );
+    return piece == null ? fallback : EggThumbShape(piece);
+  }
+}
+
+class EggThumbShape extends SliderComponentShape {
+  EggThumbShape(this.piece);
+
+  final ThumbPiece piece;
+  final Paint _paint = Paint()..isAntiAlias = true;
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
+      Size.square(piece.size * 2);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final canvas = context.canvas;
+    final grow = 1 + 0.25 * activationAnimation.value;
+    final scale = piece.size * grow;
+    final path = ShapeBook.outlineOf(piece.shape);
+    canvas
+      ..save()
+      ..translate(center.dx, center.dy)
+      ..rotate(value * 6.283)
+      ..scale(scale);
+    _paint
+      ..style = PaintingStyle.fill
+      ..color = piece.color;
+    canvas.drawPath(path, _paint);
+    _paint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2 / scale
+      ..color = piece.outline;
+    canvas
+      ..drawPath(path, _paint)
+      ..restore();
   }
 }

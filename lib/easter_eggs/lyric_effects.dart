@@ -55,6 +55,14 @@ class EggLyricFx {
   static const flickerTime = 0.26;
   static const ghostSlot = 0.11;
   static const minSpread = 70.0;
+  static const boilSize = 1.1;
+  static const roughBoil = 2.4;
+  static const boilTilt = 0.022;
+  static const fadeHold = 0.5;
+  static const fadeTime = 1.4;
+  static const fadeFloor = 0.22;
+  static const recallTime = 0.9;
+  static const recallSpread = 5.0;
 
   static final _endsWord = RegExp(r'\s$');
   static final _notLetter = RegExp(r'[^\p{L}\p{N}]', unicode: true);
@@ -112,8 +120,84 @@ class EggLyricFx {
     return 0.75;
   }
 
+  static Duration stopFrame(LyricStylePiece? look, Duration pos) {
+    final frames = look?.frames ?? 0;
+    if (frames <= 0) return pos;
+    final step = Duration.microsecondsPerSecond ~/ frames;
+    return Duration(microseconds: pos.inMicroseconds ~/ step * step);
+  }
+
+  static int frameOf(LyricStylePiece? look, Duration clock) {
+    final frames = look?.frames ?? 0;
+    if (frames <= 0) return 0;
+    return clock.inMicroseconds * frames ~/ Duration.microsecondsPerSecond;
+  }
+
+  static Offset boil(
+    LyricStylePiece? look,
+    Duration clock,
+    int index, {
+    bool rough = false,
+  }) {
+    if ((look?.frames ?? 0) <= 0) return Offset.zero;
+    final f = frameOf(look, clock);
+    final size = rough ? roughBoil : boilSize;
+    return Offset(
+      (_unit(f, index, 5) - 0.5) * 2 * size,
+      (_unit(f, index, 6) - 0.5) * 2 * size,
+    );
+  }
+
+  static double boilTurn(
+    LyricStylePiece? look,
+    Duration clock,
+    int index, {
+    bool rough = false,
+  }) {
+    if ((look?.frames ?? 0) <= 0) return 0;
+    final f = frameOf(look, clock);
+    return (_unit(f, index, 7) - 0.5) * 2 * boilTilt * (rough ? 2.4 : 1);
+  }
+
+  static bool fades(LyricStylePiece? look, List<LyricWord> words, int i) =>
+      _listed(look?.fade, words, i);
+
+  static double fadeAt(double since) {
+    if (since <= fadeHold) return 1;
+    final f = ((since - fadeHold) / fadeTime).clamp(0.0, 1.0);
+    return 1 - (1 - fadeFloor) * Curves.easeInOut.transform(f);
+  }
+
+  static bool duetOf(LyricStylePiece? look, LyricLine line) {
+    final duet = look?.duet;
+    return duet != null && line.voice == duet.voice;
+  }
+
+  static double recallAt(double since) {
+    if (since <= 0) return 1;
+    if (since >= recallTime) return 0;
+    return 1 - Curves.easeOutCubic.transform(since / recallTime);
+  }
+
   static String _plain(String text) =>
       text.toLowerCase().replaceAll(_notLetter, '');
+
+  static const sinkDepth = 6.0;
+  static const sinkTime = 1.6;
+  static const sinkTilt = 0.035;
+
+  static double sinkAt(double since) {
+    if (since <= 0) return 0;
+    return Curves.easeOutCubic.transform((since / sinkTime).clamp(0.0, 1.0));
+  }
+
+  static const stepPop = 4.0;
+  static const stepPopTime = 0.12;
+
+  static double stepRise(double lift, double eased, double since) {
+    final y = -(lift * eased / 2).roundToDouble() * 2;
+    return since >= 0 && since < stepPopTime ? y - stepPop : y;
+  }
 
   static double gustAt(double t) {
     final g = math.max(0.0, math.sin(t * 0.42 + 0.6));

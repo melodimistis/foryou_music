@@ -23,6 +23,17 @@ enum ParticleShape {
   flame,
   chat,
   dot,
+  pixelHeart,
+  pixelStar,
+  pixel,
+  tooth,
+  diamond,
+  cherry,
+  toothbrush,
+  pill,
+  plus,
+  syringe,
+  rose,
 }
 
 enum ParticleMotion { fall, rise, wander, burst }

@@ -147,7 +147,7 @@ For anything else, email the developer at azaralfy01@gmail.com.
 
 ForYou Music is free software under the GNU General Public License version 3 only (GPL-3.0-only). See [LICENSE](LICENSE).
 
-The ForYou Music name, logo and the Yoru character are not covered by the GPL. If you fork the project, please give it a different name and logo. The Inter font is under the SIL Open Font License 1.1 (`assets/fonts/OFL.txt`). Licenses of the packages ForYou uses are listed in the app under **Legal > Third-party licenses**.
+The ForYou Music name, logo and the Yoru character are not covered by the GPL. If you fork the project, please give it a different name and logo. The Inter, Galmuri and Jacquard 24 fonts are under the SIL Open Font License 1.1 (`assets/fonts/OFL.txt`, `assets/fonts/Galmuri-OFL.txt`, `assets/fonts/Jacquard-OFL.txt`). Licenses of the packages ForYou uses are listed in the app under **Legal > Third-party licenses**.
 
 ---
 

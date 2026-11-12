@@ -50,6 +50,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Third-party licenses'), findsOneWidget);
 
+    final galmuri = find.text('Galmuri (font)');
+    await tester.scrollUntilVisible(galmuri, 300);
+    expect(galmuri, findsOneWidget);
+    final jacquard = find.text('Jacquard 24 (font)');
+    await tester.scrollUntilVisible(jacquard, 300);
+    expect(jacquard, findsOneWidget);
     final inter = find.text('Inter (font)');
     await tester.scrollUntilVisible(inter, 300);
     await tester.tap(inter);

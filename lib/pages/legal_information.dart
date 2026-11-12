@@ -88,8 +88,8 @@ class LegalPage extends StatelessWidget {
         ),
         InfoSection(
           'Third-party licenses',
-          'ForYou Music uses open source packages and the Inter font, each '
-              'under its own license.',
+          'ForYou Music uses open source packages and the Inter, Galmuri and '
+              'Jacquard 24 fonts, each under its own license.',
           extra: InfoLink(
             icon: Icons.inventory_2_outlined,
             label: 'View third-party licenses',

@@ -36,6 +36,20 @@ class EggShow {
 
   LyricStylePiece? get lyricStyle => _first<LyricStylePiece>();
 
+  RetroPiece? get retro => _first<RetroPiece>();
+
+  PulsePiece? get pulse => _first<PulsePiece>();
+
+  MonitorPiece? get monitor => _first<MonitorPiece>();
+
+  FramePiece? get frame => _first<FramePiece>();
+
+  FavoritePiece? get favorite => _first<FavoritePiece>();
+
+  ThumbPiece? get thumb => _first<ThumbPiece>();
+
+  PhotosPiece? get photos => _first<PhotosPiece>();
+
   StickerPiece? stickerAt(StickerPlace place) {
     for (final p in pieces) {
       if (p is StickerPiece && p.place == place) return p;
